@@ -18,110 +18,72 @@ const CoffeeBag = ({ brand, active }: BagProps) => (
       pointerEvents: "none",
     }}
   >
-    {/* Обёртка с относительным позиционированием */}
-    <div className="relative" style={{ width: 260, height: 320 }}>
+    {/* Обёртка — isolation:isolate изолирует multiply внутри блока */}
+    <div className="relative" style={{ width: 260, height: 320, isolation: "isolate" }}>
 
-      {/* Цветовой фон-подложка — создаёт "покраску" пачки */}
+      {/* Слой 1: цветной градиент — основа покраски */}
       <div
-        className="absolute inset-0 rounded-2xl transition-all duration-1000"
+        className="absolute inset-0 rounded-3xl transition-all duration-1000"
         style={{
           background: `linear-gradient(160deg, ${brand.colorTop} 0%, ${brand.colorBottom} 100%)`,
-          mixBlendMode: "normal",
-          opacity: 0.92,
         }}
       />
 
-      {/* PNG пачки поверх — mix-blend-mode multiply "красит" белую пачку в нужный цвет */}
+      {/* Слой 2: PNG пачки через multiply — белые области становятся прозрачными */}
       <img
         src={BAG_PNG}
         alt={brand.name}
         className="absolute inset-0 w-full h-full object-contain"
-        style={{ mixBlendMode: "multiply", opacity: 0.88 }}
+        style={{ mixBlendMode: "multiply" }}
         draggable={false}
       />
 
-      {/* Этикетка поверх пачки */}
+      {/* Слой 3: этикетка — вне зоны multiply, поверх всего */}
       <div
         className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5"
-        style={{ top: "28%", width: 140 }}
+        style={{ top: "26%", width: 136, zIndex: 2 }}
       >
-        {/* Иконка */}
         <div
-          className="w-11 h-11 rounded-full flex items-center justify-center mb-1"
-          style={{
-            background: `${brand.accent}22`,
-            border: `1.5px solid ${brand.accent}55`,
-            backdropFilter: "blur(4px)",
-          }}
+          className="w-10 h-10 rounded-full flex items-center justify-center mb-1"
+          style={{ background: `${brand.accent}30`, border: `1.5px solid ${brand.accent}60` }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M17 8h1a4 4 0 0 1 0 8h-1" stroke={brand.accentLight} strokeWidth="1.8" strokeLinecap="round"/>
-            <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z" stroke={brand.accentLight} strokeWidth="1.8" strokeLinecap="round"/>
-            <path d="M6 1v3M10 1v3M14 1v3" stroke={brand.accentLight} strokeWidth="1.8" strokeLinecap="round"/>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <path d="M17 8h1a4 4 0 0 1 0 8h-1" stroke={brand.accentLight} strokeWidth="2" strokeLinecap="round"/>
+            <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z" stroke={brand.accentLight} strokeWidth="2" strokeLinecap="round"/>
+            <path d="M6 1v3M10 1v3M14 1v3" stroke={brand.accentLight} strokeWidth="2" strokeLinecap="round"/>
           </svg>
         </div>
-
-        {/* Название */}
-        <div
-          style={{
-            fontFamily: "Georgia, serif",
-            fontSize: 17,
-            fontWeight: 700,
-            color: "#fff",
-            letterSpacing: "0.1em",
-            textAlign: "center",
-            lineHeight: 1.2,
-            textShadow: `0 2px 12px ${brand.colorBottom}cc`,
-          }}
-        >
+        <div style={{
+          fontFamily: "Georgia, serif", fontSize: 16, fontWeight: 700,
+          color: "#fff", letterSpacing: "0.1em", textAlign: "center", lineHeight: 1.2,
+          textShadow: `0 0 20px ${brand.colorBottom}`,
+        }}>
           {brand.name.split(" ").map((w, i) => <div key={i}>{w}</div>)}
         </div>
-
-        {/* Разделитель */}
-        <div style={{ width: 36, height: 1, background: `${brand.accentLight}50`, margin: "2px 0" }} />
-
-        {/* Подпись */}
-        <div style={{
-          fontFamily: "monospace",
-          fontSize: 8,
-          color: "rgba(255,255,255,0.6)",
-          letterSpacing: "0.2em",
-          textAlign: "center",
-        }}>
+        <div style={{ width: 32, height: 1, background: `${brand.accentLight}55`, margin: "3px 0" }} />
+        <div style={{ fontFamily: "monospace", fontSize: 8, color: "rgba(255,255,255,0.6)", letterSpacing: "0.18em", textAlign: "center" }}>
           {brand.sub}
         </div>
-
-        {/* Тег обжарки */}
         <div style={{
-          marginTop: 4,
-          padding: "2px 10px",
-          borderRadius: 99,
-          border: "1px solid rgba(255,255,255,0.25)",
-          fontFamily: "monospace",
-          fontSize: 7,
-          color: "rgba(255,255,255,0.7)",
-          letterSpacing: "0.1em",
-          backdropFilter: "blur(4px)",
+          marginTop: 4, padding: "2px 10px", borderRadius: 99,
+          border: "1px solid rgba(255,255,255,0.3)",
+          fontFamily: "monospace", fontSize: 7,
+          color: "rgba(255,255,255,0.75)", letterSpacing: "0.1em",
         }}>
           {brand.roast}
         </div>
       </div>
 
-      {/* Вес внизу */}
-      <div
-        className="absolute bottom-10 left-1/2 -translate-x-1/2"
-        style={{
-          fontFamily: "monospace", fontSize: 9,
-          color: "rgba(255,255,255,0.35)", letterSpacing: "0.25em",
-        }}
-      >
+      {/* Вес */}
+      <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: 36, zIndex: 2,
+        fontFamily: "monospace", fontSize: 9, color: "rgba(255,255,255,0.4)", letterSpacing: "0.25em" }}>
         250г
       </div>
 
-      {/* Тень под пачкой */}
+      {/* Свечение под пачкой */}
       <div
-        className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-40 h-8 rounded-full blur-xl transition-all duration-1000"
-        style={{ background: brand.colorTop, opacity: 0.35 }}
+        className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-36 h-7 rounded-full blur-2xl transition-all duration-1000"
+        style={{ background: brand.colorTop, opacity: 0.45, zIndex: 0 }}
       />
     </div>
   </div>
