@@ -1,23 +1,17 @@
 // ─────────────────────────────────────────────────────────────
 // КОНФИГ БРЕНДОВ — редактируйте здесь для смены дизайнов пачки
-// В V2: вынести в админ-панель с редактором
 // ─────────────────────────────────────────────────────────────
 
 export interface CoffeeBrand {
-  /** Название бренда на этикетке */
   name: string;
-  /** Подпись (происхождение) */
   sub: string;
-  /** Тип обжарки */
   roast: string;
-  /** Основной цвет пачки (градиент верх) */
   colorTop: string;
-  /** Основной цвет пачки (градиент низ) */
   colorBottom: string;
-  /** Акцентный цвет (текст, иконки) */
   accent: string;
-  /** Более светлый оттенок акцента */
   accentLight: string;
+  /** CSS-фильтр для тонирования серой пачки в нужный цвет */
+  cssFilter: string;
 }
 
 export const COFFEE_BRANDS: CoffeeBrand[] = [
@@ -29,6 +23,7 @@ export const COFFEE_BRANDS: CoffeeBrand[] = [
     colorBottom: "#1a0a2e",
     accent: "#c084fc",
     accentLight: "#e9d5ff",
+    cssFilter: "sepia(1) saturate(3) hue-rotate(220deg) brightness(0.75)",
   },
   {
     name: "NORD ROAST",
@@ -38,6 +33,7 @@ export const COFFEE_BRANDS: CoffeeBrand[] = [
     colorBottom: "#0f172a",
     accent: "#60a5fa",
     accentLight: "#bfdbfe",
+    cssFilter: "sepia(1) saturate(4) hue-rotate(180deg) brightness(0.7)",
   },
   {
     name: "SOLEIL NOIR",
@@ -47,6 +43,7 @@ export const COFFEE_BRANDS: CoffeeBrand[] = [
     colorBottom: "#1c0a00",
     accent: "#fbbf24",
     accentLight: "#fde68a",
+    cssFilter: "sepia(1) saturate(3) hue-rotate(10deg) brightness(0.65)",
   },
   {
     name: "BLANC PEAK",
@@ -56,6 +53,7 @@ export const COFFEE_BRANDS: CoffeeBrand[] = [
     colorBottom: "#022c22",
     accent: "#34d399",
     accentLight: "#a7f3d0",
+    cssFilter: "sepia(1) saturate(4) hue-rotate(110deg) brightness(0.6)",
   },
 ];
 

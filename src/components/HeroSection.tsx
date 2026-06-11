@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import { COFFEE_BRANDS, CYCLE_MS, type CoffeeBrand } from "@/config/coffeeBrands";
 
-// PNG-мокап пачки с прозрачным фоном
-const BAG_PNG = "https://cdn.poehali.dev/projects/9054c912-be91-4f90-8cab-0a91d0d7eafe/files/5fde3b18-e904-400b-82ff-dd6f06ee2beb.jpg";
+const BAG_PNG = "https://cdn.poehali.dev/projects/9054c912-be91-4f90-8cab-0a91d0d7eafe/bucket/bc48b67d-cd2c-4300-8dd4-4486cb69cf7f.png";
 
 // ── Пачка: PNG + CSS-цветовой оверлей ────────────────────────
 
@@ -18,72 +17,62 @@ const CoffeeBag = ({ brand, active }: BagProps) => (
       pointerEvents: "none",
     }}
   >
-    {/* Обёртка — isolation:isolate изолирует multiply внутри блока */}
-    <div className="relative" style={{ width: 260, height: 320, isolation: "isolate" }}>
+    <div className="relative" style={{ width: 260, height: 340 }}>
 
-      {/* Слой 1: цветной градиент — основа покраски */}
-      <div
-        className="absolute inset-0 rounded-3xl transition-all duration-1000"
-        style={{
-          background: `linear-gradient(160deg, ${brand.colorTop} 0%, ${brand.colorBottom} 100%)`,
-        }}
-      />
-
-      {/* Слой 2: PNG пачки через multiply — белые области становятся прозрачными */}
+      {/* Пачка с цветовым тонированием через CSS-фильтр */}
       <img
         src={BAG_PNG}
         alt={brand.name}
-        className="absolute inset-0 w-full h-full object-contain"
-        style={{ mixBlendMode: "multiply" }}
         draggable={false}
+        className="absolute inset-0 w-full h-full object-contain transition-all duration-1000"
+        style={{ filter: `${brand.cssFilter ?? ""} drop-shadow(0 20px 40px ${brand.colorTop}55)` }}
       />
 
-      {/* Слой 3: этикетка — вне зоны multiply, поверх всего */}
+      {/* Этикетка поверх пачки */}
       <div
         className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5"
-        style={{ top: "26%", width: 136, zIndex: 2 }}
+        style={{ top: "22%", width: 130, zIndex: 2 }}
       >
         <div
-          className="w-10 h-10 rounded-full flex items-center justify-center mb-1"
-          style={{ background: `${brand.accent}30`, border: `1.5px solid ${brand.accent}60` }}
+          className="w-10 h-10 rounded-full flex items-center justify-center mb-0.5"
+          style={{ background: `${brand.colorTop}22`, border: `1.5px solid ${brand.colorTop}55` }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path d="M17 8h1a4 4 0 0 1 0 8h-1" stroke={brand.accentLight} strokeWidth="2" strokeLinecap="round"/>
-            <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z" stroke={brand.accentLight} strokeWidth="2" strokeLinecap="round"/>
-            <path d="M6 1v3M10 1v3M14 1v3" stroke={brand.accentLight} strokeWidth="2" strokeLinecap="round"/>
+            <path d="M17 8h1a4 4 0 0 1 0 8h-1" stroke={brand.colorTop} strokeWidth="2" strokeLinecap="round"/>
+            <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z" stroke={brand.colorTop} strokeWidth="2" strokeLinecap="round"/>
+            <path d="M6 1v3M10 1v3M14 1v3" stroke={brand.colorTop} strokeWidth="2" strokeLinecap="round"/>
           </svg>
         </div>
         <div style={{
-          fontFamily: "Georgia, serif", fontSize: 16, fontWeight: 700,
-          color: "#fff", letterSpacing: "0.1em", textAlign: "center", lineHeight: 1.2,
-          textShadow: `0 0 20px ${brand.colorBottom}`,
+          fontFamily: "Georgia, serif", fontSize: 15, fontWeight: 700,
+          color: brand.colorBottom, letterSpacing: "0.1em", textAlign: "center", lineHeight: 1.2,
         }}>
           {brand.name.split(" ").map((w, i) => <div key={i}>{w}</div>)}
         </div>
-        <div style={{ width: 32, height: 1, background: `${brand.accentLight}55`, margin: "3px 0" }} />
-        <div style={{ fontFamily: "monospace", fontSize: 8, color: "rgba(255,255,255,0.6)", letterSpacing: "0.18em", textAlign: "center" }}>
+        <div style={{ width: 28, height: 1, background: `${brand.colorTop}66`, margin: "3px 0" }} />
+        <div style={{ fontFamily: "monospace", fontSize: 8, color: `${brand.colorBottom}99`, letterSpacing: "0.16em", textAlign: "center" }}>
           {brand.sub}
         </div>
         <div style={{
           marginTop: 4, padding: "2px 10px", borderRadius: 99,
-          border: "1px solid rgba(255,255,255,0.3)",
+          border: `1px solid ${brand.colorTop}44`,
           fontFamily: "monospace", fontSize: 7,
-          color: "rgba(255,255,255,0.75)", letterSpacing: "0.1em",
+          color: brand.colorTop, letterSpacing: "0.1em",
         }}>
           {brand.roast}
         </div>
       </div>
 
       {/* Вес */}
-      <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: 36, zIndex: 2,
-        fontFamily: "monospace", fontSize: 9, color: "rgba(255,255,255,0.4)", letterSpacing: "0.25em" }}>
+      <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: 30, zIndex: 2,
+        fontFamily: "monospace", fontSize: 9, color: `${brand.colorBottom}55`, letterSpacing: "0.25em" }}>
         250г
       </div>
 
       {/* Свечение под пачкой */}
       <div
-        className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-36 h-7 rounded-full blur-2xl transition-all duration-1000"
-        style={{ background: brand.colorTop, opacity: 0.45, zIndex: 0 }}
+        className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-32 h-6 rounded-full blur-2xl transition-all duration-1000"
+        style={{ background: brand.colorTop, opacity: 0.35 }}
       />
     </div>
   </div>
