@@ -39,7 +39,7 @@ const TypewriterLogo = () => {
         />
       </span>
       <span className="text-[10px] font-mono text-muted-foreground tracking-widest mt-0.5 uppercase">
-        от зерна до полки
+        от зерна до пачки
       </span>
     </div>
   );
@@ -90,9 +90,15 @@ const Header = () => {
           {/* Логотип — динамический текст */}
           <Link to="/" className="flex items-center gap-2.5 group flex-shrink-0" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
             <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform shadow-sm">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M2 4h10v1.5C12 9 9.5 11 7 11S2 9 2 5.5V4z" fill="white" opacity="0.9"/>
-                <path d="M10 4c0-1 1.5-1 1.5 0v1.5" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                {/* Чашка */}
+                <path d="M3 7h8v3.5A3 3 0 0 1 8 13.5 3 3 0 0 1 3 10.5Z" fill="white" opacity="0.95"/>
+                {/* Ручка */}
+                <path d="M11 8.5h1a1.5 1.5 0 0 1 0 3h-1" stroke="white" strokeWidth="1.2" strokeLinecap="round" fill="none"/>
+                {/* Пар — три волнистые линии */}
+                <path d="M5 5 C5 4.2 5.8 3.8 5.8 3 C5.8 2.2 5 1.8 5 1" stroke="white" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.8"/>
+                <path d="M7.5 5 C7.5 4.2 8.3 3.8 8.3 3 C8.3 2.2 7.5 1.8 7.5 1" stroke="white" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.8"/>
+                <path d="M10 5 C10 4.2 10.8 3.8 10.8 3 C10.8 2.2 10 1.8 10 1" stroke="white" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.8"/>
               </svg>
             </div>
             <TypewriterLogo />
