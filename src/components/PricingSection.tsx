@@ -56,12 +56,12 @@ const PricingSection = () => {
   return (
     <section id="pricing" className="py-24 bg-secondary/30">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="text-center mb-16">
-          <span className="text-xs font-mono text-muted-foreground tracking-wider">ТАРИФЫ</span>
-          <h2 className="font-serif text-4xl md:text-5xl mt-4 mb-4">
+        <div className="text-center mb-16 scroll-reveal">
+          <span className="text-xs font-mono text-primary tracking-wider">ТАРИФЫ</span>
+          <h2 className="font-serif text-4xl md:text-5xl mt-3 mb-4 font-bold">
             Выберите формат
             <br />
-            сотрудничества
+            <span className="text-primary">сотрудничества</span>
           </h2>
           <div className="flex flex-wrap items-center justify-center gap-4">
             <div className="bg-[#fffef0] px-3 py-1 rounded shadow-sm rotate-[-2deg] border border-amber-100">
@@ -75,12 +75,13 @@ const PricingSection = () => {
         </div>
 
         <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-          {tiers.map((tier) => (
+          {tiers.map((tier, i) => (
             <div
               key={tier.name}
-              className={`bg-card border rounded-2xl p-6 relative flex flex-col ${
-                tier.popular ? "border-primary shadow-lg" : "border-border"
+              className={`bg-card border rounded-2xl p-6 relative flex flex-col card-hover scroll-reveal ${
+                tier.popular ? "border-primary shadow-lg shadow-primary/10" : "border-border"
               }`}
+              data-delay={String(i * 100)}
             >
               {tier.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-mono px-3 py-1 rounded-full">

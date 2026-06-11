@@ -46,21 +46,22 @@ const TestimonialsSection = () => {
   return (
     <section id="testimonials" className="py-24">
       <div className="max-w-7xl mx-auto px-6">
-        <div className="flex flex-col md:flex-row items-start justify-between mb-16">
+        <div className="flex flex-col md:flex-row items-start justify-between mb-16 scroll-reveal">
           <div>
-            <span className="text-xs font-mono text-muted-foreground tracking-wider">КЛИЕНТЫ</span>
-            <h2 className="font-serif text-4xl md:text-5xl mt-4 max-w-md leading-tight">
-              Бизнес, который уже запустил свою марку
+            <span className="text-xs font-mono text-primary tracking-wider">КЛИЕНТЫ</span>
+            <h2 className="font-serif text-4xl md:text-5xl mt-3 font-bold max-w-md leading-tight">
+              Бизнес, который уже<br />
+              <span className="text-primary">запустил свою марку</span>
             </h2>
           </div>
-          <p className="text-muted-foreground text-sm max-w-xs hidden md:block">
+          <p className="text-muted-foreground text-sm max-w-xs hidden md:block mt-2">
             500+ партнёров по всей России.
           </p>
         </div>
 
         <div className="grid md:grid-cols-3 gap-6">
-          {testimonials.slice(0, 3).map((testimonial) => (
-            <div key={testimonial.id} className="bg-card border border-border rounded-2xl p-6">
+          {testimonials.slice(0, 3).map((testimonial, i) => (
+            <div key={testimonial.id} className="bg-card border border-border rounded-2xl p-6 card-hover scroll-reveal" data-delay={String(i * 100)}>
               <div className="flex items-center justify-between mb-4">
                 <span className="text-xs font-mono text-muted-foreground">REF</span>
                 <span className="text-xs font-mono text-primary">{testimonial.id}</span>
