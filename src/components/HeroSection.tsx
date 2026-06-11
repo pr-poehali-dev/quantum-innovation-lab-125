@@ -15,7 +15,7 @@ const HeroSection = () => {
           <div className="space-y-7 scroll-reveal-left">
             <div className="inline-flex items-center gap-2 text-xs font-mono text-primary border border-primary/20 bg-primary/5 rounded-full px-4 py-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              ПОЛНЫЙ ЦИКЛ ПРОИЗВОДСТВА СТМ
+              ПОЛНЫЙ ЦИКЛ ПРОИЗВОДСТВА КОНТРАКТКОФЕ
             </div>
 
             <h1 className="font-serif text-5xl md:text-6xl lg:text-[4.2rem] leading-[1.05] font-bold">
@@ -72,20 +72,20 @@ const HeroSection = () => {
                 <Icon name="TrendingUp" size={14} className="text-primary" />
                 <span className="text-xs font-semibold">Рост продаж</span>
               </div>
-              <p className="text-[10px] text-muted-foreground font-mono">+38% после запуска СТМ</p>
+              <p className="text-[10px] text-muted-foreground font-mono">+38% после запуска бренда</p>
             </div>
 
             {/* Main mockup */}
             <div className="relative bg-gradient-to-br from-secondary/80 to-secondary/40 rounded-3xl p-8 border border-border/60 shadow-xl">
               <div className="flex justify-between text-[10px] font-mono text-muted-foreground mb-5">
-                <span>ПРОИЗВОДСТВО_СТМ</span>
+                <span>ПРОИЗВОДСТВО_КОНТРАКТКОФЕ</span>
                 <span className="text-primary">ПОЛНЫЙ_ЦИКЛ</span>
               </div>
 
               {/* Coffee bag mockup */}
               <div className="bg-[#0f1e3d] rounded-2xl p-6 mx-auto max-w-xs shadow-2xl">
                 <div className="flex justify-between text-[8px] text-white/50 font-mono mb-4">
-                  <span>УПАКОВКА_СТМ</span>
+                  <span>УПАКОВКА_КОНТРАКТКОФЕ</span>
                   <span>ОБРАЗЕЦ</span>
                 </div>
                 <div className="bg-[#1a2f5e] rounded-xl p-5 text-center border border-white/10">

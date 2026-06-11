@@ -9,7 +9,7 @@ const FeaturesSection = () => {
             <span className="text-xs font-mono text-primary tracking-wider">ПРЕИМУЩЕСТВА</span>
             <h2 className="font-serif text-4xl md:text-5xl mt-3 font-bold max-w-lg leading-tight">
               Почему бизнес выбирает<br />
-              <span className="text-primary">СТМ Кофе</span>
+              <span className="text-primary">КонтрактКофе</span>
             </h2>
           </div>
           <p className="text-muted-foreground text-sm max-w-xs hidden md:block mt-2">

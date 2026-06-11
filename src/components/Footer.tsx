@@ -22,11 +22,12 @@ const Footer = () => {
         <div className="grid md:grid-cols-5 gap-10 mb-12">
           {/* Brand */}
           <div className="md:col-span-2">
-            <Link to="/" className="flex items-center gap-2.5 mb-4 group w-fit">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Icon name="Coffee" size={15} className="text-primary-foreground" />
-              </div>
-              <span className="font-serif text-base font-semibold">СТМ Кофе</span>
+            <Link to="/" className="flex items-center mb-4 group w-fit">
+              <img
+                src="https://cdn.poehali.dev/projects/9054c912-be91-4f90-8cab-0a91d0d7eafe/bucket/1fea491b-de88-4f80-b66b-333fd9211c44.png"
+                alt="КонтрактКофе"
+                className="h-8 w-auto object-contain group-hover:opacity-70 transition-opacity"
+              />
             </Link>
             <p className="text-sm text-muted-foreground max-w-xs leading-relaxed mb-6">
               Производство кофе под вашей торговой маркой. Полный цикл — от подбора зерна до доставки.
@@ -34,7 +35,7 @@ const Footer = () => {
             <div className="flex gap-3">
               {[
                 { icon: "Phone", label: "+7 (800) 000-00-00" },
-                { icon: "Mail", label: "info@stmcoffee.ru" },
+                { icon: "Mail", label: "info@kontraktkafe.ru" },
               ].map((c) => (
                 <div key={c.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Icon name={c.icon} fallback="Circle" size={12} className="text-primary" />
@@ -95,7 +96,7 @@ const Footer = () => {
         </div>
 
         <div className="flex flex-col md:flex-row items-center justify-between pt-8 border-t border-border gap-2">
-          <p className="text-xs text-muted-foreground">© 2026 СТМ Кофе. Все права защищены.</p>
+          <p className="text-xs text-muted-foreground">© 2026 КонтрактКофе. Все права защищены.</p>
           <p className="text-xs text-muted-foreground">Технологичное производство · Полный цикл · Россия</p>
         </div>
       </div>
