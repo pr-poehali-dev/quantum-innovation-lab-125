@@ -2,6 +2,42 @@ import { useState } from "react";
 import Icon from "@/components/ui/icon";
 import func2url from "../../backend/func2url.json";
 
+// ── Field вынесен наружу — иначе при каждом setState пересоздаётся и теряет фокус
+
+interface FieldProps {
+  id: string;
+  label: string;
+  placeholder: string;
+  type?: string;
+  required?: boolean;
+  value: string;
+  error?: string;
+  disabled?: boolean;
+  onChange: (val: string) => void;
+}
+
+const Field = ({ id, label, placeholder, type = "text", required, value, error, disabled, onChange }: FieldProps) => (
+  <div>
+    <label htmlFor={id} className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">
+      {label} {required && <span className="text-primary">*</span>}
+    </label>
+    <input
+      id={id}
+      type={type}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      disabled={disabled}
+      className={`w-full px-4 py-3 rounded-xl border bg-secondary/50 text-sm outline-none transition-all focus:bg-card disabled:opacity-60 ${
+        error ? "border-red-400 focus:border-red-400" : "border-border focus:border-primary"
+      }`}
+    />
+    {error && <p className="text-[11px] text-red-500 mt-1">{error}</p>}
+  </div>
+);
+
+// ── Модалка
+
 interface LeadModalProps {
   open: boolean;
   onClose: () => void;
@@ -16,6 +52,11 @@ const LeadModal = ({ open, onClose, brief }: LeadModalProps) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   if (!open) return null;
+
+  const setField = (id: keyof typeof form) => (val: string) => {
+    setForm(f => ({ ...f, [id]: val }));
+    setErrors(e => ({ ...e, [id]: "" }));
+  };
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -35,11 +76,7 @@ const LeadModal = ({ open, onClose, brief }: LeadModalProps) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, brief: brief ?? null }),
       });
-      if (res.ok) {
-        setStep("success");
-      } else {
-        setStep("error");
-      }
+      setStep(res.ok ? "success" : "error");
     } catch {
       setStep("error");
     }
@@ -52,26 +89,7 @@ const LeadModal = ({ open, onClose, brief }: LeadModalProps) => {
     onClose();
   };
 
-  const Field = ({
-    id, label, placeholder, type = "text", required = false,
-  }: { id: keyof typeof form; label: string; placeholder: string; type?: string; required?: boolean }) => (
-    <div>
-      <label className="block text-xs font-semibold text-muted-foreground mb-1.5 uppercase tracking-wide">
-        {label} {required && <span className="text-primary">*</span>}
-      </label>
-      <input
-        type={type}
-        value={form[id]}
-        onChange={e => { setForm(f => ({ ...f, [id]: e.target.value })); setErrors(er => ({ ...er, [id]: "" })); }}
-        placeholder={placeholder}
-        disabled={step === "loading"}
-        className={`w-full px-4 py-3 rounded-xl border bg-secondary/50 text-sm outline-none transition-all focus:bg-card disabled:opacity-60 ${
-          errors[id] ? "border-red-400 focus:border-red-400" : "border-border focus:border-primary"
-        }`}
-      />
-      {errors[id] && <p className="text-[11px] text-red-500 mt-1">{errors[id]}</p>}
-    </div>
-  );
+  const loading = step === "loading";
 
   return (
     <>
@@ -80,7 +98,6 @@ const LeadModal = ({ open, onClose, brief }: LeadModalProps) => {
       <div className="fixed inset-0 z-[61] flex items-center justify-center p-4">
         <div className="bg-card border border-border rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
 
-          {/* Форма */}
           {(step === "form" || step === "loading") && (
             <>
               <div className="relative bg-primary px-7 pt-7 pb-6">
@@ -96,16 +113,20 @@ const LeadModal = ({ open, onClose, brief }: LeadModalProps) => {
               </div>
 
               <div className="px-7 py-6 space-y-4">
-                <Field id="name"  label="Имя"     placeholder="Иван Петров"        required />
-                <Field id="phone" label="Телефон" placeholder="+7 (999) 000-00-00" required type="tel" />
+                <Field id="name"  label="Имя"     placeholder="Иван Петров"        required
+                  value={form.name}  error={errors.name}  disabled={loading} onChange={setField("name")} />
+                <Field id="phone" label="Телефон" placeholder="+7 (999) 000-00-00" required type="tel"
+                  value={form.phone} error={errors.phone} disabled={loading} onChange={setField("phone")} />
                 <div className="grid grid-cols-2 gap-3">
-                  <Field id="city"  label="Город"  placeholder="Москва" />
-                  <Field id="email" label="E-mail" placeholder="ivan@cafe.ru" type="email" />
+                  <Field id="city"  label="Город"  placeholder="Москва"
+                    value={form.city}  disabled={loading} onChange={setField("city")} />
+                  <Field id="email" label="E-mail" placeholder="ivan@cafe.ru" type="email"
+                    value={form.email} error={errors.email} disabled={loading} onChange={setField("email")} />
                 </div>
 
-                <button onClick={handleSubmit} disabled={step === "loading"}
+                <button onClick={handleSubmit} disabled={loading}
                   className="w-full bg-primary text-primary-foreground py-3.5 rounded-xl font-semibold text-sm hover:bg-primary/90 transition-all hover:shadow-lg hover:shadow-primary/20 flex items-center justify-center gap-2 mt-2 disabled:opacity-70">
-                  {step === "loading"
+                  {loading
                     ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Отправляем...</>
                     : <><Icon name="Send" size={15} /> Отправить заявку</>
                   }
@@ -138,7 +159,6 @@ const LeadModal = ({ open, onClose, brief }: LeadModalProps) => {
             </>
           )}
 
-          {/* Успех */}
           {step === "success" && (
             <div className="px-7 py-12 flex flex-col items-center text-center">
               <div className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/30 flex items-center justify-center mb-5">
@@ -161,7 +181,6 @@ const LeadModal = ({ open, onClose, brief }: LeadModalProps) => {
             </div>
           )}
 
-          {/* Ошибка */}
           {step === "error" && (
             <div className="px-7 py-12 flex flex-col items-center text-center">
               <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/30 flex items-center justify-center mb-5">
@@ -169,7 +188,7 @@ const LeadModal = ({ open, onClose, brief }: LeadModalProps) => {
               </div>
               <h2 className="font-serif text-2xl font-bold mb-2">Не удалось отправить</h2>
               <p className="text-muted-foreground text-sm max-w-xs leading-relaxed mb-6">
-                Попробуйте ещё раз или напишите нам напрямую: info@kontraktkafe.ru
+                Попробуйте ещё раз или напишите нам: info@kontraktkafe.ru
               </p>
               <button onClick={() => setStep("form")}
                 className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm hover:bg-primary/90 transition-all">
