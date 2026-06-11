@@ -5,8 +5,8 @@ import Icon from "@/components/ui/icon";
 const NAV_ITEMS = [
   { label: "Возможности", href: "#features", section: "features" },
   { label: "Как работает", href: "#workflow", section: "workflow" },
-  { label: "Клиенты", href: "#testimonials", section: "testimonials" },
   { label: "Калькулятор", href: "#calculator", section: "calculator" },
+  { label: "Клиенты", href: "#testimonials", section: "testimonials" },
 ];
 
 const FULL_TEXT = "КонтрактКофе";
