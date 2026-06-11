@@ -156,10 +156,8 @@ const PriceCalculator = () => {
 
   const goNext = () => { if (canNext() && !isLast) setStep(s => s + 1); };
 
-  // Автопереход при выборе на шагах с одним выбором
-  const pick = (setter: (v: number) => void, val: number, autoNext = false) => {
+  const pick = (setter: (v: number) => void, val: number) => {
     setter(val);
-    if (autoNext && !isLast) setTimeout(() => setStep(s => s + 1), 320);
   };
 
   return (
@@ -265,7 +263,7 @@ const PriceCalculator = () => {
                     <div className="grid grid-cols-2 gap-3">
                       {USAGES.map((u, i) => (
                         <OptionCard key={u.label} {...u} selected={usage === i}
-                          onClick={() => pick(setUsage, i, true)} />
+                          onClick={() => pick(setUsage, i)} />
                       ))}
                     </div>
                   )}
@@ -275,7 +273,7 @@ const PriceCalculator = () => {
                     <div className="grid grid-cols-2 gap-3">
                       {ORIGINS.map((o, i) => (
                         <OptionCard key={o.label} {...o} selected={origin === i}
-                          onClick={() => pick(setOrigin, i, true)} />
+                          onClick={() => pick(setOrigin, i)} />
                       ))}
                     </div>
                   )}
@@ -296,13 +294,11 @@ const PriceCalculator = () => {
                             <div className="w-2 h-2 rounded-full bg-primary" />
                           </div>
                         </div>
-                        <div className="flex justify-between text-[10px] font-mono text-white/80 px-3 pt-1 pointer-events-none absolute inset-x-0 top-0 h-10 items-center">
-                          <span>СВЕТЛАЯ</span><span>СРЕДНЯЯ</span><span>ТЁМНАЯ</span>
-                        </div>
+
                       </div>
                       <div className="grid grid-cols-3 gap-3">
                         {ROASTS.map((r, i) => (
-                          <button key={r.label} onClick={() => pick(setRoast, i, true)}
+                          <button key={r.label} onClick={() => pick(setRoast, i)}
                             className={`p-3.5 rounded-2xl border text-center transition-all duration-200 ${
                               roast === i
                                 ? "border-primary bg-primary/8 shadow-sm"
@@ -345,7 +341,7 @@ const PriceCalculator = () => {
                     <div className="grid grid-cols-2 gap-3">
                       {PACKAGINGS.map((p, i) => (
                         <OptionCard key={p.label} label={p.label} desc={p.desc} extra={p.extra}
-                          selected={pkg === i} onClick={() => pick(setPkg, i, true)} />
+                          selected={pkg === i} onClick={() => pick(setPkg, i)} />
                       ))}
                     </div>
                   )}
@@ -356,7 +352,7 @@ const PriceCalculator = () => {
                       {DESIGNS.map((d, i) => (
                         <OptionCard key={d.label} label={d.label} icon={d.icon} desc={d.desc}
                           extra={d.extra} soon={d.soon} selected={design === i}
-                          onClick={() => !d.soon && pick(setDesign, i, true)} />
+                          onClick={() => !d.soon && pick(setDesign, i)} />
                       ))}
                     </div>
                   )}
