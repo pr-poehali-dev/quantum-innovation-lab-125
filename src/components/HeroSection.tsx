@@ -2,253 +2,133 @@ import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import { COFFEE_BRANDS, CYCLE_MS, type CoffeeBrand } from "@/config/coffeeBrands";
 
-const BRANDS = COFFEE_BRANDS;
+interface BagProps { brand: CoffeeBrand; opacity: number }
 
-interface PackProps {
-  brand: CoffeeBrand;
-  opacity: number;
-}
-
-const CoffeePack = ({ brand, opacity }: PackProps) => {
-  const W = 160;
-  const H = 230;
-  const D = 55;
-
+const CoffeeBag = ({ brand, opacity }: BagProps) => {
+  const id = brand.name.replace(/\s+/g, "_");
   return (
     <div
-      className="absolute inset-0 flex items-center justify-center pointer-events-none"
-      style={{ opacity, transition: `opacity 900ms ease-in-out` }}
+      className="absolute inset-0 flex items-center justify-center"
+      style={{ opacity, transition: "opacity 1.2s ease-in-out", pointerEvents: "none" }}
     >
-      <div style={{ perspective: "900px", perspectiveOrigin: "50% 45%" }}>
-        <div
-          style={{
-            width: W,
-            height: H,
-            position: "relative",
-            transformStyle: "preserve-3d",
-            transform: "rotateY(-22deg) rotateX(4deg)",
-          }}
-        >
-          {/* ── Лицевая грань ── */}
-          <div
-            style={{
-              position: "absolute",
-              width: W,
-              height: H,
-              background: `linear-gradient(160deg, ${brand.colorTop} 0%, ${brand.colorTop}bb 40%, ${brand.colorBottom} 100%)`,
-              borderRadius: "18px 18px 12px 12px",
-              backfaceVisibility: "hidden",
-              transform: `translateZ(${D / 2}px)`,
-              boxShadow: `inset -6px 0 20px rgba(0,0,0,0.4), inset 3px 0 12px rgba(255,255,255,0.04)`,
-              overflow: "hidden",
-            }}
-          >
-            {/* Клапан сверху */}
-            <div style={{
-              position: "absolute", top: 0, left: 0, right: 0, height: 36,
-              background: brand.colorBottom,
-              borderBottom: `1px solid ${brand.accent}25`,
-              borderRadius: "18px 18px 0 0",
-            }} />
-            {/* Полоска-акцент */}
-            <div style={{
-              position: "absolute", top: 0, left: 0, right: 0, height: 4,
-              background: `linear-gradient(to right, ${brand.accent}, ${brand.accentLight})`,
-              borderRadius: "18px 18px 0 0",
-              opacity: 0.9,
-            }} />
-            {/* Шов клапана */}
-            <div style={{
-              position: "absolute", top: 36, left: 12, right: 12, height: 1,
-              background: `${brand.accent}30`,
-            }} />
+      <svg
+        width="260" height="340"
+        viewBox="0 0 260 340"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        style={{
+          filter: `drop-shadow(0 32px 48px ${brand.colorBottom}bb) drop-shadow(0 8px 20px rgba(0,0,0,0.55)) drop-shadow(-4px 4px 12px rgba(0,0,0,0.3))`,
+          overflow: "visible",
+        }}
+      >
+        <defs>
+          <linearGradient id={`bg-${id}`} x1="0.3" y1="0" x2="0.7" y2="1">
+            <stop offset="0%" stopColor={brand.colorTop} />
+            <stop offset="45%" stopColor={brand.colorTop} stopOpacity="0.7" />
+            <stop offset="100%" stopColor={brand.colorBottom} />
+          </linearGradient>
+          <linearGradient id={`side-${id}`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor={brand.colorBottom} stopOpacity="0.95" />
+            <stop offset="100%" stopColor={brand.colorBottom} stopOpacity="0.6" />
+          </linearGradient>
+          <linearGradient id={`top-${id}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={brand.colorTop} stopOpacity="0.6" />
+            <stop offset="100%" stopColor={brand.colorBottom} stopOpacity="0.9" />
+          </linearGradient>
+          <linearGradient id={`shineL-${id}`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="rgba(255,255,255,0.12)" />
+            <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+          </linearGradient>
+          <linearGradient id={`shadeR-${id}`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="rgba(0,0,0,0)" />
+            <stop offset="100%" stopColor="rgba(0,0,0,0.22)" />
+          </linearGradient>
+          <linearGradient id={`shadeB-${id}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(0,0,0,0)" />
+            <stop offset="100%" stopColor="rgba(0,0,0,0.35)" />
+          </linearGradient>
+          <pattern id={`topo-${id}`} x="0" y="0" width="80" height="80" patternUnits="userSpaceOnUse">
+            <path d="M10,40 Q20,20 30,40 Q40,60 50,40 Q60,20 70,40 Q80,60 90,40" stroke={brand.accentLight} strokeOpacity="0.08" strokeWidth="0.8" fill="none" />
+            <path d="M0,60 Q15,45 25,60 Q35,75 50,60 Q65,45 80,60" stroke={brand.accentLight} strokeOpacity="0.06" strokeWidth="0.7" fill="none" />
+            <path d="M5,20 Q20,5 35,20 Q50,35 65,20 Q75,10 85,20" stroke={brand.accentLight} strokeOpacity="0.06" strokeWidth="0.7" fill="none" />
+          </pattern>
+        </defs>
 
-            {/* Этикетка */}
-            <div style={{
-              position: "absolute", top: 48, left: 14, right: 14, bottom: 24,
-              background: brand.colorBottom,
-              borderRadius: 10,
-              border: `1px solid ${brand.accent}35`,
-              display: "flex", flexDirection: "column",
-              alignItems: "center", justifyContent: "center",
-              padding: "14px 10px",
-              overflow: "hidden",
-            }}>
-              {/* Фоновый паттерн */}
-              <div style={{
-                position: "absolute", inset: 0,
-                backgroundImage: `radial-gradient(${brand.accent}12 1px, transparent 1px)`,
-                backgroundSize: "14px 14px",
-              }} />
+        {/* Правая боковая грань */}
+        <path d="M188 28 L200 52 L210 90 L218 290 C218 308 206 320 190 320 L210 318 C228 316 238 304 238 288 L230 90 L220 52 L208 28 Z"
+          fill={`url(#side-${id})`} />
 
-              {/* Иконка */}
-              <div style={{
-                width: 42, height: 42, borderRadius: "50%",
-                background: `${brand.accent}20`,
-                border: `1.5px solid ${brand.accent}50`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                marginBottom: 10, position: "relative",
-              }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                  <path d="M17 8h1a4 4 0 0 1 0 8h-1" stroke={brand.accent} strokeWidth="1.8" strokeLinecap="round"/>
-                  <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z" stroke={brand.accent} strokeWidth="1.8" strokeLinecap="round"/>
-                  <path d="M6 1v3M10 1v3M14 1v3" stroke={brand.accent} strokeWidth="1.8" strokeLinecap="round"/>
-                </svg>
-              </div>
+        {/* Верхняя грань клапана */}
+        <path d="M72 28 C72 18 86 12 100 12 L160 12 C174 12 188 18 188 28 L208 28 C204 14 190 0 168 0 L92 0 C70 0 56 14 52 28 Z"
+          fill={`url(#top-${id})`} />
 
-              {/* Название */}
-              <div style={{
-                fontFamily: "Georgia, serif",
-                fontSize: 15,
-                fontWeight: 700,
-                color: brand.accent,
-                letterSpacing: "0.12em",
-                textAlign: "center",
-                lineHeight: 1.2,
-                position: "relative",
-                textShadow: `0 0 20px ${brand.accent}60`,
-              }}>
-                {brand.name.split(" ").map((w, i) => (
-                  <div key={i}>{w}</div>
-                ))}
-              </div>
+        {/* Тело пачки */}
+        <path d="M72 28 C72 18 86 12 100 12 L160 12 C174 12 188 18 188 28 L200 52 L210 90 L218 290 C218 308 206 320 190 320 L70 320 C54 320 42 308 42 290 L50 90 L60 52 Z"
+          fill={`url(#bg-${id})`} />
+        <path d="M72 28 C72 18 86 12 100 12 L160 12 C174 12 188 18 188 28 L200 52 L210 90 L218 290 C218 308 206 320 190 320 L70 320 C54 320 42 308 42 290 L50 90 L60 52 Z"
+          fill={`url(#topo-${id})`} />
+        <path d="M72 28 C72 18 86 12 100 12 L160 12 C174 12 188 18 188 28 L200 52 L210 90 L218 290 C218 308 206 320 190 320 L70 320 C54 320 42 308 42 290 L50 90 L60 52 Z"
+          fill={`url(#shineL-${id})`} />
+        <path d="M72 28 C72 18 86 12 100 12 L160 12 C174 12 188 18 188 28 L200 52 L210 90 L218 290 C218 308 206 320 190 320 L70 320 C54 320 42 308 42 290 L50 90 L60 52 Z"
+          fill={`url(#shadeR-${id})`} />
+        <path d="M72 28 C72 18 86 12 100 12 L160 12 C174 12 188 18 188 28 L200 52 L210 90 L218 290 C218 308 206 320 190 320 L70 320 C54 320 42 308 42 290 L50 90 L60 52 Z"
+          fill={`url(#shadeB-${id})`} />
 
-              <div style={{
-                width: 32, height: 1,
-                background: `${brand.accentLight}60`,
-                margin: "8px 0",
-                position: "relative",
-              }} />
+        {/* Акцентная полоска */}
+        <rect x="42" y="26" width="176" height="5" rx="2.5"
+          fill={brand.accent} opacity="0.85" />
 
-              <div style={{
-                fontFamily: "monospace",
-                fontSize: 8,
-                color: `${brand.accentLight}90`,
-                letterSpacing: "0.15em",
-                textAlign: "center",
-                position: "relative",
-              }}>
-                {brand.sub}
-              </div>
+        {/* Шов клапана */}
+        <path d="M48 68 L210 68" stroke={brand.accentLight} strokeOpacity="0.2" strokeWidth="1" strokeDasharray="4 3" />
 
-              <div style={{
-                marginTop: 8,
-                padding: "2px 8px",
-                borderRadius: 99,
-                background: `${brand.accent}20`,
-                border: `1px solid ${brand.accent}40`,
-                fontFamily: "monospace",
-                fontSize: 7,
-                color: brand.accentLight,
-                letterSpacing: "0.1em",
-                position: "relative",
-              }}>
-                {brand.roast}
-              </div>
-            </div>
+        {/* Складка низа */}
+        <path d="M50 290 L42 290 C42 308 54 320 70 320 L190 320 C206 320 218 308 218 290 L210 290 C210 304 200 314 188 314 L72 314 C60 314 50 304 50 290 Z"
+          fill={brand.colorBottom} fillOpacity="0.8" />
+        <line x1="50" y1="290" x2="210" y2="290" stroke={brand.accentLight} strokeOpacity="0.12" strokeWidth="1" />
 
-            {/* Низ — складка */}
-            <div style={{
-              position: "absolute", bottom: 0, left: 10, right: 10, height: 24,
-              background: brand.colorBottom,
-              borderRadius: "0 0 12px 12px",
-              borderTop: `1px solid ${brand.accent}15`,
-            }}>
-              <div style={{
-                position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-                fontFamily: "monospace", fontSize: 7,
-                color: `${brand.accent}50`, letterSpacing: "0.2em",
-              }}>250г</div>
-            </div>
+        {/* Иконка */}
+        <circle cx="130" cy="136" r="28" fill={brand.accent} fillOpacity="0.12" stroke={brand.accent} strokeOpacity="0.35" strokeWidth="1.5" />
+        <g transform="translate(118,124)" stroke={brand.accent} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none">
+          <path d="M1 5 L19 5 L19 6 C19 13 15 16 12 16 C9 16 5 13 5 6 L5 5 Z" />
+          <path d="M16 5 C16 3 19 3 19 5 L19 8" />
+          <path d="M7 2 L7 4.5 M11 1.5 L11 4.5 M15 2 L15 4.5" />
+        </g>
 
-            {/* Блик */}
-            <div style={{
-              position: "absolute", top: 40, left: 16, width: 6, height: 100,
-              background: "linear-gradient(to bottom, rgba(255,255,255,0.08), transparent)",
-              borderRadius: 4, transform: "rotate(5deg)",
-            }} />
-          </div>
+        {/* Название */}
+        <text x="130" y="184" textAnchor="middle"
+          fontFamily="Georgia, 'Times New Roman', serif" fontSize="20" fontWeight="700" letterSpacing="3"
+          fill="white" fillOpacity="0.95">
+          {brand.name.split(" ")[0]}
+        </text>
+        {brand.name.split(" ")[1] && (
+          <text x="130" y="207" textAnchor="middle"
+            fontFamily="Georgia, 'Times New Roman', serif" fontSize="20" fontWeight="700" letterSpacing="3"
+            fill="white" fillOpacity="0.95">
+            {brand.name.split(" ")[1]}
+          </text>
+        )}
 
-          {/* ── Правая боковая грань ── */}
-          <div
-            style={{
-              position: "absolute",
-              width: D,
-              height: H,
-              left: W,
-              top: 0,
-              background: `linear-gradient(to right, ${brand.colorBottom}, ${brand.colorBottom}aa)`,
-              transform: `rotateY(90deg) translateZ(${D / 2}px) translateX(-${D / 2}px)`,
-              transformOrigin: "left center",
-              backfaceVisibility: "hidden",
-              borderRadius: "0 10px 8px 0",
-              boxShadow: `inset -4px 0 12px rgba(0,0,0,0.5)`,
-            }}
-          >
-            <div style={{
-              position: "absolute", top: "50%", left: "50%",
-              transform: "translate(-50%, -50%) rotate(90deg)",
-              fontFamily: "monospace", fontSize: 7,
-              color: `${brand.accent}40`, letterSpacing: "0.25em",
-              whiteSpace: "nowrap",
-            }}>
-              KONTRAKTKAFE · {brand.roast}
-            </div>
-          </div>
+        {/* Подпись */}
+        <text x="130" y="228" textAnchor="middle" fontFamily="'Courier New', monospace"
+          fontSize="9" letterSpacing="2.5" fill="white" fillOpacity="0.55">{brand.sub}</text>
 
-          {/* ── Верхняя грань ── */}
-          <div
-            style={{
-              position: "absolute",
-              width: W,
-              height: D,
-              top: 0,
-              left: 0,
-              background: `linear-gradient(to bottom, ${brand.colorTop}99, ${brand.colorBottom})`,
-              transform: `rotateX(90deg) translateZ(${D / 2}px) translateY(-${D / 2}px)`,
-              transformOrigin: "top center",
-              backfaceVisibility: "hidden",
-              borderRadius: "10px 10px 0 0",
-              boxShadow: `inset 0 -4px 12px rgba(0,0,0,0.3)`,
-            }}
-          />
-        </div>
-      </div>
+        {/* Тег обжарки */}
+        <rect x="100" y="237" width="60" height="18" rx="9"
+          fill="none" stroke="white" strokeOpacity="0.3" strokeWidth="1" />
+        <text x="130" y="249.5" textAnchor="middle" fontFamily="'Courier New', monospace"
+          fontSize="8" letterSpacing="1.5" fill="white" fillOpacity="0.65">{brand.roast}</text>
+
+        {/* Вес */}
+        <text x="130" y="278" textAnchor="middle" fontFamily="'Courier New', monospace"
+          fontSize="10" letterSpacing="3" fill="white" fillOpacity="0.35">250г</text>
+
+        {/* Блик */}
+        <path d="M66 72 C64 120 63 180 65 264 C65 284 67 300 70 308"
+          stroke="white" strokeOpacity="0.1" strokeWidth="9" strokeLinecap="round" />
+      </svg>
     </div>
   );
 };
-
-// ── Виджет выбора цвета ────────────────────────────────────────
-
-interface ColorPickerProps {
-  brands: CoffeeBrand[];
-  current: number;
-  onChange: (i: number) => void;
-}
-
-const ColorPicker = ({ brands, current, onChange }: ColorPickerProps) => (
-  <div className="glass rounded-2xl px-3 py-4 shadow-lg flex flex-col items-center gap-2.5 z-20">
-    <span className="text-[9px] font-mono text-muted-foreground tracking-wider mb-0.5">ЦВЕТ</span>
-    {brands.map((b, i) => (
-      <button
-        key={b.name}
-        onClick={() => onChange(i)}
-        className="relative transition-transform duration-200"
-        style={{ transform: i === current ? "scale(1.25)" : "scale(1)" }}
-        title={b.name}
-      >
-        <div
-          className="w-7 h-7 rounded-full border-2 transition-all duration-300"
-          style={{
-            background: `linear-gradient(135deg, ${b.colorTop}, ${b.colorBottom})`,
-            borderColor: i === current ? b.accent : "transparent",
-            boxShadow: i === current ? `0 0 10px ${b.accent}60` : "none",
-          }}
-        />
-      </button>
-    ))}
-  </div>
-);
 
 // ── Главный компонент ─────────────────────────────────────────
 
@@ -259,17 +139,9 @@ const HeroSection = () => {
 
   useEffect(() => {
     if (paused) return;
-    timerRef.current = setTimeout(() => {
-      setCurrent((c) => (c + 1) % BRANDS.length);
-    }, CYCLE_MS);
+    timerRef.current = setTimeout(() => setCurrent(c => (c + 1) % COFFEE_BRANDS.length), CYCLE_MS);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [current, paused]);
-
-  const handlePick = (i: number) => {
-    setCurrent(i);
-    setPaused(true);
-    setTimeout(() => setPaused(false), 6000);
-  };
 
   return (
     <section className="relative overflow-hidden bg-background">
@@ -314,11 +186,11 @@ const HeroSection = () => {
             </div>
           </div>
 
-          {/* Правая колонка — 3D пачка */}
-          <div className="relative scroll-reveal flex flex-col items-center" data-delay="150">
+          {/* Правая колонка — парящая пачка */}
+          <div className="relative scroll-reveal flex justify-center items-center" data-delay="150">
 
             {/* Badge партия */}
-            <div className="absolute left-0 top-8 glass rounded-2xl px-4 py-3 shadow-lg z-20">
+            <div className="absolute left-0 top-10 glass rounded-2xl px-4 py-3 shadow-lg z-20">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                 <span className="text-xs font-semibold">Партия готова</span>
@@ -326,13 +198,8 @@ const HeroSection = () => {
               <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">ЗАКАЗ #2847 · 200 кг</p>
             </div>
 
-            {/* Пикер цвета */}
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 z-20">
-              <ColorPicker brands={BRANDS} current={current} onChange={handlePick} />
-            </div>
-
             {/* Badge рост */}
-            <div className="absolute left-0 bottom-16 glass rounded-2xl px-4 py-3 shadow-lg z-20">
+            <div className="absolute left-0 bottom-8 glass rounded-2xl px-4 py-3 shadow-lg z-20">
               <div className="flex items-center gap-2 mb-1">
                 <Icon name="TrendingUp" size={14} className="text-primary" />
                 <span className="text-xs font-semibold">Рост продаж</span>
@@ -343,11 +210,11 @@ const HeroSection = () => {
             {/* V2 slot */}
             <style>{`
               @keyframes bagFloat {
-                0%,100% { transform: translateY(0px); }
-                50%     { transform: translateY(-14px); }
+                0%,100% { transform: translateY(0px) rotate(-0.4deg); }
+                50%     { transform: translateY(-18px) rotate(0.4deg); }
               }
-              .bag-scene { animation: bagFloat 8s ease-in-out infinite; }
-              .bag-scene.paused { animation-play-state: paused; }
+              .bag-float { animation: bagFloat 9s ease-in-out infinite; }
+              .bag-float.paused { animation-play-state: paused; }
             `}</style>
 
             <a
@@ -355,34 +222,32 @@ const HeroSection = () => {
               className="relative flex flex-col items-center cursor-pointer"
               onMouseEnter={() => setPaused(true)}
               onMouseLeave={() => setPaused(false)}
-              onTouchStart={() => setPaused((p) => !p)}
-              title="Собрать свою пачку"
+              onTouchStart={() => setPaused(p => !p)}
             >
+              {/* Свечение */}
               <div
-                className="absolute bottom-6 left-1/2 -translate-x-1/2 w-40 h-12 rounded-full blur-3xl transition-all duration-1000"
-                style={{ background: BRANDS[current].accent, opacity: 0.25 }}
+                className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-52 h-14 rounded-full blur-3xl transition-all duration-1000"
+                style={{ background: COFFEE_BRANDS[current].colorTop, opacity: 0.3 }}
               />
 
-              <div className={`bag-scene ${paused ? "paused" : ""} relative`} style={{ width: 220, height: 290 }}>
-                {BRANDS.map((b, i) => (
-                  <CoffeePack key={b.name} brand={b} opacity={i === current ? 1 : 0} />
+              {/* Пачка */}
+              <div className={`bag-float ${paused ? "paused" : ""} relative`} style={{ width: 260, height: 340 }}>
+                {COFFEE_BRANDS.map((b, i) => (
+                  <CoffeeBag key={b.name} brand={b} opacity={i === current ? 1 : 0} />
                 ))}
-                <div className={`absolute inset-0 flex items-end justify-center pb-4 transition-opacity duration-300 ${paused ? "opacity-100" : "opacity-0"}`}>
-                  <div className="bg-black/65 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-1.5 text-white text-xs font-medium">
-                    <Icon name="ArrowRight" size={12} />
+                <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${paused ? "opacity-100" : "opacity-0"}`}>
+                  <div className="bg-black/55 backdrop-blur-sm rounded-2xl px-5 py-3 flex items-center gap-2 text-white text-sm font-medium shadow-xl">
+                    <Icon name="Sparkles" size={15} />
                     Собрать свою пачку
                   </div>
                 </div>
               </div>
 
-              <div className="flex gap-2 mt-4">
-                {BRANDS.map((b, i) => (
-                  <button
-                    key={b.name}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handlePick(i);
-                    }}
+              {/* Точки */}
+              <div className="flex gap-2 mt-3">
+                {COFFEE_BRANDS.map((b, i) => (
+                  <button key={b.name}
+                    onClick={e => { e.preventDefault(); setCurrent(i); setPaused(true); setTimeout(() => setPaused(false), 5000); }}
                     className="w-2 h-2 rounded-full transition-all duration-300"
                     style={{
                       background: i === current ? b.accent : "#88888840",
@@ -392,15 +257,13 @@ const HeroSection = () => {
                 ))}
               </div>
 
-              <div className="mt-3 text-center relative" style={{ minHeight: 32 }}>
-                {BRANDS.map((b, i) => (
-                  <div
-                    key={b.name}
-                    className="absolute left-1/2 -translate-x-1/2 transition-all duration-700"
-                    style={{ opacity: i === current ? 1 : 0, transform: `translateX(-50%) translateY(${i === current ? 0 : 6}px)` }}
-                  >
-                    <p className="text-xs font-serif font-semibold" style={{ color: b.accent }}>{b.name}</p>
-                    <p className="text-[10px] font-mono text-muted-foreground mt-0.5">{b.sub}</p>
+              {/* Название */}
+              <div className="relative mt-2 text-center" style={{ height: 34 }}>
+                {COFFEE_BRANDS.map((b, i) => (
+                  <div key={b.name} className="absolute inset-x-0 transition-all duration-700"
+                    style={{ opacity: i === current ? 1 : 0, transform: `translateY(${i === current ? 0 : 6}px)` }}>
+                    <p className="text-sm font-serif font-bold tracking-wide" style={{ color: b.accent }}>{b.name}</p>
+                    <p className="text-[10px] font-mono text-muted-foreground">{b.sub}</p>
                   </div>
                 ))}
               </div>
