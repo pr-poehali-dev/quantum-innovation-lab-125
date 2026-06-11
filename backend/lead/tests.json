@@ -1,0 +1,34 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Missing required fields",
+      "method": "POST",
+      "path": "/",
+      "body": {"city": "Москва"},
+      "expectedStatus": 400,
+      "expectedBody": {"error": "name and phone are required"},
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Valid lead",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "name": "Тест",
+        "phone": "+70000000000",
+        "city": "Москва",
+        "email": "test@test.ru",
+        "brief": {"usage": "Эспрессо в кофейню", "volume": 100}
+      },
+      "expectedStatus": 200,
+      "expectedBody": {"ok": true},
+      "bodyMatcher": "partial"
+    }
+  ]
+}
