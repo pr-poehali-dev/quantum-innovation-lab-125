@@ -1,135 +1,281 @@
 import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
 
-// ── 4 вымышленных бренда — разные этикетки ────────────────────
 const BRANDS = [
   {
     name: "NORD ROAST",
     sub: "SPECIALTY · ETHIOPIA",
-    weight: "250г",
-    roast: "LIGHT",
-    bg: "from-[#1a1a2e] to-[#16213e]",
+    roast: "LIGHT ROAST",
+    bagColor: "#0f1c3f",
+    bagColor2: "#1a2f5e",
+    sideColor: "#0a1428",
+    topColor: "#162244",
     accent: "#4f8ef7",
-    tag: "bg-blue-500/20 text-blue-300",
-    ring: "border-blue-500/30",
-    dot: ["#4f8ef7", "#93c5fd", "#1e40af"],
+    labelBg: "#1e3a8a",
+    stripe: "#60a5fa",
   },
   {
     name: "TERRA VERDE",
     sub: "ORGANIC · BRAZIL",
-    weight: "250г",
-    roast: "MEDIUM",
-    bg: "from-[#0d2818] to-[#1a3a2a]",
+    roast: "MEDIUM ROAST",
+    bagColor: "#0d2818",
+    bagColor2: "#1a3a2a",
+    sideColor: "#081a10",
+    topColor: "#112218",
     accent: "#4ade80",
-    tag: "bg-green-500/20 text-green-300",
-    ring: "border-green-500/30",
-    dot: ["#4ade80", "#86efac", "#166534"],
+    labelBg: "#14532d",
+    stripe: "#86efac",
   },
   {
     name: "SOLEIL NOIR",
     sub: "DARK BLEND · COLOMBIA",
-    weight: "250г",
-    roast: "DARK",
-    bg: "from-[#1c0a00] to-[#2d1500]",
+    roast: "DARK ROAST",
+    bagColor: "#1c0a00",
+    bagColor2: "#2d1500",
+    sideColor: "#120600",
+    topColor: "#1f0d00",
     accent: "#f97316",
-    tag: "bg-orange-500/20 text-orange-300",
-    ring: "border-orange-500/30",
-    dot: ["#f97316", "#fdba74", "#9a3412"],
+    labelBg: "#7c2d12",
+    stripe: "#fdba74",
   },
   {
     name: "BLANC PEAK",
     sub: "FILTER · KENYA AA",
-    weight: "250г",
-    roast: "LIGHT",
-    bg: "from-[#1a0a2e] to-[#2d1254]",
+    roast: "LIGHT ROAST",
+    bagColor: "#1a0a2e",
+    bagColor2: "#2d1254",
+    sideColor: "#110620",
+    topColor: "#1e0d35",
     accent: "#c084fc",
-    tag: "bg-purple-500/20 text-purple-300",
-    ring: "border-purple-500/30",
-    dot: ["#c084fc", "#e9d5ff", "#6b21a8"],
+    labelBg: "#581c87",
+    stripe: "#e9d5ff",
   },
 ];
 
-const CYCLE_MS = 9000;
+const CYCLE_MS = 8000;
+const FADE_MS = 900;
 
-// ── CSS-пачка кофе (SVG-форма + этикетка) ────────────────────
+// ── 3D CSS-пачка кофе ─────────────────────────────────────────
 
-interface BagProps {
+interface PackProps {
   brand: typeof BRANDS[0];
-  visible: boolean;
+  opacity: number;
 }
 
-const CoffeeBag = ({ brand, visible }: BagProps) => (
-  <div
-    className="absolute inset-0 flex items-center justify-center transition-opacity duration-1000"
-    style={{ opacity: visible ? 1 : 0 }}
-  >
-    {/* Пачка: простая CSS-форма */}
-    <div className="relative w-52 h-72">
-      {/* Тело пачки */}
-      <div
-        className={`absolute inset-0 bg-gradient-to-b ${brand.bg} rounded-[28px_28px_22px_22px] shadow-2xl`}
-        style={{ boxShadow: `0 25px 60px ${brand.accent}22, 0 8px 20px #00000060` }}
-      >
-        {/* Клапан сверху */}
-        <div
-          className={`absolute top-0 left-0 right-0 h-10 bg-gradient-to-b ${brand.bg} rounded-[28px_28px_0_0] border-b`}
-          style={{ borderColor: `${brand.accent}30` }}
-        />
-        {/* Складка снизу */}
-        <div
-          className="absolute bottom-0 left-4 right-4 h-5 rounded-b-2xl opacity-40"
-          style={{ background: `linear-gradient(to bottom, transparent, ${brand.accent}22)` }}
-        />
+const CoffeePack = ({ brand, opacity }: PackProps) => {
+  // Размеры граней
+  const W = 160; // ширина лица
+  const H = 230; // высота
+  const D = 55;  // глубина (бок)
 
-        {/* Этикетка-зона */}
+  return (
+    <div
+      className="absolute inset-0 flex items-center justify-center pointer-events-none"
+      style={{ opacity, transition: `opacity ${FADE_MS}ms ease-in-out` }}
+    >
+      {/* perspective-обёртка */}
+      <div style={{ perspective: "900px", perspectiveOrigin: "50% 45%" }}>
         <div
-          className={`absolute inset-x-3 top-12 bottom-8 rounded-2xl border ${brand.ring} flex flex-col items-center justify-center gap-2 px-4`}
-          style={{ background: `${brand.accent}08` }}
+          style={{
+            width: W,
+            height: H,
+            position: "relative",
+            transformStyle: "preserve-3d",
+            transform: "rotateY(-22deg) rotateX(4deg)",
+          }}
         >
-          {/* Иконка зерна */}
+          {/* ── Лицевая грань ── */}
           <div
-            className="w-12 h-12 rounded-full flex items-center justify-center mb-1"
-            style={{ background: `${brand.accent}18`, border: `1px solid ${brand.accent}40` }}
+            style={{
+              position: "absolute",
+              width: W,
+              height: H,
+              background: `linear-gradient(160deg, ${brand.bagColor2} 0%, ${brand.bagColor} 60%, ${brand.sideColor} 100%)`,
+              borderRadius: "18px 18px 12px 12px",
+              backfaceVisibility: "hidden",
+              transform: `translateZ(${D / 2}px)`,
+              boxShadow: `inset -6px 0 20px rgba(0,0,0,0.4), inset 3px 0 12px rgba(255,255,255,0.04)`,
+              overflow: "hidden",
+            }}
           >
-            <Icon name="Coffee" size={22} style={{ color: brand.accent }} />
+            {/* Клапан сверху */}
+            <div style={{
+              position: "absolute", top: 0, left: 0, right: 0, height: 36,
+              background: brand.sideColor,
+              borderBottom: `1px solid ${brand.accent}25`,
+              borderRadius: "18px 18px 0 0",
+            }} />
+            {/* Линия-шов клапана */}
+            <div style={{
+              position: "absolute", top: 36, left: 12, right: 12, height: 1,
+              background: `${brand.accent}30`,
+            }} />
+
+            {/* Полоска-акцент сверху */}
+            <div style={{
+              position: "absolute", top: 0, left: 0, right: 0, height: 4,
+              background: brand.stripe, borderRadius: "18px 18px 0 0",
+              opacity: 0.9,
+            }} />
+
+            {/* Этикетка */}
+            <div style={{
+              position: "absolute", top: 48, left: 14, right: 14, bottom: 24,
+              background: `${brand.labelBg}`,
+              borderRadius: 10,
+              border: `1px solid ${brand.accent}35`,
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+              padding: "14px 10px",
+              overflow: "hidden",
+            }}>
+              {/* Фоновый паттерн */}
+              <div style={{
+                position: "absolute", inset: 0,
+                backgroundImage: `radial-gradient(${brand.accent}12 1px, transparent 1px)`,
+                backgroundSize: "14px 14px",
+              }} />
+
+              {/* Иконка */}
+              <div style={{
+                width: 42, height: 42, borderRadius: "50%",
+                background: `${brand.accent}20`,
+                border: `1.5px solid ${brand.accent}50`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                marginBottom: 10, position: "relative",
+              }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M17 8h1a4 4 0 0 1 0 8h-1" stroke={brand.accent} strokeWidth="1.8" strokeLinecap="round"/>
+                  <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z" stroke={brand.accent} strokeWidth="1.8" strokeLinecap="round"/>
+                  <path d="M6 1v3M10 1v3M14 1v3" stroke={brand.accent} strokeWidth="1.8" strokeLinecap="round"/>
+                </svg>
+              </div>
+
+              {/* Название */}
+              <div style={{
+                fontFamily: "Georgia, serif",
+                fontSize: 15,
+                fontWeight: 700,
+                color: brand.accent,
+                letterSpacing: "0.12em",
+                textAlign: "center",
+                lineHeight: 1.2,
+                position: "relative",
+                textShadow: `0 0 20px ${brand.accent}60`,
+              }}>
+                {brand.name.split(" ").map((w, i) => (
+                  <div key={i}>{w}</div>
+                ))}
+              </div>
+
+              {/* Разделитель */}
+              <div style={{
+                width: 32, height: 1,
+                background: `${brand.stripe}60`,
+                margin: "8px 0",
+                position: "relative",
+              }} />
+
+              {/* Подпись */}
+              <div style={{
+                fontFamily: "monospace",
+                fontSize: 8,
+                color: `${brand.stripe}90`,
+                letterSpacing: "0.15em",
+                textAlign: "center",
+                position: "relative",
+              }}>
+                {brand.sub}
+              </div>
+
+              {/* Тег обжарки */}
+              <div style={{
+                marginTop: 8,
+                padding: "2px 8px",
+                borderRadius: 99,
+                background: `${brand.accent}20`,
+                border: `1px solid ${brand.accent}40`,
+                fontFamily: "monospace",
+                fontSize: 7,
+                color: brand.stripe,
+                letterSpacing: "0.1em",
+                position: "relative",
+              }}>
+                {brand.roast}
+              </div>
+            </div>
+
+            {/* Низ пачки — складка */}
+            <div style={{
+              position: "absolute", bottom: 0, left: 10, right: 10, height: 24,
+              background: brand.sideColor,
+              borderRadius: "0 0 12px 12px",
+              borderTop: `1px solid ${brand.accent}15`,
+            }}>
+              <div style={{
+                position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+                fontFamily: "monospace", fontSize: 7,
+                color: `${brand.accent}50`, letterSpacing: "0.2em",
+              }}>250г</div>
+            </div>
+
+            {/* Блик */}
+            <div style={{
+              position: "absolute", top: 40, left: 16, width: 6, height: 100,
+              background: "linear-gradient(to bottom, rgba(255,255,255,0.08), transparent)",
+              borderRadius: 4, transform: "rotate(5deg)",
+            }} />
           </div>
 
-          {/* Название */}
-          <p
-            className="font-serif text-lg font-bold tracking-wider text-center leading-tight"
-            style={{ color: brand.accent }}
+          {/* ── Правая боковая грань ── */}
+          <div
+            style={{
+              position: "absolute",
+              width: D,
+              height: H,
+              left: W,
+              top: 0,
+              background: `linear-gradient(to right, ${brand.sideColor}, ${brand.bagColor}aa)`,
+              transform: `rotateY(90deg) translateZ(${D / 2}px) translateX(-${D / 2}px)`,
+              transformOrigin: "left center",
+              backfaceVisibility: "hidden",
+              borderRadius: "0 10px 8px 0",
+              boxShadow: `inset -4px 0 12px rgba(0,0,0,0.5)`,
+            }}
           >
-            {brand.name}
-          </p>
-          <p className="text-[9px] font-mono opacity-50 text-white tracking-widest text-center">
-            {brand.sub}
-          </p>
-
-          {/* Тег обжарки */}
-          <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full mt-1 ${brand.tag}`}>
-            {brand.roast}
-          </span>
-
-          {/* Вес и цветные точки */}
-          <div className="flex items-center justify-between w-full mt-2 px-1">
-            <span className="text-[10px] font-mono text-white/30">{brand.weight}</span>
-            <div className="flex gap-1">
-              {brand.dot.map((c, i) => (
-                <div key={i} className="w-2 h-2 rounded-full" style={{ background: c }} />
-              ))}
+            {/* Вертикальная надпись на боку */}
+            <div style={{
+              position: "absolute", top: "50%", left: "50%",
+              transform: "translate(-50%, -50%) rotate(90deg)",
+              fontFamily: "monospace", fontSize: 7,
+              color: `${brand.accent}40`, letterSpacing: "0.25em",
+              whiteSpace: "nowrap",
+            }}>
+              KONTRAKTKAFE · {brand.roast}
             </div>
           </div>
-        </div>
 
-        {/* Блик */}
-        <div
-          className="absolute top-14 left-5 w-3 h-20 rounded-full opacity-10 rotate-6"
-          style={{ background: "linear-gradient(to bottom, white, transparent)" }}
-        />
+          {/* ── Верхняя грань ── */}
+          <div
+            style={{
+              position: "absolute",
+              width: W,
+              height: D,
+              top: 0,
+              left: 0,
+              background: `linear-gradient(to bottom, ${brand.topColor}, ${brand.sideColor})`,
+              transform: `rotateX(90deg) translateZ(${D / 2}px) translateY(-${D / 2}px)`,
+              transformOrigin: "top center",
+              backfaceVisibility: "hidden",
+              borderRadius: "10px 10px 0 0",
+              boxShadow: `inset 0 -4px 12px rgba(0,0,0,0.3)`,
+            }}
+          />
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ── Главный компонент ─────────────────────────────────────────
 
@@ -138,7 +284,6 @@ const HeroSection = () => {
   const [paused,  setPaused]  = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Автосмена
   useEffect(() => {
     if (paused) return;
     timerRef.current = setTimeout(() => {
@@ -197,11 +342,11 @@ const HeroSection = () => {
             </div>
           </div>
 
-          {/* ── Правая колонка — вращающаяся пачка ── */}
-          <div className="relative scroll-reveal flex justify-center" data-delay="150">
+          {/* ── Правая колонка — 3D пачка ── */}
+          <div className="relative scroll-reveal flex flex-col items-center" data-delay="150">
 
-            {/* Floating badge — партия */}
-            <div className="absolute -left-2 top-8 glass rounded-2xl px-4 py-3 shadow-lg z-20">
+            {/* Badge — партия */}
+            <div className="absolute left-0 top-8 glass rounded-2xl px-4 py-3 shadow-lg z-20">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                 <span className="text-xs font-semibold">Партия готова</span>
@@ -209,8 +354,8 @@ const HeroSection = () => {
               <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">ЗАКАЗ #2847 · 200 кг</p>
             </div>
 
-            {/* Floating badge — рост */}
-            <div className="absolute -right-2 bottom-12 glass rounded-2xl px-4 py-3 shadow-lg z-20">
+            {/* Badge — рост */}
+            <div className="absolute right-0 bottom-16 glass rounded-2xl px-4 py-3 shadow-lg z-20">
               <div className="flex items-center gap-2 mb-1">
                 <Icon name="TrendingUp" size={14} className="text-primary" />
                 <span className="text-xs font-semibold">Рост продаж</span>
@@ -218,68 +363,81 @@ const HeroSection = () => {
               <p className="text-[10px] text-muted-foreground font-mono">+38% после запуска бренда</p>
             </div>
 
-            {/* ── Пачка — слот V2 ── */}
+            {/* ── Слот V2: здесь заменить на видео ── */}
+            <style>{`
+              @keyframes bagFloat {
+                0%,100% { transform: translateY(0px); }
+                50%     { transform: translateY(-14px); }
+              }
+              .bag-scene { animation: bagFloat 8s ease-in-out infinite; }
+              .bag-scene.paused { animation-play-state: paused; }
+            `}</style>
+
             <a
               href="#calculator"
-              className="relative block"
+              className="relative flex flex-col items-center cursor-pointer"
               onMouseEnter={() => setPaused(true)}
               onMouseLeave={() => setPaused(false)}
               onTouchStart={() => setPaused((p) => !p)}
               title="Собрать свою пачку"
             >
-              {/* Мягкое свечение под пачкой */}
+              {/* Свечение под пачкой */}
               <div
-                className="absolute bottom-4 left-1/2 -translate-x-1/2 w-36 h-10 rounded-full blur-2xl transition-all duration-1000 opacity-40"
-                style={{ background: BRANDS[current].accent }}
+                className="absolute bottom-6 left-1/2 -translate-x-1/2 w-40 h-12 rounded-full blur-3xl transition-all duration-1000"
+                style={{ background: BRANDS[current].accent, opacity: 0.25 }}
               />
 
-              {/* Анимация покачивания пачки */}
-              <style>{`
-                @keyframes bagFloat {
-                  0%,100% { transform: translateY(0px) rotate(-1.5deg); }
-                  50%     { transform: translateY(-12px) rotate(1.5deg); }
-                }
-                .bag-float {
-                  animation: bagFloat 9s ease-in-out infinite;
-                }
-                .bag-float:hover,
-                .bag-float.paused {
-                  animation-play-state: paused;
-                }
-              `}</style>
-
-              {/* Контейнер пачки */}
-              <div className={`relative w-52 h-72 bag-float ${paused ? "paused" : ""}`}>
+              {/* 3D пачка */}
+              <div className={`bag-scene ${paused ? "paused" : ""} relative`} style={{ width: 220, height: 290 }}>
                 {BRANDS.map((b, i) => (
-                  <CoffeeBag key={b.name} brand={b} visible={i === current} />
+                  <CoffeePack key={b.name} brand={b} opacity={i === current ? 1 : 0} />
                 ))}
-              </div>
 
-              {/* Подпись при hover */}
-              <div className={`absolute inset-0 flex items-center justify-center rounded-[28px] transition-all duration-300 ${paused ? "opacity-100" : "opacity-0"}`}>
-                <div className="bg-black/60 backdrop-blur-sm rounded-2xl px-4 py-2.5 flex items-center gap-2 text-white text-xs font-medium shadow-xl">
-                  <Icon name="ArrowRight" size={13} />
-                  Собрать свою пачку
+                {/* Hover — оверлей CTA */}
+                <div className={`absolute inset-0 flex items-end justify-center pb-4 transition-opacity duration-300 ${paused ? "opacity-100" : "opacity-0"}`}>
+                  <div className="bg-black/65 backdrop-blur-sm rounded-xl px-4 py-2 flex items-center gap-1.5 text-white text-xs font-medium">
+                    <Icon name="ArrowRight" size={12} />
+                    Собрать свою пачку
+                  </div>
                 </div>
               </div>
 
-              {/* Точки-индикаторы бренда */}
-              <div className="flex justify-center gap-2 mt-5">
+              {/* Точки */}
+              <div className="flex gap-2 mt-4">
                 {BRANDS.map((b, i) => (
                   <button
                     key={b.name}
-                    onClick={(e) => { e.preventDefault(); setCurrent(i); setPaused(true); setTimeout(() => setPaused(false), 4000); }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setCurrent(i);
+                      setPaused(true);
+                      setTimeout(() => setPaused(false), 5000);
+                    }}
                     className="w-2 h-2 rounded-full transition-all duration-300"
                     style={{
-                      background: i === current ? b.accent : "#ffffff30",
-                      transform: i === current ? "scale(1.4)" : "scale(1)",
+                      background: i === current ? b.accent : "#88888840",
+                      transform: i === current ? "scale(1.5)" : "scale(1)",
                     }}
                   />
                 ))}
               </div>
-            </a>
 
+              {/* Название бренда под пачкой */}
+              <div className="mt-3 text-center" style={{ minHeight: 32 }}>
+                {BRANDS.map((b, i) => (
+                  <div
+                    key={b.name}
+                    className="absolute left-1/2 -translate-x-1/2 transition-all duration-700"
+                    style={{ opacity: i === current ? 1 : 0, transform: `translateX(-50%) translateY(${i === current ? 0 : 6}px)` }}
+                  >
+                    <p className="text-xs font-serif font-semibold" style={{ color: b.accent }}>{b.name}</p>
+                    <p className="text-[10px] font-mono text-muted-foreground mt-0.5">{b.sub}</p>
+                  </div>
+                ))}
+              </div>
+            </a>
           </div>
+
         </div>
       </div>
     </section>
