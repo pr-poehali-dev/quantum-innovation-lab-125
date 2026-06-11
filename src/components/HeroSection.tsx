@@ -119,7 +119,7 @@ const HeroSection = () => {
             <h1 className="font-serif text-5xl md:text-6xl lg:text-[4.2rem] leading-[1.05] font-bold">
               Ваш бренд кофе —<br />
               <span className="text-primary">от зерна</span><br />
-              до полки.
+              до пачки.
             </h1>
             <p className="text-muted-foreground text-lg max-w-md leading-relaxed">
               Обжарка, упаковка и логистика под вашей торговой маркой. Для кофеен, ресторанов, отелей и вендинга.

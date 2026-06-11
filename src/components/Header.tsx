@@ -39,7 +39,7 @@ const TypewriterLogo = () => {
         />
       </span>
       <span className="text-[10px] font-mono text-muted-foreground tracking-widest mt-0.5 uppercase">
-        от зерна до пачки
+        производство стм полного цикла
       </span>
     </div>
   );
