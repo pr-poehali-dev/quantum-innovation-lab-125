@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
+import { useLeadModal } from "@/context/LeadModalContext";
 
 const NAV_ITEMS = [
   { label: "Возможности", href: "#features", section: "features" },
@@ -47,6 +48,7 @@ const TypewriterLogo = () => {
 const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState("");
+  const { openModal } = useLeadModal();
 
   useEffect(() => {
     const onScroll = () => {
@@ -125,7 +127,7 @@ const Header = () => {
               <Icon name="User" size={14} />
               <span className="hidden sm:inline">Личный кабинет</span>
             </Link>
-            <button className="bg-primary text-primary-foreground px-5 py-2.5 rounded-full text-sm font-medium hover:bg-primary/90 transition-all hover:shadow-md hover:shadow-primary/25 active:scale-95">
+            <button onClick={openModal} className="bg-primary text-primary-foreground px-5 py-2.5 rounded-full text-sm font-medium hover:bg-primary/90 transition-all hover:shadow-md hover:shadow-primary/25 active:scale-95">
               Получить предложение
             </button>
           </div>

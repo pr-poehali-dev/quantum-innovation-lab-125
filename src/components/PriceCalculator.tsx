@@ -1,5 +1,106 @@
 import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
+import { useLeadModal } from "@/context/LeadModalContext";
+
+// ── AI-подсказки для каждого шага ─────────────────────────────
+
+const AI_HINTS: Record<number, { q: string; a: string }[]> = {
+  0: [
+    { q: "Что выбрать для кофейни?",    a: "Для кофейни — «Эспрессо». Это зерно под кофемашину: оптимальный помол, профиль обжарки под лонг-блэк и капучино." },
+    { q: "Чем вендинг отличается?",     a: "Вендинг — зерно для автоматов. Обычно более тёмная обжарка и чуть крупнее помол. Мы подстраиваем под модель вашего автомата." },
+    { q: "Что значит «розничная полка»?", a: "Это кофе для продажи в магазинах или на маркетплейсах. Здесь важна упаковка с составом, штрихкод и сроки. Мы всё оформим." },
+  ],
+  1: [
+    { q: "Что вкуснее — Бразилия или Колумбия?", a: "Бразилия — базовый шоколадно-ореховый вкус, хорошо подходит для эспрессо. Колумбия — ярче, с карамелью и лёгкой кислотностью. Для большинства кофеен берут Бразилию или купаж." },
+    { q: "Что такое «своя смесь»?",       a: "Мы подбираем состав под ваш запрос: нужна яркость — добавим Эфиопию, нужен баланс — Бразилия + Колумбия. Обсудим при звонке." },
+    { q: "Что выбрать для первого заказа?", a: "Для первого заказа рекомендуем Бразилию — это базовая цена, нейтральный вкусовой профиль, который нравится большинству гостей." },
+  ],
+  2: [
+    { q: "Какую обжарку взять для кофейни?", a: "Средняя — универсальный выбор: подходит и для эспрессо, и для фильтра. Светлая — для specialty-кофеен с кислотностью. Тёмная — для вендинга и классического эспрессо." },
+    { q: "Влияет ли обжарка на цену?",      a: "Нет, степень обжарки не меняет цену. Это ваш вкусовой профиль." },
+  ],
+  3: [
+    { q: "Зерно или молотый — что лучше?", a: "Зерно дольше хранится и раскрывает вкус свежим помолом. Молотый удобнее для фильтр-пакетов или если нет кофемолки. Для кофеен — только зерно." },
+    { q: "Какую фасовку взять?",           a: "250г — для кофеен и ретейла: покупатель платит меньше за вход. 1кг — для HoReCa и оптовых клиентов, дешевле в пересчёте на кг." },
+  ],
+  4: [
+    { q: "Что входит в «премиум»?",        a: "Премиум — фольгированный пакет с клапаном дегазации, дизайнерская этикетка с ламинацией, тиснение или спецэффекты. Создаёт ощущение дорогого продукта." },
+    { q: "Крафт — это дёшево выглядит?",   a: "Нет! Крафт сейчас на пике тренда в specialty-сегменте. Выглядит экологично и премиально. Многие топовые обжарщики используют именно крафт." },
+    { q: "С какой упаковки начать?",       a: "Для старта рекомендуем «С логотипом» — ваш бренд на пакете + хорошая защита. Оптимальное соотношение цены и впечатления." },
+  ],
+  5: [
+    { q: "У меня нет дизайнера — что делать?", a: "Выберите «Нужен дизайн» — мы разработаем концепцию этикетки под ваш бренд. Включает 2 варианта и правки." },
+    { q: "Что значит «бренд с нуля»?",        a: "Это полный брендинг: название, логотип, фирменный стиль, упаковка. Сейчас доступно под запрос — скоро запустим AI-генерацию (V2)." },
+  ],
+  6: [
+    { q: "С какого объёма начать?",        a: "100 кг — хороший старт: проверяете спрос, не замораживаете большой бюджет. 300+ кг — уже со скидкой 5%, оптимально для стабильного бизнеса." },
+    { q: "Есть ли скидки за объём?",       a: "Да: от 200 кг — скидка 5%, от 500 кг — скидка 10%. Действует автоматически, видно в итоговой сумме справа." },
+  ],
+};
+
+// ── Компонент AI-подсказок ─────────────────────────────────────
+
+const AiHint = ({ step }: { step: number }) => {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState<number | null>(null);
+  const hints = AI_HINTS[step] ?? [];
+
+  if (hints.length === 0) return null;
+
+  return (
+    <div className="mt-4">
+      <button
+        onClick={() => { setOpen(o => !o); setActive(null); }}
+        className={`flex items-center gap-2 text-xs font-medium px-3.5 py-2 rounded-full border transition-all ${
+          open
+            ? "bg-primary/8 border-primary/30 text-primary"
+            : "border-border text-muted-foreground hover:border-primary/30 hover:text-primary hover:bg-primary/5"
+        }`}
+      >
+        <Icon name="Sparkles" size={13} />
+        Помочь с выбором
+        <Icon name={open ? "ChevronUp" : "ChevronDown"} size={12} />
+      </button>
+
+      {open && (
+        <div className="mt-3 bg-secondary/40 border border-border rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-border/60 flex items-center gap-2">
+            <div className="w-5 h-5 rounded-full bg-primary/15 flex items-center justify-center">
+              <Icon name="Bot" size={11} className="text-primary" />
+            </div>
+            <span className="text-[11px] font-semibold text-muted-foreground">AI-помощник · частые вопросы</span>
+          </div>
+
+          <div className="p-3 space-y-2">
+            {hints.map((h, i) => (
+              <div key={i}>
+                <button
+                  onClick={() => setActive(active === i ? null : i)}
+                  className={`w-full text-left flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-sm transition-all ${
+                    active === i
+                      ? "bg-primary/8 border border-primary/20 text-primary font-medium"
+                      : "bg-card border border-border hover:border-primary/30 hover:bg-primary/4"
+                  }`}
+                >
+                  <span>{h.q}</span>
+                  <Icon name={active === i ? "ChevronUp" : "ChevronDown"} size={13} className="flex-shrink-0 text-muted-foreground" />
+                </button>
+                {active === i && (
+                  <div className="mt-1.5 px-4 py-3 bg-primary/5 border border-primary/15 rounded-xl text-sm leading-relaxed text-foreground">
+                    <div className="flex gap-2">
+                      <Icon name="Bot" size={14} className="text-primary flex-shrink-0 mt-0.5" />
+                      <span>{h.a}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const STEPS = [
   { id: "usage",     label: "Назначение", icon: "Target"    },
@@ -153,6 +254,7 @@ const PriceCalculator = () => {
   const total       = Math.round(volume * pricePerKg * (1 - discount));
   const leadTime    = volume <= 200 ? 14 : volume <= 500 ? 18 : 25;
   const isLast      = step === STEPS.length - 1;
+  const { openModal } = useLeadModal();
 
   const goNext = () => { if (canNext() && !isLast) setStep(s => s + 1); };
 
@@ -391,6 +493,10 @@ const PriceCalculator = () => {
                   )}
 
                 </StepContent>
+
+                {/* AI-подсказки */}
+                <AiHint step={step} />
+
               </div>
 
               {/* Навигация */}
@@ -406,7 +512,7 @@ const PriceCalculator = () => {
                     Далее <Icon name="ArrowRight" size={14} />
                   </button>
                 ) : (
-                  <button className="flex items-center gap-1.5 px-6 py-2 rounded-full text-sm bg-accent text-accent-foreground font-bold hover:bg-accent/90 transition-all shadow-md shadow-accent/20">
+                  <button onClick={openModal} className="flex items-center gap-1.5 px-6 py-2 rounded-full text-sm bg-accent text-accent-foreground font-bold hover:bg-accent/90 transition-all shadow-md shadow-accent/20">
                     <Icon name="Send" size={14} /> Отправить бриф
                   </button>
                 )}
