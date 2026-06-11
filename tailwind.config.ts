@@ -17,6 +17,11 @@ export default {
 				'2xl': '1400px'
 			}
 		},
+		fontFamily: {
+			sans: ['Inter', 'system-ui', 'sans-serif'],
+			serif: ['Manrope', 'Georgia', 'serif'],
+			mono: ['JetBrains Mono', 'Menlo', 'monospace'],
+		},
 		extend: {
 			colors: {
 				border: 'hsl(var(--border))',
