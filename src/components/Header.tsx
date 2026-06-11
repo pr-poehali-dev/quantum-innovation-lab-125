@@ -9,6 +9,41 @@ const NAV_ITEMS = [
   { label: "Калькулятор", href: "#calculator", section: "calculator" },
 ];
 
+const FULL_TEXT = "КонтрактКофе";
+const TYPING_SPEED = 90;
+
+const TypewriterLogo = () => {
+  const [displayed, setDisplayed] = useState("");
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (displayed.length < FULL_TEXT.length) {
+      const t = setTimeout(() => {
+        setDisplayed(FULL_TEXT.slice(0, displayed.length + 1));
+      }, TYPING_SPEED);
+      return () => clearTimeout(t);
+    } else {
+      setDone(true);
+    }
+  }, [displayed]);
+
+  return (
+    <div className="flex flex-col leading-none">
+      <span className="font-serif text-[15px] font-bold tracking-tight text-foreground flex items-center">
+        {displayed}
+        <span
+          className={`inline-block w-[2px] h-[15px] bg-primary ml-[2px] align-middle ${
+            done ? "animate-blink" : "opacity-100"
+          }`}
+        />
+      </span>
+      <span className="text-[10px] font-mono text-muted-foreground tracking-widest mt-0.5 uppercase">
+        от зерна до полки
+      </span>
+    </div>
+  );
+};
+
 const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState("");
@@ -17,17 +52,11 @@ const Header = () => {
     const onScroll = () => {
       setScrolled(window.scrollY > 20);
 
-      // определяем активную секцию
-      const sections = NAV_ITEMS.map((item) => ({
-        id: item.section,
-        el: document.getElementById(item.section),
-      }));
-
       let current = "";
-      for (const { id, el } of sections) {
+      for (const item of NAV_ITEMS) {
+        const el = document.getElementById(item.section);
         if (!el) continue;
-        const rect = el.getBoundingClientRect();
-        if (rect.top <= 100) current = id;
+        if (el.getBoundingClientRect().top <= 100) current = item.section;
       }
       setActiveSection(current);
     };
@@ -38,23 +67,36 @@ const Header = () => {
 
   return (
     <>
+      <style>{`
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+        .animate-blink {
+          animation: blink 1s step-end infinite;
+        }
+      `}</style>
+
       <div id="read-progress" />
       <header
         className={`sticky top-0 z-50 transition-all duration-300 border-b border-border/40 ${
           scrolled ? "glass shadow-sm" : "bg-background/95 backdrop-blur"
         }`}
       >
-        <div className="max-w-7xl mx-auto px-6 py-3.5 flex items-center justify-between">
-          {/* Логотип */}
-          <Link to="/" className="flex items-center gap-2.5 group flex-shrink-0">
-            <img
-              src="https://cdn.poehali.dev/projects/9054c912-be91-4f90-8cab-0a91d0d7eafe/bucket/1fea491b-de88-4f80-b66b-333fd9211c44.png"
-              alt="КонтрактКофе"
-              className="h-9 w-auto object-contain group-hover:opacity-80 transition-opacity"
-            />
+        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+
+          {/* Логотип — динамический текст */}
+          <Link to="/" className="flex items-center gap-2.5 group flex-shrink-0" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
+            <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform shadow-sm">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M2 4h10v1.5C12 9 9.5 11 7 11S2 9 2 5.5V4z" fill="white" opacity="0.9"/>
+                <path d="M10 4c0-1 1.5-1 1.5 0v1.5" stroke="white" strokeWidth="1.2" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <TypewriterLogo />
           </Link>
 
-          {/* Навигация с подсветкой активной секции */}
+          {/* Навигация */}
           <nav className="hidden md:flex items-center gap-1">
             {NAV_ITEMS.map((item) => {
               const isActive = activeSection === item.section;
@@ -72,10 +114,6 @@ const Header = () => {
                     <span className="absolute inset-0 rounded-full bg-primary/8 border border-primary/20" />
                   )}
                   <span className="relative">{item.label}</span>
-                  {/* подчёркивание при hover (только если не активный) */}
-                  {!isActive && (
-                    <span className="absolute bottom-0.5 left-3 w-0 h-0.5 bg-primary transition-all duration-200 group-hover:w-[calc(100%-24px)] rounded-full" />
-                  )}
                 </a>
               );
             })}
