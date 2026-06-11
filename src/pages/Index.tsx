@@ -2,11 +2,11 @@ import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
 import WorkflowSection from "@/components/WorkflowSection";
 import FeaturesSection from "@/components/FeaturesSection";
-import PricingSection from "@/components/PricingSection";
 import TestimonialsSection from "@/components/TestimonialsSection";
 import CTASection from "@/components/CTASection";
 import PriceCalculator from "@/components/PriceCalculator";
 import Footer from "@/components/Footer";
+import AiChat from "@/components/AiChat";
 import { useScrollReveal, useReadProgress } from "@/hooks/useScrollReveal";
 
 const Index = () => {
@@ -20,10 +20,10 @@ const Index = () => {
       <FeaturesSection />
       <WorkflowSection />
       <PriceCalculator />
-      <PricingSection />
       <TestimonialsSection />
       <CTASection />
       <Footer />
+      <AiChat />
     </main>
   );
 };

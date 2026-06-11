@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import Icon from "@/components/ui/icon";
 
 const NAV_ITEMS = [
   { label: "Возможности", href: "#features", section: "features" },
   { label: "Как работает", href: "#workflow", section: "workflow" },
-  { label: "Тарифы", href: "#pricing", section: "pricing" },
   { label: "Клиенты", href: "#testimonials", section: "testimonials" },
   { label: "Калькулятор", href: "#calculator", section: "calculator" },
 ];
@@ -119,9 +119,16 @@ const Header = () => {
             })}
           </nav>
 
-          <button className="bg-primary text-primary-foreground px-5 py-2.5 rounded-full text-sm font-medium hover:bg-primary/90 transition-all hover:shadow-md hover:shadow-primary/25 active:scale-95 flex-shrink-0">
-            Получить предложение
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Кнопка личного кабинета */}
+            <button className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium border border-border hover:bg-secondary hover:border-primary/30 transition-all">
+              <Icon name="User" size={14} />
+              <span className="hidden sm:inline">Личный кабинет</span>
+            </button>
+            <button className="bg-primary text-primary-foreground px-5 py-2.5 rounded-full text-sm font-medium hover:bg-primary/90 transition-all hover:shadow-md hover:shadow-primary/25 active:scale-95">
+              Получить предложение
+            </button>
+          </div>
         </div>
       </header>
     </>
