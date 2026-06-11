@@ -58,42 +58,36 @@ const AiChat = () => {
     <>
       {/* Кнопка открытия */}
       <style>{`
-        @keyframes chatPulse {
-          0% { transform: scale(1); opacity: 0.5; }
-          70% { transform: scale(1.9); opacity: 0; }
-          100% { transform: scale(1.9); opacity: 0; }
+        @keyframes dotPulse {
+          0%, 89% { transform: scale(1); opacity: 1; }
+          90% { transform: scale(2.2); opacity: 0.4; }
+          100% { transform: scale(1); opacity: 1; }
         }
-        @keyframes chatPulse2 {
-          0% { transform: scale(1); opacity: 0.3; }
-          70% { transform: scale(2.4); opacity: 0; }
-          100% { transform: scale(2.4); opacity: 0; }
+        .dot-pulse {
+          animation: dotPulse 10s ease-out infinite;
         }
-        .chat-pulse-ring1 {
-          animation: chatPulse 2.8s ease-out infinite;
+        .chat-btn:hover {
+          animation: chatBounce 0.4s ease;
         }
-        .chat-pulse-ring2 {
-          animation: chatPulse2 2.8s ease-out 0.5s infinite;
+        @keyframes chatBounce {
+          0%   { transform: scale(1); }
+          35%  { transform: scale(1.12) translateY(-3px); }
+          65%  { transform: scale(0.96) translateY(1px); }
+          100% { transform: scale(1) translateY(0); }
         }
       `}</style>
 
       <button
         onClick={() => setOpen(o => !o)}
-        className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-xl hover:shadow-primary/30 hover:scale-105 transition-all flex items-center justify-center"
+        className="chat-btn fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-xl hover:shadow-primary/30 transition-all flex items-center justify-center"
         aria-label="Открыть чат"
       >
-        {/* Пульсирующие кольца — только когда чат закрыт */}
-        {!open && (
-          <>
-            <span className="chat-pulse-ring1 absolute inset-0 rounded-full bg-primary" />
-            <span className="chat-pulse-ring2 absolute inset-0 rounded-full bg-primary" />
-          </>
-        )}
         {open
           ? <Icon name="X" size={22} />
           : <Icon name="MessageCircle" size={22} />
         }
         {!open && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-background" />
+          <span className="dot-pulse absolute -top-1 -right-1 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-background" />
         )}
       </button>
 
