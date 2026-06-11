@@ -1,5 +1,15 @@
 import Icon from "@/components/ui/icon";
 
+const STEPS_PREVIEW = [
+  { icon: "Target",   label: "Назначение" },
+  { icon: "Leaf",     label: "Зерно"      },
+  { icon: "Flame",    label: "Обжарка"    },
+  { icon: "Package",  label: "Формат"     },
+  { icon: "Box",      label: "Упаковка"   },
+  { icon: "Palette",  label: "Дизайн"     },
+  { icon: "BarChart2",label: "Объём"      },
+];
+
 const HeroSection = () => {
   return (
     <section className="relative overflow-hidden bg-background">
@@ -11,13 +21,9 @@ const HeroSection = () => {
 
       <div className="max-w-7xl mx-auto px-6 pt-16 pb-24 relative">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
+
           {/* Left content */}
           <div className="space-y-7 scroll-reveal-left">
-            <div className="inline-flex items-center gap-2 text-xs font-mono text-primary border border-primary/20 bg-primary/5 rounded-full px-4 py-1.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              ПОЛНЫЙ ЦИКЛ ПРОИЗВОДСТВА КОНТРАКТКОФЕ
-            </div>
-
             <h1 className="font-serif text-5xl md:text-6xl lg:text-[4.2rem] leading-[1.05] font-bold">
               Ваш бренд кофе —<br />
               <span className="text-primary">от зерна</span><br />
@@ -44,9 +50,9 @@ const HeroSection = () => {
 
             <div className="flex gap-8 pt-2 border-t border-border">
               {[
-                { val: "500+", label: "КЛИЕНТОВ" },
-                { val: "14 дней", label: "ДО ПЕРВОЙ ПАРТИИ" },
-                { val: "от 50 кг", label: "МИН. ЗАКАЗ" },
+                { val: "500+",    label: "КЛИЕНТОВ"        },
+                { val: "14 дней", label: "ДО ПЕРВОЙ ПАРТИИ"},
+                { val: "от 50 кг",label: "МИН. ЗАКАЗ"      },
               ].map((s) => (
                 <div key={s.label}>
                   <p className="font-serif text-2xl font-semibold text-foreground">{s.val}</p>
@@ -56,18 +62,19 @@ const HeroSection = () => {
             </div>
           </div>
 
-          {/* Right visual */}
+          {/* Right — калькулятор-превью */}
           <div className="relative scroll-reveal" data-delay="150">
-            {/* Floating accent cards */}
-            <div className="absolute -left-6 top-12 glass rounded-2xl px-4 py-3 shadow-lg z-10 border-border/50">
+
+            {/* Floating badges */}
+            <div className="absolute -left-5 top-10 glass rounded-2xl px-4 py-3 shadow-lg z-10">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-xs font-semibold">Партия готова к отгрузке</span>
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-xs font-semibold">Бриф готов</span>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">ЗАКАЗ #2847 · 200 кг</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">7 шагов · 3 мин</p>
             </div>
 
-            <div className="absolute -right-4 bottom-16 glass rounded-2xl px-4 py-3 shadow-lg z-10 border-border/50">
+            <div className="absolute -right-4 bottom-14 glass rounded-2xl px-4 py-3 shadow-lg z-10">
               <div className="flex items-center gap-2 mb-1">
                 <Icon name="TrendingUp" size={14} className="text-primary" />
                 <span className="text-xs font-semibold">Рост продаж</span>
@@ -75,63 +82,84 @@ const HeroSection = () => {
               <p className="text-[10px] text-muted-foreground font-mono">+38% после запуска бренда</p>
             </div>
 
-            {/* Main mockup */}
-            <div className="relative bg-gradient-to-br from-secondary/80 to-secondary/40 rounded-3xl p-8 border border-border/60 shadow-xl">
-              <div className="flex justify-between text-[10px] font-mono text-muted-foreground mb-5">
-                <span>ПРОИЗВОДСТВО_КОНТРАКТКОФЕ</span>
-                <span className="text-primary">ПОЛНЫЙ_ЦИКЛ</span>
+            {/* Mockup калькулятора */}
+            <a
+              href="#calculator"
+              className="block relative bg-card rounded-3xl border border-border shadow-xl overflow-hidden hover:shadow-2xl hover:border-primary/30 transition-all duration-300 group"
+            >
+              {/* Шапка мокапа */}
+              <div className="bg-secondary/60 px-5 py-3 flex items-center justify-between border-b border-border">
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-border" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-border" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-border" />
+                  </div>
+                </div>
+                <span className="text-[10px] font-mono text-muted-foreground">ПРОИЗВОДСТВЕННЫЙ БРИФ</span>
+                <span className="text-[10px] font-mono text-primary">1 / 7</span>
               </div>
 
-              {/* Coffee bag mockup */}
-              <div className="bg-[#0f1e3d] rounded-2xl p-6 mx-auto max-w-xs shadow-2xl">
-                <div className="flex justify-between text-[8px] text-white/50 font-mono mb-4">
-                  <span>УПАКОВКА_КОНТРАКТКОФЕ</span>
-                  <span>ОБРАЗЕЦ</span>
-                </div>
-                <div className="bg-[#1a2f5e] rounded-xl p-5 text-center border border-white/10">
-                  <div className="w-16 h-16 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center mx-auto mb-3">
-                    <Icon name="Coffee" size={28} className="text-primary-foreground/80" />
-                  </div>
-                  <p className="text-white font-serif text-lg font-semibold">ВАШ БРЕНД</p>
-                  <p className="text-white/40 text-[10px] font-mono mt-1 tracking-widest">SPECIALTY COFFEE · BRASIL</p>
-                  <div className="flex justify-center gap-2 mt-4">
-                    {["250г", "500г", "1кг"].map((w) => (
-                      <div key={w} className="bg-white/10 rounded-full px-2.5 py-1">
-                        <span className="text-[9px] text-white/60 font-mono">{w}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="mt-4 flex items-center justify-between px-1">
-                  <span className="text-[9px] text-white/30 font-mono">ОБЖАРКА: MEDIUM</span>
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 rounded-full bg-primary" />
-                    <div className="w-2 h-2 rounded-full bg-accent" />
-                    <div className="w-2 h-2 rounded-full bg-white/20" />
-                  </div>
-                </div>
-              </div>
+              <div className="p-5">
+                {/* Заголовок шага */}
+                <p className="text-[10px] font-mono text-muted-foreground mb-0.5">ШАГ 01</p>
+                <p className="text-sm font-semibold mb-4">Для чего нужен кофе?</p>
 
-              {/* Progress steps */}
-              <div className="mt-5 grid grid-cols-4 gap-2">
-                {[
-                  { label: "Зерно", done: true },
-                  { label: "Обжарка", done: true },
-                  { label: "Упаковка", done: true },
-                  { label: "Доставка", done: false },
-                ].map((step) => (
-                  <div key={step.label} className="text-center">
+                {/* Варианты ответа */}
+                <div className="grid grid-cols-2 gap-2 mb-5">
+                  {[
+                    { icon: "Coffee",      label: "Эспрессо в кофейню", active: true  },
+                    { icon: "Droplets",    label: "Фильтр",             active: false },
+                    { icon: "Cpu",         label: "Вендинг",            active: false },
+                    { icon: "ShoppingBag", label: "Розничная полка",    active: false },
+                  ].map((o) => (
                     <div
-                      className={`h-1 rounded-full mb-1.5 ${step.done ? "bg-primary" : "bg-border"}`}
+                      key={o.label}
+                      className={`p-2.5 rounded-xl border text-left flex items-center gap-2 ${
+                        o.active
+                          ? "border-primary bg-primary/5"
+                          : "border-border bg-secondary/30"
+                      }`}
+                    >
+                      <Icon name={o.icon} fallback="Circle" size={13}
+                        className={o.active ? "text-primary" : "text-muted-foreground"} />
+                      <span className={`text-[11px] font-medium ${o.active ? "text-primary" : "text-muted-foreground"}`}>
+                        {o.label}
+                      </span>
+                      {o.active && (
+                        <div className="ml-auto w-3.5 h-3.5 rounded-full bg-primary flex items-center justify-center">
+                          <Icon name="Check" size={8} className="text-white" />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Прогресс шагов */}
+                <div className="flex gap-1 mb-4">
+                  {STEPS_PREVIEW.map((s, i) => (
+                    <div
+                      key={s.label}
+                      className={`flex-1 h-1 rounded-full ${i === 0 ? "bg-primary" : "bg-border"}`}
                     />
-                    <span className={`text-[9px] font-mono ${step.done ? "text-primary" : "text-muted-foreground"}`}>
-                      {step.label}
-                    </span>
+                  ))}
+                </div>
+
+                {/* Итог-строка */}
+                <div className="flex items-center justify-between bg-primary/5 border border-primary/15 rounded-xl px-3 py-2.5">
+                  <div>
+                    <p className="text-[10px] font-mono text-muted-foreground">ИТОГО</p>
+                    <p className="text-base font-serif font-bold text-primary">42 000 ₽</p>
                   </div>
-                ))}
+                  <div className="flex items-center gap-1 text-xs text-primary font-medium group-hover:gap-2 transition-all">
+                    Заполнить бриф
+                    <Icon name="ArrowRight" size={13} />
+                  </div>
+                </div>
               </div>
-            </div>
+            </a>
           </div>
+
         </div>
       </div>
     </section>
