@@ -57,11 +57,37 @@ const AiChat = () => {
   return (
     <>
       {/* Кнопка открытия */}
+      <style>{`
+        @keyframes chatPulse {
+          0% { transform: scale(1); opacity: 0.5; }
+          70% { transform: scale(1.9); opacity: 0; }
+          100% { transform: scale(1.9); opacity: 0; }
+        }
+        @keyframes chatPulse2 {
+          0% { transform: scale(1); opacity: 0.3; }
+          70% { transform: scale(2.4); opacity: 0; }
+          100% { transform: scale(2.4); opacity: 0; }
+        }
+        .chat-pulse-ring1 {
+          animation: chatPulse 2.8s ease-out infinite;
+        }
+        .chat-pulse-ring2 {
+          animation: chatPulse2 2.8s ease-out 0.5s infinite;
+        }
+      `}</style>
+
       <button
         onClick={() => setOpen(o => !o)}
         className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-xl hover:shadow-primary/30 hover:scale-105 transition-all flex items-center justify-center"
         aria-label="Открыть чат"
       >
+        {/* Пульсирующие кольца — только когда чат закрыт */}
+        {!open && (
+          <>
+            <span className="chat-pulse-ring1 absolute inset-0 rounded-full bg-primary" />
+            <span className="chat-pulse-ring2 absolute inset-0 rounded-full bg-primary" />
+          </>
+        )}
         {open
           ? <Icon name="X" size={22} />
           : <Icon name="MessageCircle" size={22} />
