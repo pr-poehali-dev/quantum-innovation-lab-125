@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,27 +6,27 @@
 
 @layer base {
   :root {
-    /* Warm color scheme matching original */
-    --background: 40 23% 95%; /* #f5f3ee */
-    --foreground: 0 0% 10%; /* #1a1a1a */
+    /* Coffee brand warm color scheme */
+    --background: 36 28% 95%; /* тёплый кремовый */
+    --foreground: 20 15% 12%; /* тёмно-коричневый */
 
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 10%;
+    --card: 36 20% 99%;
+    --card-foreground: 20 15% 12%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
+    --popover: 36 20% 99%;
+    --popover-foreground: 20 15% 12%;
 
-    --primary: 156 26% 26%; /* #2d4a3e */
-    --primary-foreground: 0 0% 100%;
+    --primary: 20 52% 28%; /* #5c2e0e — насыщенный кофейно-коричневый */
+    --primary-foreground: 36 28% 97%;
 
-    --secondary: 80 13% 91%; /* #e8ebe6 */
-    --secondary-foreground: 0 0% 10%;
+    --secondary: 36 18% 90%; /* #ede8e0 — тёплый бежевый */
+    --secondary-foreground: 20 15% 12%;
 
-    --muted: 80 13% 91%;
-    --muted-foreground: 220 9% 46%; /* #6b7280 */
+    --muted: 36 18% 90%;
+    --muted-foreground: 25 10% 48%;
 
-    --accent: 100 20% 80%; /* #c5d4c0 */
-    --accent-foreground: 0 0% 10%;
+    --accent: 30 40% 78%; /* #d4b896 — золотисто-кофейный */
+    --accent-foreground: 20 15% 12%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;

@@ -1,107 +1,102 @@
-import { ArrowRight } from "lucide-react";
+import Icon from "@/components/ui/icon";
 
 const HeroSection = () => {
   return (
     <section className="relative overflow-hidden">
-      {/* Main hero area */}
       <div className="max-w-7xl mx-auto px-6 pt-16 pb-24">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Left content */}
           <div className="space-y-6">
             <div className="inline-flex items-center gap-2 text-xs font-mono text-muted-foreground border border-border rounded-full px-3 py-1">
-              <span>AI-АССИСТЕНТ ДЛЯ ПОЧТЫ V2.0</span>
+              <span>ПОЛНЫЙ ЦИКЛ ПРОИЗВОДСТВА СТМ</span>
             </div>
 
             <h1 className="font-serif text-5xl md:text-6xl lg:text-7xl leading-[1.1] text-balance">
-              Письма, которые
+              Ваш бренд
               <br />
-              пишут себя сами.
+              кофе — от зерна
+              <br />
+              до полки.
             </h1>
 
             <p className="text-muted-foreground text-lg max-w-md">
-              Одна краткая мысль от вас. Идеальные, профессиональные ответы каждый раз.
+              Обжарка, упаковка и логистика под вашей торговой маркой. Для кофеен, ресторанов, отелей и вендинга.
             </p>
 
-            <button className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-full text-sm font-medium hover:bg-primary/90 transition-colors">
-              Попробовать бесплатно
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-full text-sm font-medium hover:bg-primary/90 transition-colors">
+                Рассчитать стоимость
+                <Icon name="ArrowRight" size={16} />
+              </button>
+              <button className="inline-flex items-center gap-2 border border-border px-6 py-3 rounded-full text-sm font-medium hover:bg-secondary transition-colors">
+                Смотреть образцы
+              </button>
+            </div>
+
+            <div className="flex gap-8 pt-2">
+              <div>
+                <p className="font-serif text-2xl">500+</p>
+                <p className="text-xs font-mono text-muted-foreground">КЛИЕНТОВ</p>
+              </div>
+              <div>
+                <p className="font-serif text-2xl">14 дней</p>
+                <p className="text-xs font-mono text-muted-foreground">ДО ПЕРВОЙ ПАРТИИ</p>
+              </div>
+              <div>
+                <p className="font-serif text-2xl">от 50 кг</p>
+                <p className="text-xs font-mono text-muted-foreground">МИНИМАЛЬНЫЙ ЗАКАЗ</p>
+              </div>
+            </div>
           </div>
 
           {/* Right visual */}
           <div className="relative">
-            {/* Interface mockup container */}
             <div className="relative bg-secondary/50 rounded-3xl p-8 border border-border/50">
-              {/* Top labels */}
               <div className="flex justify-between text-[10px] font-mono text-muted-foreground mb-4">
-                <span>№01 — ИНТЕРФЕЙС_АССИСТЕНТА</span>
-                <span>БЕЗОПАСНОЕ_СОЕДИНЕНИЕ</span>
+                <span>№01 — ПРОИЗВОДСТВО_СТМ</span>
+                <span>ПОЛНЫЙ_ЦИКЛ</span>
               </div>
 
               {/* Sticky note */}
-              <div className="absolute -left-4 top-20 bg-[#fffef0] p-3 rounded shadow-sm rotate-[-3deg] border border-amber-100 w-36">
-                <p className="text-xs font-mono text-foreground/80">ЗАМЕТКА</p>
-                <p className="text-sm font-serif italic mt-1">«Бюджета нет до Q2.»</p>
+              <div className="absolute -left-4 top-20 bg-[#fffef0] p-3 rounded shadow-sm rotate-[-3deg] border border-amber-100 w-40">
+                <p className="text-xs font-mono text-foreground/80">ЗАЯВКА</p>
+                <p className="text-sm font-serif italic mt-1">«Нужен эспрессо под наш бренд»</p>
               </div>
 
-              {/* Typewriter keyboard */}
-              <div className="bg-[#4a5d52] rounded-2xl p-6 my-6 mx-auto max-w-sm">
-                <div className="flex justify-between text-[8px] text-white/70 font-mono mb-2 px-2">
-                  <span>АВТОМАТИЧЕСКИЙ ЧЕРНОВИК</span>
-                  <span>ДАТА_ОТПРАВКИ</span>
+              {/* Coffee bag mockup */}
+              <div className="bg-[#2d1a0e] rounded-2xl p-6 my-6 mx-auto max-w-sm">
+                <div className="flex justify-between text-[8px] text-white/70 font-mono mb-4 px-2">
+                  <span>УПАКОВКА_СТМ</span>
+                  <span>ОБРАЗЕЦ</span>
                 </div>
-                <div className="text-[10px] text-white/80 font-mono mb-4 px-2">
-                  <p>Кому: Совет директоров</p>
-                  <p>Тема: Финансовое планирование Q2</p>
-                </div>
-                <div className="bg-[#3a4a42] rounded-xl p-3">
-                  <div className="grid grid-cols-10 gap-1">
-                    {["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"].map((key) => (
-                      <div
-                        key={key}
-                        className="w-5 h-5 bg-[#2a3a32] rounded text-[8px] text-white/60 flex items-center justify-center font-mono"
-                      >
-                        {key}
-                      </div>
-                    ))}
+                <div className="bg-[#3d2a1e] rounded-xl p-5 text-center">
+                  <div className="w-16 h-16 rounded-full bg-[#5d3a2e] flex items-center justify-center mx-auto mb-3">
+                    <Icon name="Coffee" size={28} className="text-amber-300" />
                   </div>
-                  <div className="grid grid-cols-10 gap-1 mt-1">
-                    {["Й", "Ц", "У", "К", "Е", "Н", "Г", "Ш", "Щ", "З"].map((key) => (
-                      <div
-                        key={key}
-                        className="w-5 h-5 bg-[#2a3a32] rounded text-[8px] text-white/60 flex items-center justify-center font-mono"
-                      >
-                        {key}
-                      </div>
-                    ))}
-                  </div>
-                  <div className="grid grid-cols-9 gap-1 mt-1 px-2">
-                    {["Ф", "Ы", "В", "А", "П", "Р", "О", "Л", "Д"].map((key) => (
-                      <div
-                        key={key}
-                        className="w-5 h-5 bg-[#2a3a32] rounded text-[8px] text-white/60 flex items-center justify-center font-mono"
-                      >
-                        {key}
+                  <p className="text-white font-serif text-lg">ВАШ БРЕНД</p>
+                  <p className="text-white/50 text-[10px] font-mono mt-1">SPECIALTY COFFEE · BRASIL</p>
+                  <div className="flex justify-center gap-2 mt-3">
+                    {["250г", "500г", "1кг"].map((w) => (
+                      <div key={w} className="bg-[#2d1a0e] rounded-full px-2 py-0.5">
+                        <span className="text-[9px] text-white/60 font-mono">{w}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               </div>
 
-              {/* Chat bubbles */}
+              {/* Status bubbles */}
               <div className="absolute -right-2 top-32 space-y-2">
                 <div className="bg-card border border-border rounded-xl p-3 shadow-sm max-w-[180px]">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-6 h-6 bg-secondary rounded-full" />
-                    <span className="text-xs font-medium">Иван Петров</span>
-                    <span className="text-[10px] text-muted-foreground">ДИРЕКТОР</span>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <span className="text-xs font-mono text-muted-foreground">СТАТУС</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">Добрый день,</p>
+                  <p className="text-xs font-medium">Партия обжарена</p>
                 </div>
-
                 <div className="bg-card border border-border rounded-xl p-3 shadow-sm max-w-[200px]">
                   <p className="text-xs text-muted-foreground">
-                    Спасибо за информацию. Мы понимаем ограничения по бюджету и вернёмся к этому...
+                    Упаковка с вашим логотипом готова к отгрузке...
                   </p>
                 </div>
               </div>

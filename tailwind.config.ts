@@ -19,7 +19,7 @@ export default {
 		},
 		fontFamily: {
 			sans: ['Inter', 'system-ui', 'sans-serif'],
-			serif: ['Manrope', 'Georgia', 'serif'],
+			serif: ['Playfair Display', 'Georgia', 'serif'],
 			mono: ['JetBrains Mono', 'Menlo', 'monospace'],
 		},
 		extend: {

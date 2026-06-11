@@ -1,8 +1,9 @@
-import { Check } from "lucide-react";
+import Icon from "@/components/ui/icon";
 
 interface PricingTier {
   name: string;
   price: string;
+  unit: string;
   description: string;
   features: string[];
   popular?: boolean;
@@ -11,39 +12,42 @@ interface PricingTier {
 const tiers: PricingTier[] = [
   {
     name: "СТАРТ",
-    price: "1 490 ₽",
-    description: "Для тех, кому нужен второй взгляд.",
+    price: "от 50 кг",
+    unit: "минимальная партия",
+    description: "Для старта своей марки кофе без больших вложений.",
     features: [
-      "500 ИИ-черновиков в месяц",
-      "Стандартная библиотека тонов",
-      "Интеграция с Gmail",
-      "Chrome-расширение",
-      "История контекста 7 дней",
+      "От 50 кг за партию",
+      "1 смесь на выбор",
+      "Базовая упаковка с логотипом",
+      "Срок производства 14 дней",
+      "Доставка по России",
     ],
   },
   {
-    name: "ПРО",
-    price: "3 990 ₽",
-    description: "Для профессионалов, которые ценят время.",
+    name: "БИЗНЕС",
+    price: "от 200 кг",
+    unit: "минимальная партия",
+    description: "Для растущих сетей и стабильных поставок.",
     features: [
-      "Безлимитные ИИ-черновики",
-      "Обучение собственному тону",
-      "Все интеграции",
-      "Приоритетная поддержка",
-      "История контекста 30 дней",
+      "От 200 кг за партию",
+      "До 3 смесей в линейке",
+      "Дизайн упаковки под ключ",
+      "Срок производства 10 дней",
+      "Приоритетная отгрузка",
     ],
     popular: true,
   },
   {
-    name: "КОМАНДА",
-    price: "7 990 ₽",
-    description: "Для команд, работающих на масштабе.",
+    name: "ПАРТНЁР",
+    price: "от 1 000 кг",
+    unit: "минимальная партия",
+    description: "Для крупных сетей, вендинга и оптовых дистрибьюторов.",
     features: [
-      "Всё из Про",
-      "Командная работа",
-      "Админ-панель",
-      "SSO и SAML",
+      "Объём без ограничений",
+      "Неограниченная линейка",
       "Персональный менеджер",
+      "Индивидуальные условия",
+      "Аналитика продаж",
     ],
   },
 ];
@@ -55,17 +59,17 @@ const PricingSection = () => {
         <div className="text-center mb-16">
           <span className="text-xs font-mono text-muted-foreground tracking-wider">ТАРИФЫ</span>
           <h2 className="font-serif text-4xl md:text-5xl mt-4 mb-4">
-            Пишите как профи,
+            Выберите формат
             <br />
-            платите разумно
+            сотрудничества
           </h2>
           <div className="flex flex-wrap items-center justify-center gap-4">
             <div className="bg-[#fffef0] px-3 py-1 rounded shadow-sm rotate-[-2deg] border border-amber-100">
-              <span className="text-xs font-mono">БЕСПЛАТНЫЙ_ПРОБНЫЙ</span>
+              <span className="text-xs font-mono">ОБРАЗЕЦ_БЕСПЛАТНО</span>
             </div>
-            <p className="text-muted-foreground text-sm">Без скрытых платежей. 14 дней бесплатно</p>
+            <p className="text-muted-foreground text-sm">Без скрытых платежей. Получите образец до оплаты.</p>
             <div className="bg-[#fffef0] px-3 py-1 rounded shadow-sm rotate-[2deg] border border-amber-100">
-              <span className="text-xs font-mono">ОДОБРЕНО</span>
+              <span className="text-xs font-mono">ПОЛНЫЙ ЦИКЛ</span>
             </div>
           </div>
         </div>
@@ -87,17 +91,17 @@ const PricingSection = () => {
               <div className="mb-6">
                 <span className="text-xs font-mono text-muted-foreground">{tier.name}</span>
                 <div className="flex items-baseline gap-1 mt-2">
-                  <span className="text-4xl font-serif">{tier.price}</span>
-                  <span className="text-muted-foreground text-sm">/мес</span>
+                  <span className="text-3xl font-serif">{tier.price}</span>
                 </div>
+                <span className="text-xs text-muted-foreground">{tier.unit}</span>
                 <p className="text-sm text-muted-foreground mt-2">{tier.description}</p>
               </div>
 
               <div className="space-y-3 flex-1">
                 {tier.features.map((feature) => (
                   <div key={feature} className="flex items-center gap-3">
-                    <div className="w-4 h-4 rounded-full bg-accent flex items-center justify-center">
-                      <Check className="w-2.5 h-2.5 text-accent-foreground" />
+                    <div className="w-4 h-4 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
+                      <Icon name="Check" size={10} className="text-accent-foreground" />
                     </div>
                     <span className="text-sm">{feature}</span>
                   </div>
@@ -111,7 +115,7 @@ const PricingSection = () => {
                     : "border border-border hover:bg-secondary"
                 }`}
               >
-                НАЧАТЬ
+                ПОЛУЧИТЬ ПРЕДЛОЖЕНИЕ
               </button>
             </div>
           ))}
