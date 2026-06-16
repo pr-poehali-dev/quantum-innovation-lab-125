@@ -4,10 +4,9 @@ import Icon from "@/components/ui/icon";
 import { useLeadModal } from "@/context/LeadModalContext";
 
 const NAV_ITEMS = [
-  { label: "О производстве", href: "#features",  section: "features"  },
-  { label: "Кофе под СТМ",  href: "#workflow",   section: "workflow"  },
-  { label: "Калькулятор",   href: "#calculator", section: "calculator"},
-  { label: "Контакты",      href: "#contacts",   section: "contacts"  },
+  { label: "Кофе под СТМ",  href: "#workflow",  section: "workflow"  },
+  { label: "О производстве", href: "#features", section: "features"  },
+  { label: "Контакты",      href: "#contacts",  section: "contacts"  },
 ];
 
 const LOGO_URL =
@@ -105,6 +104,12 @@ const Header = () => {
               <Icon name="User" size={13} />
               ЛК
             </Link>
+
+            <a href="#calculator"
+              className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition-all"
+              title="Калькулятор">
+              <Icon name="Calculator" size={15} />
+            </a>
 
             <button onClick={openModal}
               className="bg-primary text-white px-4 py-1.5 rounded-full text-[13px] font-semibold hover:bg-primary/90 transition-all active:scale-95 shadow-sm shadow-primary/20">
