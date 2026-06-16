@@ -4,10 +4,10 @@ import Icon from "@/components/ui/icon";
 import { useLeadModal } from "@/context/LeadModalContext";
 
 const NAV_ITEMS = [
-  { label: "Возможности", href: "#features", section: "features" },
-  { label: "Как работает", href: "#workflow", section: "workflow" },
-  { label: "Калькулятор", href: "#calculator", section: "calculator" },
-  { label: "Клиенты", href: "#testimonials", section: "testimonials" },
+  { label: "О производстве", href: "#features",     section: "features"     },
+  { label: "Кофе под СТМ",  href: "#workflow",      section: "workflow"     },
+  { label: "Калькулятор",   href: "#calculator",    section: "calculator"   },
+  { label: "Контакты",      href: "#contacts",      section: "contacts"     },
 ];
 
 const FULL_TEXT = "КонтрактКофе";
@@ -128,10 +128,18 @@ const Header = () => {
           </nav>
 
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Кнопка личного кабинета */}
+            <a href="tel:+79042474302"
+              className="hidden md:flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground border border-border hover:border-primary/30 transition-all">
+              <Icon name="Phone" size={13} className="text-primary" />
+              +7 904 247-43-02
+            </a>
+            <a href="https://t.me/kontraktkafe" target="_blank" rel="noopener noreferrer"
+              className="hidden sm:flex items-center gap-1 px-3 py-2 rounded-full text-sm text-muted-foreground hover:text-primary border border-border hover:border-primary/30 transition-all">
+              <Icon name="Send" size={13} />
+            </a>
             <Link to="/cabinet" className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium border border-border hover:bg-secondary hover:border-primary/30 transition-all">
               <Icon name="User" size={14} />
-              <span className="hidden sm:inline">Личный кабинет</span>
+              <span className="hidden sm:inline">ЛК</span>
             </Link>
             <button onClick={openModal} className="bg-primary text-primary-foreground px-5 py-2.5 rounded-full text-sm font-medium hover:bg-primary/90 transition-all hover:shadow-md hover:shadow-primary/25 active:scale-95">
               Получить предложение

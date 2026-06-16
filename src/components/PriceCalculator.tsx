@@ -6,35 +6,26 @@ import { useLeadModal } from "@/context/LeadModalContext";
 
 const AI_HINTS: Record<number, { q: string; a: string }[]> = {
   0: [
-    { q: "Что выбрать для кофейни?",    a: "Для кофейни — «Эспрессо». Это зерно под кофемашину: оптимальный помол, профиль обжарки под лонг-блэк и капучино." },
-    { q: "Чем вендинг отличается?",     a: "Вендинг — зерно для автоматов. Обычно более тёмная обжарка и чуть крупнее помол. Мы подстраиваем под модель вашего автомата." },
-    { q: "Что значит «розничная полка»?", a: "Это кофе для продажи в магазинах или на маркетплейсах. Здесь важна упаковка с составом, штрихкод и сроки. Мы всё оформим." },
+    { q: "Что выбрать для кофейни?",          a: "Арабика Перу или Бразилия — классический нейтральный профиль, подходит под эспрессо и капучино. Для specialty берите Эфиопию." },
+    { q: "Чем Арабика отличается от Робусты?", a: "Арабика — мягче, ароматнее, меньше кофеина. Робуста — крепче, горче, больше крема в эспрессо, дешевле. Вендинг часто работает на Робусте." },
+    { q: "Что выбрать для первого заказа?",    a: "Арабика Перу — оптимальный старт: базовая цена, мягкий вкус, нравится большинству гостей." },
   ],
   1: [
-    { q: "Что вкуснее — Бразилия или Колумбия?", a: "Бразилия — базовый шоколадно-ореховый вкус, хорошо подходит для эспрессо. Колумбия — ярче, с карамелью и лёгкой кислотностью. Для большинства кофеен берут Бразилию или купаж." },
-    { q: "Что такое «своя смесь»?",       a: "Мы подбираем состав под ваш запрос: нужна яркость — добавим Эфиопию, нужен баланс — Бразилия + Колумбия. Обсудим при звонке." },
-    { q: "Что выбрать для первого заказа?", a: "Для первого заказа рекомендуем Бразилию — это базовая цена, нейтральный вкусовой профиль, который нравится большинству гостей." },
+    { q: "Какую обжарку взять для кофейни?",  a: "Средняя — универсальный выбор: подходит и для эспрессо, и для фильтра. Светлая — для specialty с кислотностью. Тёмная — для вендинга." },
+    { q: "Влияет ли обжарка на цену?",         a: "Тёмная обжарка — небольшая доплата +10 ₽/кг из-за более длительного процесса. Светлая и средняя включены в базовую цену." },
   ],
   2: [
-    { q: "Какую обжарку взять для кофейни?", a: "Средняя — универсальный выбор: подходит и для эспрессо, и для фильтра. Светлая — для specialty-кофеен с кислотностью. Тёмная — для вендинга и классического эспрессо." },
-    { q: "Влияет ли обжарка на цену?",      a: "Нет, степень обжарки не меняет цену. Это ваш вкусовой профиль." },
+    { q: "Что такое квадропак?",               a: "Прямостоячий пакет с плоским дном — хорошо стоит на полке, смотрится premium. Самый популярный формат для ретейла." },
+    { q: "Крафт — это дёшево выглядит?",       a: "Нет! Крафт сейчас на пике тренда в specialty-сегменте. Выглядит экологично и премиально. Отлично работает для авторских брендов." },
+    { q: "С какой упаковки начать?",           a: "Для старта рекомендуем дой-пак с клапаном — хорошая защита, выгодная цена, легко встаёт на полку." },
   ],
   3: [
-    { q: "Зерно или молотый — что лучше?", a: "Зерно дольше хранится и раскрывает вкус свежим помолом. Молотый удобнее для фильтр-пакетов или если нет кофемолки. Для кофеен — только зерно." },
-    { q: "Какую фасовку взять?",           a: "250г — для кофеен и ретейла: покупатель платит меньше за вход. 1кг — для HoReCa и оптовых клиентов, дешевле в пересчёте на кг." },
+    { q: "У меня нет дизайнера — что делать?", a: "Выберите «Индивидуальный» — мы разработаем концепцию этикетки под ваш бренд. Включает 2 варианта и правки." },
+    { q: "Что такое готовый шаблон?",           a: "Набор проверенных макетов, куда подставляем ваш логотип, название и цвета. Быстро и дёшево — отлично для старта." },
   ],
   4: [
-    { q: "Что входит в «премиум»?",        a: "Премиум — фольгированный пакет с клапаном дегазации, дизайнерская этикетка с ламинацией, тиснение или спецэффекты. Создаёт ощущение дорогого продукта." },
-    { q: "Крафт — это дёшево выглядит?",   a: "Нет! Крафт сейчас на пике тренда в specialty-сегменте. Выглядит экологично и премиально. Многие топовые обжарщики используют именно крафт." },
-    { q: "С какой упаковки начать?",       a: "Для старта рекомендуем «С логотипом» — ваш бренд на пакете + хорошая защита. Оптимальное соотношение цены и впечатления." },
-  ],
-  5: [
-    { q: "У меня нет дизайнера — что делать?", a: "Выберите «Нужен дизайн» — мы разработаем концепцию этикетки под ваш бренд. Включает 2 варианта и правки." },
-    { q: "Что значит «бренд с нуля»?",        a: "Это полный брендинг: название, логотип, фирменный стиль, упаковка. Сейчас доступно под запрос — скоро запустим AI-генерацию (V2)." },
-  ],
-  6: [
-    { q: "С какого объёма начать?",        a: "100 кг — хороший старт: проверяете спрос, не замораживаете большой бюджет. 300+ кг — уже со скидкой 5%, оптимально для стабильного бизнеса." },
-    { q: "Есть ли скидки за объём?",       a: "Да: от 200 кг — скидка 5%, от 500 кг — скидка 10%. Действует автоматически, видно в итоговой сумме справа." },
+    { q: "С какого объёма начать?",        a: "100 кг — хороший старт: проверяете спрос, не замораживаете большой бюджет. 300+ кг — уже со скидкой 5%." },
+    { q: "Есть ли скидки за объём?",       a: "Да: от 200 кг — скидка 5%, от 500 кг — скидка 10%. Действует автоматически, видно в итоговой сумме." },
   ],
 };
 
@@ -103,59 +94,49 @@ const AiHint = ({ step }: { step: number }) => {
 };
 
 const STEPS = [
-  { id: "usage",     label: "Назначение", icon: "Target"    },
-  { id: "origin",    label: "Зерно",      icon: "Leaf"      },
-  { id: "roast",     label: "Обжарка",    icon: "Flame"     },
-  { id: "format",    label: "Формат",     icon: "Package"   },
-  { id: "packaging", label: "Упаковка",   icon: "Box"       },
-  { id: "design",    label: "Дизайн",     icon: "Palette"   },
-  { id: "volume",    label: "Объём",      icon: "BarChart2" },
+  { id: "origin",    label: "Зерно",    icon: "Leaf"      },
+  { id: "roast",     label: "Обжарка",  icon: "Flame"     },
+  { id: "packaging", label: "Упаковка", icon: "Box"       },
+  { id: "design",    label: "Дизайн",   icon: "Palette"   },
+  { id: "volume",    label: "Объём",    icon: "BarChart2" },
 ];
 
-const USAGES = [
-  { label: "Эспрессо в кофейню", icon: "Coffee",      desc: "Зерно для кофемашины",     extra: 0  },
-  { label: "Фильтр",             icon: "Droplets",    desc: "Пуровер, аэропресс",       extra: 20 },
-  { label: "Вендинг",            icon: "Cpu",         desc: "Автоматы самообслуживания", extra: 0  },
-  { label: "Розничная полка",    icon: "ShoppingBag", desc: "Ретейл, маркетплейсы",     extra: 40 },
-];
-
+// Зелёное зерно — цена за кг (базовая)
 const ORIGINS = [
-  { label: "Бразилия",   flag: "🇧🇷", desc: "Шоколад, орех",    extra: 0  },
-  { label: "Колумбия",   flag: "🇨🇴", desc: "Карамель, цитрус", extra: 30 },
-  { label: "Эфиопия",    flag: "🇪🇹", desc: "Ягода, цветок",    extra: 60 },
-  { label: "Своя смесь", flag: "⚗️",  desc: "Под ваш профиль",  extra: 50 },
+  { label: "Арабика Перу",       flag: "🇵🇪", desc: "Мягкий, орех, шоколад",   extra: 0   },
+  { label: "Арабика Бразилия",   flag: "🇧🇷", desc: "Классика, карамель",       extra: 20  },
+  { label: "Арабика Колумбия",   flag: "🇨🇴", desc: "Карамель, цитрус",         extra: 40  },
+  { label: "Арабика Эфиопия",    flag: "🇪🇹", desc: "Ягода, цветок, яркость",  extra: 70  },
+  { label: "Робуста Вьетнам",    flag: "🇻🇳", desc: "Крепкий, горький, крема", extra: -30 },
+  { label: "Своя смесь / купаж", flag: "⚗️",  desc: "Под ваш вкусовой профиль", extra: 50  },
 ];
 
+// Степень обжарки — доплата
 const ROASTS = [
-  { label: "Светлая", desc: "Кислотность, fruity", val: 0 },
-  { label: "Средняя", desc: "Баланс, карамель",     val: 1 },
-  { label: "Тёмная",  desc: "Горечь, шоколад",      val: 2 },
+  { label: "Светлая", desc: "Specialty, fruity, кислотность",  extra: 0  },
+  { label: "Средняя", desc: "Универсальная, карамель, баланс", extra: 0  },
+  { label: "Тёмная",  desc: "Эспрессо, вендинг, насыщенность", extra: 10 },
 ];
 
-const FORMATS = [
-  { label: "Зерно",   icon: "Circle",    desc: "Целое зерно",    extra: 0  },
-  { label: "Молотый", icon: "Settings2", desc: "Помол на заказ", extra: 10 },
-];
-
-const FASOVKI = [
-  { label: "250 г", desc: "Кофейни, ретейл", extra: 15 },
-  { label: "1 кг",  desc: "Опт, HoReCa",     extra: 0  },
-];
-
+// Тип упаковки — цена за штуку (в ₽/кг пересчитана условно)
 const PACKAGINGS = [
-  { label: "Крафт",       desc: "Без брендинга",        extra: 0  },
-  { label: "С логотипом", desc: "Печать логотипа",       extra: 25 },
-  { label: "Фольга",      desc: "Премиум защита",        extra: 45 },
-  { label: "Премиум",     desc: "Дизайнерская упаковка", extra: 80 },
+  { label: "Квадропак",              desc: "Прямостоячий, с клапаном",  extra: 60  },
+  { label: "Дой-пак с клапаном",    desc: "Популярный ретейл-формат",   extra: 50  },
+  { label: "Трёхшовный пакет",      desc: "Бюджетный, плоский",         extra: 25  },
+  { label: "Крафт-пакет",           desc: "Эко-тренд, specialty-стиль", extra: 40  },
+  { label: "Флоу-пак с клапаном",   desc: "Для линейки и подарков",     extra: 35  },
 ];
 
+// Дизайн — единоразово или ₽/кг
 const DESIGNS = [
-  { label: "Есть макет",   icon: "CheckCircle", desc: "Загрузим ваши файлы",   extra: 0,   soon: false },
-  { label: "Нужен дизайн", icon: "Brush",       desc: "Разработаем концепцию", extra: 120, soon: false },
-  { label: "Бренд с нуля", icon: "Sparkles",    desc: "ИИ + дизайнер → V2",    extra: 0,   soon: true  },
+  { label: "Готовый шаблон",    icon: "Layout",      desc: "Выбор из наших макетов",   extra: 15,  soon: false },
+  { label: "Индивидуальный",    icon: "Brush",       desc: "Разработаем под ваш бренд", extra: 40,  soon: false },
+  { label: "Есть свой макет",   icon: "CheckCircle", desc: "Загрузите готовый файл",    extra: 0,   soon: false },
+  { label: "Бренд с нуля",      icon: "Sparkles",    desc: "ИИ + дизайнер → скоро",    extra: 0,   soon: true  },
 ];
 
-const BASE = 420;
+// Удалены неиспользуемые USAGES/FORMATS/FASOVKI
+const BASE = 380;
 
 // ── Анимированная карточка ────────────────────────────────────
 
@@ -228,28 +209,25 @@ const StepContent = ({ children, stepKey }: { children: React.ReactNode; stepKey
 // ── Главный компонент ─────────────────────────────────────────
 
 const PriceCalculator = () => {
-  const [step, setStep]       = useState(0);
-  const [usage, setUsage]     = useState(-1);
-  const [origin, setOrigin]   = useState(-1);
-  const [roast, setRoast]     = useState(1);
-  const [format, setFormat]   = useState(0);
-  const [fasovka, setFasovka] = useState(1);
-  const [pkg, setPkg]         = useState(1);
-  const [design, setDesign]   = useState(-1);
-  const [volume, setVolume]   = useState(100);
+  const [step, setStep]     = useState(0);
+  const [origin, setOrigin] = useState(-1);
+  const [roast, setRoast]   = useState(1);
+  const [pkg, setPkg]       = useState(-1);
+  const [design, setDesign] = useState(-1);
+  const [volume, setVolume] = useState(100);
 
   const canNext = () => {
-    if (step === 0) return usage  >= 0;
-    if (step === 1) return origin >= 0;
-    if (step === 5) return design >= 0;
+    if (step === 0) return origin >= 0;
+    if (step === 2) return pkg    >= 0;
+    if (step === 3) return design >= 0;
     return true;
   };
 
-  const usageExtra  = usage  >= 0 ? USAGES[usage].extra   : 0;
-  const originExtra = origin >= 0 ? ORIGINS[origin].extra : 0;
-  const pkgExtra    = pkg    >= 0 ? PACKAGINGS[pkg].extra  : 0;
+  const originExtra = origin >= 0 ? ORIGINS[origin].extra  : 0;
+  const roastExtra  = ROASTS[roast].extra;
+  const pkgExtra    = pkg    >= 0 ? PACKAGINGS[pkg].extra   : 0;
   const designExtra = design >= 0 && !DESIGNS[design].soon ? DESIGNS[design].extra : 0;
-  const pricePerKg  = BASE + usageExtra + originExtra + FORMATS[format].extra + FASOVKI[fasovka].extra + pkgExtra;
+  const pricePerKg  = BASE + originExtra + roastExtra + pkgExtra + designExtra;
   const discount    = volume >= 500 ? 0.1 : volume >= 200 ? 0.05 : 0;
   const total       = Math.round(volume * pricePerKg * (1 - discount));
   const leadTime    = volume <= 200 ? 14 : volume <= 500 ? 18 : 25;
@@ -257,10 +235,6 @@ const PriceCalculator = () => {
   const { openModal } = useLeadModal();
 
   const goNext = () => { if (canNext() && !isLast) setStep(s => s + 1); };
-
-  const pick = (setter: (v: number) => void, val: number) => {
-    setter(val);
-  };
 
   return (
     <section id="calculator" className="py-24">
@@ -341,10 +315,8 @@ const PriceCalculator = () => {
                   </span>
                   <h3 className="font-bold text-lg mt-0.5 leading-tight">
                     {[
-                      "Для чего нужен кофе?",
-                      "Выберите зерно",
+                      "Выберите зелёное зерно",
                       "Степень обжарки",
-                      "Формат и фасовка",
                       "Тип упаковки",
                       "Дизайн упаковки",
                       "Объём партии",
@@ -352,7 +324,7 @@ const PriceCalculator = () => {
                   </h3>
                 </div>
                 <div className="text-3xl opacity-40">
-                  {["🎯","🌿","🔥","📦","🎁","🎨","⚖️"][step]}
+                  {["🌿","🔥","📦","🎨","⚖️"][step]}
                 </div>
               </div>
 
@@ -360,30 +332,19 @@ const PriceCalculator = () => {
               <div className="p-6 min-h-[260px]">
                 <StepContent stepKey={step}>
 
-                  {/* 0 — Назначение */}
+                  {/* 0 — Зерно */}
                   {step === 0 && (
-                    <div className="grid grid-cols-2 gap-3">
-                      {USAGES.map((u, i) => (
-                        <OptionCard key={u.label} {...u} selected={usage === i}
-                          onClick={() => pick(setUsage, i)} />
-                      ))}
-                    </div>
-                  )}
-
-                  {/* 1 — Зерно */}
-                  {step === 1 && (
                     <div className="grid grid-cols-2 gap-3">
                       {ORIGINS.map((o, i) => (
                         <OptionCard key={o.label} {...o} selected={origin === i}
-                          onClick={() => pick(setOrigin, i)} />
+                          onClick={() => { setOrigin(i); }} />
                       ))}
                     </div>
                   )}
 
-                  {/* 2 — Обжарка */}
-                  {step === 2 && (
+                  {/* 1 — Обжарка */}
+                  {step === 1 && (
                     <div>
-                      {/* Слайдер-градиент */}
                       <div className="relative mb-6">
                         <div className="h-10 rounded-2xl overflow-hidden"
                           style={{ background: "linear-gradient(to right, #fef9c3, #f59e0b, #92400e)" }} />
@@ -396,11 +357,10 @@ const PriceCalculator = () => {
                             <div className="w-2 h-2 rounded-full bg-primary" />
                           </div>
                         </div>
-
                       </div>
                       <div className="grid grid-cols-3 gap-3">
                         {ROASTS.map((r, i) => (
-                          <button key={r.label} onClick={() => pick(setRoast, i)}
+                          <button key={r.label} onClick={() => setRoast(i)}
                             className={`p-3.5 rounded-2xl border text-center transition-all duration-200 ${
                               roast === i
                                 ? "border-primary bg-primary/8 shadow-sm"
@@ -408,59 +368,36 @@ const PriceCalculator = () => {
                             }`}>
                             <p className={`text-sm font-semibold ${roast === i ? "text-primary" : ""}`}>{r.label}</p>
                             <p className="text-[11px] text-muted-foreground mt-1">{r.desc}</p>
+                            {r.extra > 0 && <p className="text-[10px] font-mono text-muted-foreground/70 mt-1">+{r.extra} ₽/кг</p>}
                           </button>
                         ))}
                       </div>
                     </div>
                   )}
 
-                  {/* 3 — Формат */}
-                  {step === 3 && (
-                    <div className="space-y-5">
-                      <div>
-                        <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-3">Помол</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          {FORMATS.map((f, i) => (
-                            <OptionCard key={f.label} {...f} selected={format === i}
-                              onClick={() => setFormat(i)} />
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wider mb-3">Фасовка</p>
-                        <div className="grid grid-cols-2 gap-3">
-                          {FASOVKI.map((f, i) => (
-                            <OptionCard key={f.label} label={f.label} desc={f.desc} extra={f.extra}
-                              selected={fasovka === i} onClick={() => setFasovka(i)} />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 4 — Упаковка */}
-                  {step === 4 && (
+                  {/* 2 — Упаковка */}
+                  {step === 2 && (
                     <div className="grid grid-cols-2 gap-3">
                       {PACKAGINGS.map((p, i) => (
                         <OptionCard key={p.label} label={p.label} desc={p.desc} extra={p.extra}
-                          selected={pkg === i} onClick={() => pick(setPkg, i)} />
+                          selected={pkg === i} onClick={() => setPkg(i)} />
                       ))}
                     </div>
                   )}
 
-                  {/* 5 — Дизайн */}
-                  {step === 5 && (
+                  {/* 3 — Дизайн */}
+                  {step === 3 && (
                     <div className="space-y-3">
                       {DESIGNS.map((d, i) => (
                         <OptionCard key={d.label} label={d.label} icon={d.icon} desc={d.desc}
                           extra={d.extra} soon={d.soon} selected={design === i}
-                          onClick={() => !d.soon && pick(setDesign, i)} />
+                          onClick={() => !d.soon && setDesign(i)} />
                       ))}
                     </div>
                   )}
 
-                  {/* 6 — Объём */}
-                  {step === 6 && (
+                  {/* 4 — Объём */}
+                  {step === 4 && (
                     <div>
                       <div className="flex justify-between items-baseline mb-3">
                         <span className="text-sm text-muted-foreground">Количество</span>
@@ -533,11 +470,11 @@ const PriceCalculator = () => {
               )}
               <div className="mt-5 space-y-2 pt-4 border-t border-white/20">
                 {[
-                  { label: "Зерно",    val: origin  >= 0 ? ORIGINS[origin].label   : "—" },
-                  { label: "Обжарка",  val: ROASTS[roast].label                         },
-                  { label: "Формат",   val: FORMATS[format].label + " · " + FASOVKI[fasovka].label },
-                  { label: "Упаковка", val: pkg >= 0 ? PACKAGINGS[pkg].label        : "—" },
-                  { label: "Объём",    val: volume + " кг"                               },
+                  { label: "Зерно",    val: origin >= 0 ? ORIGINS[origin].label    : "—" },
+                  { label: "Обжарка",  val: ROASTS[roast].label                          },
+                  { label: "Упаковка", val: pkg    >= 0 ? PACKAGINGS[pkg].label    : "—" },
+                  { label: "Дизайн",   val: design >= 0 && !DESIGNS[design].soon ? DESIGNS[design].label : "—" },
+                  { label: "Объём",    val: volume + " кг"                                },
                 ].map(r => (
                   <div key={r.label} className="flex justify-between text-xs opacity-75">
                     <span>{r.label}</span>

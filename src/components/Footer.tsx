@@ -2,10 +2,10 @@ import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 
 const navLinks = [
-  { label: "Возможности", href: "#features" },
-  { label: "Как работает", href: "#workflow" },
-  { label: "Тарифы", href: "#pricing" },
-  { label: "Калькулятор", href: "#calculator" },
+  { label: "О производстве", href: "#features"  },
+  { label: "Кофе под СТМ",  href: "#workflow"   },
+  { label: "Калькулятор",   href: "#calculator" },
+  { label: "Контакты",      href: "#contacts"   },
 ];
 
 const docLinks = [
@@ -17,44 +17,69 @@ const docLinks = [
 
 const Footer = () => {
   return (
-    <footer className="pt-16 pb-8 border-t border-border bg-secondary/20">
+    <footer id="contacts" className="pt-16 pb-8 border-t border-border bg-foreground text-white">
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid md:grid-cols-5 gap-10 mb-12">
+
           {/* Brand */}
           <div className="md:col-span-2">
-            <Link to="/" className="flex items-center mb-4 group w-fit">
-              <img
-                src="https://cdn.poehali.dev/projects/9054c912-be91-4f90-8cab-0a91d0d7eafe/bucket/1fea491b-de88-4f80-b66b-333fd9211c44.png"
-                alt="КонтрактКофе"
-                className="h-8 w-auto object-contain group-hover:opacity-70 transition-opacity"
-              />
+            <Link to="/" className="flex items-center gap-2.5 mb-5 group w-fit">
+              <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center group-hover:scale-105 transition-transform">
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+                  <path d="M3 7h8v3.5A3 3 0 0 1 8 13.5 3 3 0 0 1 3 10.5Z" fill="white" opacity="0.95"/>
+                  <path d="M11 8.5h1a1.5 1.5 0 0 1 0 3h-1" stroke="white" strokeWidth="1.2" strokeLinecap="round" fill="none"/>
+                  <path d="M5 5C5 4.2 5.8 3.8 5.8 3S5 1.8 5 1M7.5 5C7.5 4.2 8.3 3.8 8.3 3S7.5 1.8 7.5 1M10 5C10 4.2 10.8 3.8 10.8 3S10 1.8 10 1" stroke="white" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.8"/>
+                </svg>
+              </div>
+              <div className="flex flex-col leading-none">
+                <span className="font-serif text-[15px] font-bold text-white">КонтрактКофе</span>
+                <span className="text-[10px] font-mono text-white/40 tracking-widest mt-0.5 uppercase">производство стм полного цикла</span>
+              </div>
             </Link>
-            <p className="text-sm text-muted-foreground max-w-xs leading-relaxed mb-6">
+            <p className="text-sm text-white/50 max-w-xs leading-relaxed mb-6">
               Производство кофе под вашей торговой маркой. Полный цикл — от подбора зерна до доставки.
             </p>
-            <div className="flex gap-3">
-              {[
-                { icon: "Phone", label: "+7 (800) 000-00-00" },
-                { icon: "Mail", label: "info@kontraktkafe.ru" },
-              ].map((c) => (
-                <div key={c.label} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Icon name={c.icon} fallback="Circle" size={12} className="text-primary" />
-                  <span>{c.label}</span>
+
+            {/* Контакты */}
+            <div className="space-y-3">
+              <a href="tel:+79042474302" className="flex items-center gap-3 group">
+                <div className="w-8 h-8 rounded-lg bg-white/8 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <Icon name="Phone" size={14} className="text-primary" />
                 </div>
-              ))}
+                <div>
+                  <p className="text-sm font-semibold text-white">+7 904 247-43-02</p>
+                  <p className="text-[11px] text-white/40 font-mono">ЗВОНКИ И TELEGRAM</p>
+                </div>
+              </a>
+              <a href="https://t.me/kontraktkafe" target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-3 group">
+                <div className="w-8 h-8 rounded-lg bg-white/8 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <Icon name="Send" size={14} className="text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Telegram</p>
+                  <p className="text-[11px] text-white/40 font-mono">БЫСТРЫЙ ОТВЕТ</p>
+                </div>
+              </a>
+              <a href="mailto:gid150@mail.ru" className="flex items-center gap-3 group">
+                <div className="w-8 h-8 rounded-lg bg-white/8 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                  <Icon name="Mail" size={14} className="text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">gid150@mail.ru</p>
+                  <p className="text-[11px] text-white/40 font-mono">EMAIL</p>
+                </div>
+              </a>
             </div>
           </div>
 
           {/* Navigation */}
           <div>
-            <h4 className="text-xs font-mono font-semibold text-foreground mb-4 tracking-wider">НАВИГАЦИЯ</h4>
+            <h4 className="text-[11px] font-mono font-semibold text-white/40 mb-4 tracking-wider">НАВИГАЦИЯ</h4>
             <ul className="space-y-2.5">
               {navLinks.map((link) => (
                 <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                  >
+                  <a href={link.href} className="text-sm text-white/60 hover:text-white transition-colors">
                     {link.label}
                   </a>
                 </li>
@@ -64,40 +89,38 @@ const Footer = () => {
 
           {/* Legal */}
           <div>
-            <h4 className="text-xs font-mono font-semibold text-foreground mb-4 tracking-wider">ДОКУМЕНТЫ</h4>
+            <h4 className="text-[11px] font-mono font-semibold text-white/40 mb-4 tracking-wider">ДОКУМЕНТЫ</h4>
             <ul className="space-y-2.5">
               {docLinks.map((link) => (
                 <li key={link}>
-                  <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                    {link}
-                  </a>
+                  <a href="#" className="text-sm text-white/60 hover:text-white transition-colors">{link}</a>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Status widget */}
+          {/* Status */}
           <div>
-            <h4 className="text-xs font-mono font-semibold text-foreground mb-4 tracking-wider">ПРОИЗВОДСТВО</h4>
-            <div className="bg-card border border-border rounded-xl p-4 font-mono text-xs space-y-2">
+            <h4 className="text-[11px] font-mono font-semibold text-white/40 mb-4 tracking-wider">ПРОИЗВОДСТВО</h4>
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4 font-mono text-xs space-y-2.5">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-foreground font-semibold">ЛИНИЯ АКТИВНА</span>
+                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                <span className="text-white font-semibold">ЛИНИЯ АКТИВНА</span>
               </div>
-              <p className="text-muted-foreground">Принимаем заявки</p>
-              <p className="text-muted-foreground">Срок — от 14 дней</p>
-              <div className="pt-2 border-t border-border">
-                <button className="text-primary hover:underline text-xs font-semibold">
-                  Оставить заявку →
-                </button>
+              <p className="text-white/50">Принимаем заявки</p>
+              <p className="text-white/50">Срок — от 14 дней</p>
+              <div className="pt-2 border-t border-white/10">
+                <a href="#calculator" className="text-primary hover:text-primary/80 transition-colors font-semibold">
+                  Рассчитать стоимость →
+                </a>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row items-center justify-between pt-8 border-t border-border gap-2">
-          <p className="text-xs text-muted-foreground">© 2026 КонтрактКофе. Все права защищены.</p>
-          <p className="text-xs text-muted-foreground">Технологичное производство · Полный цикл · Россия</p>
+        <div className="flex flex-col md:flex-row items-center justify-between pt-8 border-t border-white/10 gap-2">
+          <p className="text-xs text-white/30">© 2026 КонтрактКофе. Все права защищены.</p>
+          <p className="text-xs text-white/30">Технологичное производство · Полный цикл · Россия</p>
         </div>
       </div>
     </footer>
