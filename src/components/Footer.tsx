@@ -9,10 +9,11 @@ const navLinks = [
 ];
 
 const docLinks = [
-  "Политика конфиденциальности",
-  "Условия сотрудничества",
-  "Сертификаты",
-  "Реквизиты",
+  { label: "Все документы",               href: "/documents"  },
+  { label: "Политика конфиденциальности", href: "/documents"  },
+  { label: "Условия сотрудничества",      href: "/documents"  },
+  { label: "Сертификаты",                 href: "/documents"  },
+  { label: "Реквизиты",                   href: "/documents"  },
 ];
 
 const Footer = () => {
@@ -89,11 +90,18 @@ const Footer = () => {
 
           {/* Legal */}
           <div>
-            <h4 className="text-[11px] font-mono font-semibold text-white/40 mb-4 tracking-wider">ДОКУМЕНТЫ</h4>
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-[11px] font-mono font-semibold text-white/40 tracking-wider">ДОКУМЕНТЫ</h4>
+              <Link to="/documents" className="text-[10px] font-mono text-primary hover:text-primary/80 transition-colors">
+                все →
+              </Link>
+            </div>
             <ul className="space-y-2.5">
-              {docLinks.map((link) => (
-                <li key={link}>
-                  <a href="#" className="text-sm text-white/60 hover:text-white transition-colors">{link}</a>
+              {docLinks.slice(1).map((link) => (
+                <li key={link.label}>
+                  <Link to={link.href} className="text-sm text-white/60 hover:text-white transition-colors">
+                    {link.label}
+                  </Link>
                 </li>
               ))}
             </ul>

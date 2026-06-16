@@ -3,10 +3,13 @@ import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useLeadModal } from "@/context/LeadModalContext";
 
+// Порядок совпадает с порядком блоков на странице
 const NAV_ITEMS = [
-  { label: "Кофе под СТМ",  href: "#workflow",  section: "workflow"  },
-  { label: "О производстве", href: "#features", section: "features"  },
-  { label: "Контакты",      href: "#contacts",  section: "contacts"  },
+  { label: "Кофе под СТМ",  href: "#workflow",      section: "workflow"      },
+  { label: "О производстве", href: "#features",      section: "features"     },
+  { label: "Клиенты",       href: "#testimonials",  section: "testimonials"  },
+  { label: "Калькулятор",   href: "#calculator",    section: "calculator"    },
+  { label: "Контакты",      href: "#contacts",      section: "contacts"      },
 ];
 
 const LOGO_URL =
@@ -20,8 +23,6 @@ const Header = () => {
   useEffect(() => {
     const onScroll = () => {
       setScrolled(window.scrollY > 20);
-
-      // определяем текущую секцию
       let current = "";
       for (const item of NAV_ITEMS) {
         const el = document.getElementById(item.section);
@@ -30,9 +31,8 @@ const Header = () => {
       }
       setActiveSection(current);
     };
-
     window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll(); // инициализация при маунте
+    onScroll();
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
@@ -52,7 +52,7 @@ const Header = () => {
           ? "bg-white/96 backdrop-blur-md shadow-sm border-b border-black/8"
           : "bg-white border-b border-black/6"
       }`}>
-        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between gap-6">
+        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between gap-4">
 
           {/* Логотип */}
           <Link to="/"
@@ -67,18 +67,22 @@ const Header = () => {
           </Link>
 
           {/* Навигация */}
-          <nav className="hidden md:flex items-center gap-0.5 flex-1 justify-center">
+          <nav className="hidden lg:flex items-center gap-0.5 flex-1 justify-center">
             {NAV_ITEMS.map((item) => {
               const isActive = activeSection === item.section;
+              const isCalc   = item.section === "calculator";
               return (
                 <a key={item.href} href={item.href}
-                  className={`relative px-3.5 py-1.5 text-[13px] rounded-full transition-all duration-200 font-medium ${
+                  className={`relative px-3 py-1.5 text-[13px] rounded-full transition-all duration-200 font-medium flex items-center gap-1.5 ${
                     isActive
                       ? "text-primary"
                       : "text-black/50 hover:text-black/80"
                   }`}>
                   {isActive && (
                     <span className="absolute inset-0 rounded-full bg-primary/8 border border-primary/20" />
+                  )}
+                  {isCalc && (
+                    <Icon name="Calculator" size={13} className={`relative ${isActive ? "text-primary" : "text-black/40"}`} />
                   )}
                   <span className="relative">{item.label}</span>
                 </a>
@@ -89,7 +93,7 @@ const Header = () => {
           {/* Правая часть */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <a href="tel:+79042474302"
-              className="hidden lg:flex items-center gap-1.5 text-[13px] font-medium text-black/55 hover:text-primary transition-colors">
+              className="hidden xl:flex items-center gap-1.5 text-[13px] font-medium text-black/55 hover:text-primary transition-colors">
               <Icon name="Phone" size={13} className="text-primary/70" />
               +7 904 247-43-02
             </a>
@@ -104,12 +108,6 @@ const Header = () => {
               <Icon name="User" size={13} />
               ЛК
             </Link>
-
-            <a href="#calculator"
-              className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full bg-primary/10 hover:bg-primary/20 text-primary transition-all"
-              title="Калькулятор">
-              <Icon name="Calculator" size={15} />
-            </a>
 
             <button onClick={openModal}
               className="bg-primary text-white px-4 py-1.5 rounded-full text-[13px] font-semibold hover:bg-primary/90 transition-all active:scale-95 shadow-sm shadow-primary/20">
