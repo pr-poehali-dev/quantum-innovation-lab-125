@@ -1,0 +1,12 @@
+{
+  "tests": [
+    {
+      "name": "GET about content",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": { "content": {}, "photos": [] },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
