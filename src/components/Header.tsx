@@ -6,9 +6,9 @@ import { useLeadModal } from "@/context/LeadModalContext";
 // Порядок совпадает с порядком блоков на странице
 const NAV_ITEMS = [
   { label: "Кофе под СТМ",  href: "#workflow",      section: "workflow"      },
-  { label: "О производстве", href: "#features",      section: "features"     },
-  { label: "Клиенты",       href: "#testimonials",  section: "testimonials"  },
+  { label: "О производстве", href: "#features",     section: "features"      },
   { label: "Калькулятор",   href: "#calculator",    section: "calculator"    },
+  { label: "Клиенты",       href: "#testimonials",  section: "testimonials"  },
   { label: "Контакты",      href: "#contacts",      section: "contacts"      },
 ];
 
