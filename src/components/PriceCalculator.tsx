@@ -29,64 +29,193 @@ const AI_HINTS: Record<number, { q: string; a: string }[]> = {
   ],
 };
 
-// ── Компонент AI-подсказок ─────────────────────────────────────
+// ── База ответов для свободного чата ────────────────────────────
+
+const CALC_BOT_KB: Record<string, string> = {
+  "зерно":          "Выбор зерна — основа вкуса. Арабика Перу — мягкая, шоколад. Бразилия — классика для эспрессо. Эфиопия — яркая, ягодная. Робуста Вьетнам — крепкая, дешевле.",
+  "арабика":        "Арабика — мягче, ароматнее, меньше кофеина. Подходит для кофеен, ретейла, specialty. Бразилия и Перу — популярные базовые варианты.",
+  "робуста":        "Робуста крепче и горче, больше кофеина и крема. Отлично для вендинговых автоматов и крепкого эспрессо. Цена ниже арабики.",
+  "обжарка":        "Светлая — fruity, кислотность, specialty. Средняя — универсал, карамель, баланс. Тёмная — насыщенная, горечь, вендинг. Тёмная стоит чуть дороже (+10 ₽/кг).",
+  "упаковка":       "Квадропак — стоит на полке, premium. Дой-пак — популярный ретейл. Трёхшовный — бюджетный. Крафт — эко-тренд, specialty. Флоу-пак — линейка и подарки.",
+  "квадропак":      "Прямостоячий пакет с плоским дном. Отлично стоит на полке, выглядит дорого. Популярен в ретейле и кофейнях.",
+  "дой-пак":        "Классический зип-пакет с клапаном дегазации. Хорошая защита, доступная цена. Оптимальный старт для нового бренда.",
+  "дизайн":         "Готовый шаблон — быстро и дёшево (+15 ₽/кг). Индивидуальный — разработаем под ваш бренд (+40 ₽/кг). Есть свой макет — бесплатно.",
+  "цена":           "Итог = базовая цена зерна + обжарка + упаковка + дизайн. Скидки: от 200 кг — 5%, от 500 кг — 10%. Точную цену показывает калькулятор справа.",
+  "стоимость":      "Стоимость зависит от зерна, упаковки и объёма. Ориентир: от 380 ₽/кг для базового варианта. Используйте калькулятор для точного расчёта.",
+  "объём":          "Минимальный заказ — 50 кг. Скидка 5% от 200 кг, скидка 10% от 500 кг. Чем больше объём — тем ниже цена за кг.",
+  "минимальный":    "Минимальная партия — 50 кг. Это ~200 пачек по 250г. Отлично для пробного запуска или небольшой кофейни.",
+  "срок":           "Первая партия — от 14 дней для объёмов до 200 кг. 200–500 кг — 18 дней. Свыше 500 кг — 25 дней.",
+  "скидка":         "Скидки за объём: от 200 кг — 5%, от 500 кг — 10%. Применяются автоматически в итоговой сумме.",
+  "вендинг":        "Для вендинга рекомендуем Робусту Вьетнам или купаж Арабика+Робуста, тёмную обжарку. Подстраиваем помол под модель вашего автомата.",
+  "кофейня":        "Для кофейни лучше: Арабика Перу или Бразилия, средняя обжарка, зерно (не молотый), 1кг фасовка или 250г для ретейла.",
+  "default":        "Спасибо за вопрос! Если не нашёл ответ — напишите нам в Telegram или нажмите «Получить предложение». Менеджер ответит за 30 минут.",
+};
+
+function calcBotReply(text: string): string {
+  const lower = text.toLowerCase();
+  for (const [key, answer] of Object.entries(CALC_BOT_KB)) {
+    if (key !== "default" && lower.includes(key)) return answer;
+  }
+  return CALC_BOT_KB["default"];
+}
+
+interface ChatMsg { role: "user" | "bot"; text: string }
+
+// ── Компонент AI-помощника калькулятора ─────────────────────────
 
 const AiHint = ({ step }: { step: number }) => {
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState<number | null>(null);
+  const [open,    setOpen]    = useState(false);
+  const [mode,    setMode]    = useState<"hints" | "chat">("hints");
+  const [active,  setActive]  = useState<number | null>(null);
+  const [msgs,    setMsgs]    = useState<ChatMsg[]>([
+    { role: "bot", text: "Привет! Задайте любой вопрос о зерне, обжарке, упаковке или ценах — помогу разобраться." },
+  ]);
+  const [input,   setInput]   = useState("");
+  const [typing,  setTyping]  = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
   const hints = AI_HINTS[step] ?? [];
 
-  if (hints.length === 0) return null;
+  useEffect(() => {
+    if (open && mode === "chat") {
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    }
+  }, [msgs, open, mode]);
+
+  const sendMsg = (text: string) => {
+    if (!text.trim()) return;
+    setMsgs(m => [...m, { role: "user", text }]);
+    setInput("");
+    setTyping(true);
+    setTimeout(() => {
+      setMsgs(m => [...m, { role: "bot", text: calcBotReply(text) }]);
+      setTyping(false);
+    }, 700 + Math.random() * 400);
+  };
 
   return (
     <div className="mt-4">
       <button
-        onClick={() => { setOpen(o => !o); setActive(null); }}
+        onClick={() => setOpen(o => !o)}
         className={`flex items-center gap-2 text-xs font-medium px-3.5 py-2 rounded-full border transition-all ${
           open
-            ? "bg-primary/8 border-primary/30 text-primary"
-            : "border-border text-muted-foreground hover:border-primary/30 hover:text-primary hover:bg-primary/5"
+            ? "bg-foreground border-foreground text-white"
+            : "border-black/15 text-black/50 hover:border-black/30 hover:text-black/70 hover:bg-black/4"
         }`}
       >
         <Icon name="Sparkles" size={13} />
-        Помочь с выбором
+        AI-помощник
         <Icon name={open ? "ChevronUp" : "ChevronDown"} size={12} />
       </button>
 
       {open && (
-        <div className="mt-3 bg-secondary/40 border border-border rounded-2xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-border/60 flex items-center gap-2">
-            <div className="w-5 h-5 rounded-full bg-primary/15 flex items-center justify-center">
-              <Icon name="Bot" size={11} className="text-primary" />
+        <div className="mt-3 bg-white border border-black/10 rounded-2xl overflow-hidden shadow-sm">
+          {/* Шапка с переключением режима */}
+          <div className="px-4 py-3 border-b border-black/8 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-full bg-black/8 flex items-center justify-center">
+                <Icon name="Bot" size={11} className="text-foreground" />
+              </div>
+              <span className="text-[11px] font-semibold text-black/60">AI-помощник</span>
             </div>
-            <span className="text-[11px] font-semibold text-muted-foreground">AI-помощник · частые вопросы</span>
+            {/* Переключатель */}
+            <div className="flex gap-0.5 bg-black/5 rounded-full p-0.5">
+              {(["hints", "chat"] as const).map(m => (
+                <button key={m} onClick={() => setMode(m)}
+                  className={`text-[10px] font-mono px-2.5 py-1 rounded-full transition-all ${
+                    mode === m
+                      ? "bg-white text-foreground shadow-sm font-semibold"
+                      : "text-black/40 hover:text-black/60"
+                  }`}>
+                  {m === "hints" ? "ВОПРОСЫ" : "ЧАТ"}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="p-3 space-y-2">
-            {hints.map((h, i) => (
-              <div key={i}>
-                <button
-                  onClick={() => setActive(active === i ? null : i)}
-                  className={`w-full text-left flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-sm transition-all ${
-                    active === i
-                      ? "bg-primary/8 border border-primary/20 text-primary font-medium"
-                      : "bg-card border border-border hover:border-primary/30 hover:bg-primary/4"
-                  }`}
-                >
-                  <span>{h.q}</span>
-                  <Icon name={active === i ? "ChevronUp" : "ChevronDown"} size={13} className="flex-shrink-0 text-muted-foreground" />
-                </button>
-                {active === i && (
-                  <div className="mt-1.5 px-4 py-3 bg-primary/5 border border-primary/15 rounded-xl text-sm leading-relaxed text-foreground">
-                    <div className="flex gap-2">
-                      <Icon name="Bot" size={14} className="text-primary flex-shrink-0 mt-0.5" />
-                      <span>{h.a}</span>
+          {/* Режим: готовые вопросы */}
+          {mode === "hints" && (
+            <div className="p-3 space-y-2">
+              {hints.length > 0 ? hints.map((h, i) => (
+                <div key={i}>
+                  <button
+                    onClick={() => setActive(active === i ? null : i)}
+                    className={`w-full text-left flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-[13px] transition-all ${
+                      active === i
+                        ? "bg-foreground text-white font-medium"
+                        : "bg-black/3 border border-black/8 hover:border-black/20 text-foreground"
+                    }`}
+                  >
+                    <span>{h.q}</span>
+                    <Icon name={active === i ? "ChevronUp" : "ChevronDown"} size={13}
+                      className={`flex-shrink-0 ${active === i ? "text-white/60" : "text-black/30"}`} />
+                  </button>
+                  {active === i && (
+                    <div className="mt-1.5 px-4 py-3 bg-black/3 border border-black/8 rounded-xl text-[13px] leading-relaxed text-foreground">
+                      <div className="flex gap-2">
+                        <Icon name="Bot" size={13} className="text-black/40 flex-shrink-0 mt-0.5" />
+                        <span>{h.a}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )) : (
+                <p className="text-[12px] text-black/40 text-center py-3">
+                  Нет подсказок для этого шага — попробуйте чат
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Режим: свободный чат */}
+          {mode === "chat" && (
+            <div>
+              <div className="p-3 space-y-2 max-h-52 overflow-y-auto">
+                {msgs.map((m, i) => (
+                  <div key={i} className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                    {m.role === "bot" && (
+                      <div className="w-5 h-5 rounded-full bg-black/8 flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Icon name="Bot" size={10} className="text-foreground" />
+                      </div>
+                    )}
+                    <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-[12px] leading-relaxed ${
+                      m.role === "user"
+                        ? "bg-foreground text-white rounded-tr-sm"
+                        : "bg-black/4 text-foreground rounded-tl-sm"
+                    }`}>
+                      {m.text}
+                    </div>
+                  </div>
+                ))}
+                {typing && (
+                  <div className="flex gap-2">
+                    <div className="w-5 h-5 rounded-full bg-black/8 flex items-center justify-center flex-shrink-0">
+                      <Icon name="Bot" size={10} className="text-foreground" />
+                    </div>
+                    <div className="bg-black/4 rounded-2xl rounded-tl-sm px-3 py-2 flex gap-1">
+                      {[0, 1, 2].map(d => (
+                        <div key={d} className="w-1.5 h-1.5 rounded-full bg-black/30 animate-bounce"
+                          style={{ animationDelay: `${d * 0.15}s` }} />
+                      ))}
                     </div>
                   </div>
                 )}
+                <div ref={bottomRef} />
               </div>
-            ))}
-          </div>
+              <div className="border-t border-black/8 p-2 flex gap-2">
+                <input
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && sendMsg(input)}
+                  placeholder="Спросите о зерне, цене, упаковке..."
+                  className="flex-1 text-[12px] px-3 py-2 bg-black/4 rounded-xl border-none outline-none placeholder:text-black/30 text-foreground"
+                />
+                <button onClick={() => sendMsg(input)} disabled={!input.trim()}
+                  className="w-8 h-8 rounded-xl bg-foreground text-white flex items-center justify-center disabled:opacity-30 transition-opacity flex-shrink-0">
+                  <Icon name="Send" size={13} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

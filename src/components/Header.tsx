@@ -4,56 +4,22 @@ import Icon from "@/components/ui/icon";
 import { useLeadModal } from "@/context/LeadModalContext";
 
 const NAV_ITEMS = [
-  { label: "О производстве", href: "#features",     section: "features"     },
-  { label: "Кофе под СТМ",  href: "#workflow",      section: "workflow"     },
-  { label: "Калькулятор",   href: "#calculator",    section: "calculator"   },
-  { label: "Контакты",      href: "#contacts",      section: "contacts"     },
+  { label: "О производстве", href: "#features",  section: "features"  },
+  { label: "Кофе под СТМ",  href: "#workflow",   section: "workflow"  },
+  { label: "Калькулятор",   href: "#calculator", section: "calculator"},
+  { label: "Контакты",      href: "#contacts",   section: "contacts"  },
 ];
 
-const FULL_TEXT = "КонтрактКофе";
-const TYPING_SPEED = 90;
-
-const TypewriterLogo = () => {
-  const [displayed, setDisplayed] = useState("");
-  const [done, setDone] = useState(false);
-
-  useEffect(() => {
-    if (displayed.length < FULL_TEXT.length) {
-      const t = setTimeout(() => {
-        setDisplayed(FULL_TEXT.slice(0, displayed.length + 1));
-      }, TYPING_SPEED);
-      return () => clearTimeout(t);
-    } else {
-      setDone(true);
-    }
-  }, [displayed]);
-
-  return (
-    <div className="flex flex-col leading-none">
-      <span className="font-serif text-[15px] font-bold tracking-tight text-foreground flex items-center">
-        {displayed}
-        <span
-          className={`inline-block w-[2px] h-[15px] bg-primary ml-[2px] align-middle ${
-            done ? "animate-blink" : "opacity-100"
-          }`}
-        />
-      </span>
-      <span className="text-[10px] font-mono text-muted-foreground tracking-widest mt-0.5 uppercase">
-        производство стм полного цикла
-      </span>
-    </div>
-  );
-};
+const LOGO_URL = "https://cdn.poehali.dev/projects/9054c912-be91-4f90-8cab-0a91d0d7eafe/bucket/9db39a90-e361-4243-b645-550db60b6f4c.png";
 
 const Header = () => {
-  const [scrolled, setScrolled] = useState(false);
-  const [activeSection, setActiveSection] = useState("");
+  const [scrolled,       setScrolled]       = useState(false);
+  const [activeSection,  setActiveSection]  = useState("");
   const { openModal } = useLeadModal();
 
   useEffect(() => {
     const onScroll = () => {
       setScrolled(window.scrollY > 20);
-
       let current = "";
       for (const item of NAV_ITEMS) {
         const el = document.getElementById(item.section);
@@ -62,64 +28,45 @@ const Header = () => {
       }
       setActiveSection(current);
     };
-
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   return (
     <>
-      <style>{`
-        @keyframes blink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0; }
-        }
-        .animate-blink {
-          animation: blink 1s step-end infinite;
-        }
-      `}</style>
-
       <div id="read-progress" />
-      <header
-        className={`sticky top-0 z-50 transition-all duration-300 border-b border-border/40 ${
-          scrolled ? "glass shadow-sm" : "bg-background/95 backdrop-blur"
-        }`}
-      >
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+      <header className={`sticky top-0 z-50 transition-all duration-300 ${
+        scrolled
+          ? "bg-white/95 backdrop-blur shadow-sm border-b border-black/8"
+          : "bg-white border-b border-black/6"
+      }`}>
+        <div className="max-w-7xl mx-auto px-6 h-14 flex items-center justify-between gap-6">
 
-          {/* Логотип — динамический текст */}
-          <Link to="/" className="flex items-center gap-2.5 group flex-shrink-0" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-            <div className="w-7 h-7 bg-primary rounded-md flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform shadow-sm">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                {/* Чашка */}
-                <path d="M3 7h8v3.5A3 3 0 0 1 8 13.5 3 3 0 0 1 3 10.5Z" fill="white" opacity="0.95"/>
-                {/* Ручка */}
-                <path d="M11 8.5h1a1.5 1.5 0 0 1 0 3h-1" stroke="white" strokeWidth="1.2" strokeLinecap="round" fill="none"/>
-                {/* Пар — три волнистые линии */}
-                <path d="M5 5 C5 4.2 5.8 3.8 5.8 3 C5.8 2.2 5 1.8 5 1" stroke="white" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.8"/>
-                <path d="M7.5 5 C7.5 4.2 8.3 3.8 8.3 3 C8.3 2.2 7.5 1.8 7.5 1" stroke="white" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.8"/>
-                <path d="M10 5 C10 4.2 10.8 3.8 10.8 3 C10.8 2.2 10 1.8 10 1" stroke="white" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.8"/>
-              </svg>
-            </div>
-            <TypewriterLogo />
+          {/* Логотип */}
+          <Link to="/"
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="flex-shrink-0 flex items-center group">
+            <img
+              src={LOGO_URL}
+              alt="КОНТРАКТ КОФЕ"
+              className="h-7 w-auto object-contain"
+              style={{ filter: "brightness(0)" }}
+            />
           </Link>
 
           {/* Навигация */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden md:flex items-center gap-0.5 flex-1 justify-center">
             {NAV_ITEMS.map((item) => {
               const isActive = activeSection === item.section;
               return (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  className={`relative px-3 py-1.5 text-sm rounded-full transition-all duration-200 ${
+                <a key={item.href} href={item.href}
+                  className={`relative px-3.5 py-1.5 text-[13px] rounded-full transition-all duration-200 font-medium ${
                     isActive
-                      ? "text-primary font-semibold"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
+                      ? "text-foreground"
+                      : "text-black/50 hover:text-black/80"
+                  }`}>
                   {isActive && (
-                    <span className="absolute inset-0 rounded-full bg-primary/8 border border-primary/20" />
+                    <span className="absolute inset-0 rounded-full bg-black/6" />
                   )}
                   <span className="relative">{item.label}</span>
                 </a>
@@ -127,21 +74,24 @@ const Header = () => {
             })}
           </nav>
 
+          {/* Правая часть */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <a href="tel:+79042474302"
-              className="hidden md:flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-medium text-muted-foreground hover:text-foreground border border-border hover:border-primary/30 transition-all">
-              <Icon name="Phone" size={13} className="text-primary" />
+              className="hidden lg:flex items-center gap-1.5 text-[13px] font-medium text-black/60 hover:text-black transition-colors">
+              <Icon name="Phone" size={13} className="text-black/40" />
               +7 904 247-43-02
             </a>
             <a href="https://t.me/kontraktkafe" target="_blank" rel="noopener noreferrer"
-              className="hidden sm:flex items-center gap-1 px-3 py-2 rounded-full text-sm text-muted-foreground hover:text-primary border border-border hover:border-primary/30 transition-all">
-              <Icon name="Send" size={13} />
+              className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full hover:bg-black/6 text-black/50 hover:text-black transition-all">
+              <Icon name="Send" size={14} />
             </a>
-            <Link to="/cabinet" className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm font-medium border border-border hover:bg-secondary hover:border-primary/30 transition-all">
-              <Icon name="User" size={14} />
-              <span className="hidden sm:inline">ЛК</span>
+            <Link to="/cabinet"
+              className="hidden sm:flex items-center gap-1.5 text-[13px] font-medium text-black/60 hover:text-black border border-black/15 hover:border-black/30 px-3 py-1.5 rounded-full transition-all">
+              <Icon name="User" size={13} />
+              ЛК
             </Link>
-            <button onClick={openModal} className="bg-primary text-primary-foreground px-5 py-2.5 rounded-full text-sm font-medium hover:bg-primary/90 transition-all hover:shadow-md hover:shadow-primary/25 active:scale-95">
+            <button onClick={openModal}
+              className="bg-foreground text-white px-4 py-1.5 rounded-full text-[13px] font-medium hover:bg-black/80 transition-all active:scale-95">
               Получить предложение
             </button>
           </div>

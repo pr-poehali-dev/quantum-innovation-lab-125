@@ -1,143 +1,163 @@
+import { useState } from "react";
 import Icon from "@/components/ui/icon";
 
 const ADVANTAGES = [
   {
-    icon: "Package",
+    icon: "Layers",
     title: "Любые объёмы",
-    desc: "От пробной партии 50 кг до крупного опта — растёте вместе с нами без ограничений.",
+    short: "От 50 кг до крупного опта",
+    detail: "Начните с пробной партии 50 кг — проверите спрос без риска. Масштабируйтесь по мере роста продаж без смены поставщика.",
+    tag: "B2B",
   },
   {
     icon: "Sliders",
     title: "Свободный выбор",
-    desc: "Зелёное зерно, степень обжарки, тип упаковки, дизайн — всё под ваш бренд и сегмент.",
+    short: "Зерно, обжарка, упаковка, дизайн",
+    detail: "Арабика или Робуста, 6 стран. Светлая, средняя или тёмная обжарка. Квадропак, дой-пак, крафт или флоу-пак. Готовый шаблон или индивидуальный дизайн.",
+    tag: "CUSTOM",
+  },
+  {
+    icon: "Zap",
+    title: "Быстрый старт",
+    short: "Первая партия за 14 дней",
+    detail: "От подтверждения заявки до готовой продукции — 14 дней для партий до 200 кг. Повторные заказы — ещё быстрее.",
+    tag: "FAST",
   },
   {
     icon: "Truck",
-    title: "Быстрая логистика",
-    desc: "Отгрузка по всей России. Первая партия — от 14 дней. Повторные заказы — быстрее.",
+    title: "Логистика по России",
+    short: "СДЭК, отслеживание в ЛК",
+    detail: "Отгрузка по всей России. Трек-номер появляется в личном кабинете автоматически. Повторные партии — в 1 клик.",
+    tag: "RU",
+  },
+  {
+    icon: "ShieldCheck",
+    title: "Контроль качества",
+    short: "Каждая партия проверяется",
+    detail: "Входной контроль зерна, сенсорная оценка после обжарки, контроль веса и герметичности при фасовке. Документы прилагаются.",
+    tag: "QA",
+  },
+  {
+    icon: "RefreshCw",
+    title: "Полный цикл",
+    short: "Зерно → обжарка → упаковка → доставка",
+    detail: "Мы берём на себя всё: подбор зерна, разработку рецептуры, обжарку, упаковку, маркировку и доставку. Вы только продаёте.",
+    tag: "FULL",
   },
 ];
 
+const SEGMENTS = [
+  { name: "Кофейни",   icon: "Coffee"         },
+  { name: "Рестораны", icon: "UtensilsCrossed" },
+  { name: "Отели",     icon: "Hotel"           },
+  { name: "Вендинг",   icon: "Cpu"             },
+  { name: "Офисы",     icon: "Building2"       },
+  { name: "Ретейл",    icon: "ShoppingBag"     },
+];
+
 const FeaturesSection = () => {
+  const [active, setActive] = useState<number | null>(null);
+
   return (
-    <section id="features" className="py-24 bg-secondary/40">
+    <section id="features" className="py-24 bg-black/[0.02]">
       <div className="max-w-7xl mx-auto px-6">
 
         {/* Заголовок */}
-        <div className="flex flex-col md:flex-row items-start justify-between mb-16 scroll-reveal">
+        <div className="flex flex-col md:flex-row items-start justify-between mb-14 scroll-reveal">
           <div>
-            <span className="text-xs font-mono text-primary tracking-wider">О ПРОИЗВОДСТВЕ</span>
-            <h2 className="font-serif text-4xl md:text-5xl mt-3 font-bold max-w-lg leading-tight">
-              Почему бизнес выбирает<br />
-              <span className="text-primary">КонтрактКофе</span>
+            <span className="text-[11px] font-mono text-black/40 tracking-widest">О ПРОИЗВОДСТВЕ</span>
+            <h2 className="font-serif text-4xl md:text-5xl mt-3 font-bold leading-tight text-foreground">
+              Почему выбирают<br />КонтрактКофе
             </h2>
           </div>
-          <p className="text-muted-foreground text-sm max-w-xs hidden md:block mt-2 leading-relaxed">
-            Технологичное производство полного цикла — от подбора зерна до доставки готовой продукции.
-          </p>
-        </div>
-
-        {/* B2B Преимущества — 3 карточки */}
-        <div className="grid md:grid-cols-3 gap-5 mb-6">
-          {ADVANTAGES.map((adv, i) => (
-            <div key={adv.title}
-              className="bg-card border border-border rounded-2xl p-6 card-hover scroll-reveal flex flex-col gap-4"
-              data-delay={String(i * 100)}>
-              <div className="w-11 h-11 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-                <Icon name={adv.icon} fallback="Circle" size={20} className="text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg mb-1.5">{adv.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{adv.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Нижний ряд */}
-        <div className="grid md:grid-cols-3 gap-5">
-
-          {/* Обжарка */}
-          <div className="bg-card border border-border rounded-2xl p-6 card-hover scroll-reveal" data-delay="0">
-            <div className="flex items-start justify-between mb-5">
-              <span className="text-[10px] font-mono text-muted-foreground">ОБЖАРКА</span>
-              <span className="text-[10px] font-mono text-primary">3 СТЕПЕНИ</span>
-            </div>
-            <div className="bg-secondary/60 rounded-xl p-4 mb-5">
-              <div className="flex items-center gap-3">
-                {[
-                  { color: "#f5c27a", label: "LIGHT"  },
-                  { color: "#c07830", label: "MEDIUM" },
-                  { color: "#3d1a08", label: "DARK"   },
-                ].map(r => (
-                  <div key={r.label} className="flex-1 flex flex-col items-center gap-1.5">
-                    <div className="w-8 h-8 rounded-full border-2 border-border/40 shadow-inner"
-                      style={{ background: r.color }} />
-                    <span className="text-[9px] font-mono text-muted-foreground">{r.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <h3 className="font-semibold text-base mb-1">Точная обжарка</h3>
-            <p className="text-sm text-muted-foreground">Светлая — для specialty. Тёмная — для вендинга и эспрессо.</p>
-          </div>
-
           {/* Сегменты */}
-          <div className="bg-card border border-border rounded-2xl p-6 card-hover scroll-reveal" data-delay="100">
-            <div className="flex items-start justify-between mb-5">
-              <span className="text-[10px] font-mono text-muted-foreground">СЕГМЕНТЫ</span>
-              <span className="text-[10px] font-mono text-primary">B2B</span>
-            </div>
-            <div className="bg-secondary/60 rounded-xl p-3 mb-5">
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { name: "Кофейни",   icon: "Coffee"          },
-                  { name: "Рестораны", icon: "UtensilsCrossed" },
-                  { name: "Отели",     icon: "Hotel"           },
-                  { name: "Вендинг",   icon: "Cpu"             },
-                  { name: "Офисы",     icon: "Building2"       },
-                  { name: "Ретейл",    icon: "ShoppingBag"     },
-                ].map((item) => (
-                  <div key={item.name} className="text-center p-2 rounded-lg bg-card border border-border">
-                    <div className="w-6 h-6 mx-auto mb-1 rounded bg-secondary flex items-center justify-center">
-                      <Icon name={item.icon} fallback="Circle" size={12} className="text-primary" />
-                    </div>
-                    <span className="text-[10px] font-mono text-muted-foreground">{item.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <h3 className="font-semibold text-base mb-1">Для любого бизнеса</h3>
-            <p className="text-sm text-muted-foreground">HoReCa, вендинг, ретейл и корпоративные офисы.</p>
-          </div>
-
-          {/* Полный цикл */}
-          <div className="bg-foreground text-white border border-foreground rounded-2xl p-6 card-hover scroll-reveal" data-delay="200">
-            <div className="flex items-start justify-between mb-5">
-              <span className="text-[10px] font-mono text-white/40">ПРОЦЕСС</span>
-              <span className="text-[10px] font-mono text-primary">ПОЛНЫЙ_ЦИКЛ</span>
-            </div>
-            <div className="space-y-2.5 mb-5">
-              {[
-                { step: "01", label: "Подбор зерна",  icon: "Leaf"     },
-                { step: "02", label: "Обжарка",        icon: "Flame"    },
-                { step: "03", label: "Упаковка",       icon: "Package"  },
-                { step: "04", label: "Доставка",       icon: "Truck"    },
-              ].map((s, i, arr) => (
-                <div key={s.step} className="flex items-center gap-3">
-                  <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
-                    <Icon name={s.icon} fallback="Circle" size={12} className="text-primary" />
-                  </div>
-                  <span className="text-sm text-white/80">{s.label}</span>
-                  {i < arr.length - 1 && (
-                    <div className="ml-auto w-4 h-px bg-white/15" />
-                  )}
+          <div className="mt-6 md:mt-0">
+            <p className="text-[11px] font-mono text-black/40 mb-3 tracking-wider">РАБОТАЕМ С</p>
+            <div className="flex flex-wrap gap-2">
+              {SEGMENTS.map(s => (
+                <div key={s.name}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-black/8 rounded-full text-xs text-black/60 shadow-sm">
+                  <Icon name={s.icon} fallback="Circle" size={12} className="text-black/40" />
+                  {s.name}
                 </div>
               ))}
             </div>
-            <h3 className="font-semibold text-base mb-1">Под ключ</h3>
-            <p className="text-sm text-white/50">Вы только продаёте. Всё остальное — на нас.</p>
           </div>
+        </div>
+
+        {/* Преимущества — accordion-список */}
+        <div className="grid md:grid-cols-2 gap-3 scroll-reveal" data-delay="100">
+          {ADVANTAGES.map((adv, i) => {
+            const isOpen = active === i;
+            return (
+              <button key={adv.title}
+                onClick={() => setActive(isOpen ? null : i)}
+                className={`w-full text-left p-5 rounded-2xl border transition-all duration-300 group ${
+                  isOpen
+                    ? "bg-foreground text-white border-foreground shadow-lg"
+                    : "bg-white border-black/8 hover:border-black/20 hover:shadow-sm"
+                }`}>
+                <div className="flex items-start gap-4">
+                  {/* Иконка */}
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors ${
+                    isOpen ? "bg-white/15" : "bg-black/5 group-hover:bg-black/8"
+                  }`}>
+                    <Icon name={adv.icon} fallback="Circle" size={18}
+                      className={isOpen ? "text-white" : "text-foreground"} />
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className={`font-semibold text-[15px] ${isOpen ? "text-white" : "text-foreground"}`}>
+                        {adv.title}
+                      </h3>
+                      <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full flex-shrink-0 ${
+                        isOpen
+                          ? "bg-white/15 text-white"
+                          : "bg-black/5 text-black/40"
+                      }`}>{adv.tag}</span>
+                    </div>
+                    <p className={`text-[13px] mt-0.5 ${isOpen ? "text-white/70" : "text-black/50"}`}>
+                      {adv.short}
+                    </p>
+
+                    {/* Раскрытое описание */}
+                    <div className={`overflow-hidden transition-all duration-300 ${isOpen ? "max-h-24 mt-3 opacity-100" : "max-h-0 opacity-0"}`}>
+                      <p className="text-[13px] text-white/60 leading-relaxed">
+                        {adv.detail}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Icon
+                    name={isOpen ? "ChevronUp" : "ChevronDown"}
+                    size={16}
+                    className={`flex-shrink-0 mt-1 transition-colors ${isOpen ? "text-white/60" : "text-black/30"}`}
+                  />
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Нижняя плашка */}
+        <div className="mt-8 grid md:grid-cols-3 gap-4 scroll-reveal" data-delay="200">
+          {[
+            { val: "500+",  label: "брендов создано",     icon: "Award"   },
+            { val: "14 дн", label: "до первой партии",    icon: "Clock"   },
+            { val: "50 кг", label: "минимальный заказ",   icon: "Package" },
+          ].map(stat => (
+            <div key={stat.val}
+              className="flex items-center gap-4 bg-white border border-black/8 rounded-2xl px-5 py-4 shadow-sm">
+              <div className="w-9 h-9 rounded-xl bg-black/5 flex items-center justify-center flex-shrink-0">
+                <Icon name={stat.icon} fallback="Circle" size={16} className="text-foreground" />
+              </div>
+              <div>
+                <p className="font-serif text-2xl font-bold text-foreground">{stat.val}</p>
+                <p className="text-[11px] text-black/50 font-mono mt-0.5">{stat.label.toUpperCase()}</p>
+              </div>
+            </div>
+          ))}
         </div>
 
       </div>
