@@ -1,5 +1,6 @@
 import Icon from "@/components/ui/icon";
-import { STEPS, ORIGINS, ROASTS, PACKAGINGS, DESIGNS } from "./calculator.types";
+import { STEPS, ROASTS, PACKAGINGS, DESIGNS } from "./calculator.types";
+import type { CalcOrigin } from "@/components/PriceCalculator";
 
 interface CalculatorSummaryProps {
   step: number;
@@ -11,11 +12,13 @@ interface CalculatorSummaryProps {
   total: number;
   discount: number;
   leadTime: number;
+  dynamicOrigins?: CalcOrigin[];
 }
 
 const CalculatorSummary = ({
-  step, origin, roast, pkg, design, volume, total, discount, leadTime,
+  step, origin, roast, pkg, design, volume, total, discount, leadTime, dynamicOrigins,
 }: CalculatorSummaryProps) => {
+  const originLabel = dynamicOrigins && origin >= 0 ? dynamicOrigins[origin]?.label : "—";
   return (
     <div className="space-y-3 lg:sticky lg:top-24">
       {/* Итоговая цена */}
@@ -30,7 +33,7 @@ const CalculatorSummary = ({
         )}
         <div className="mt-5 space-y-2 pt-4 border-t border-white/20">
           {[
-            { label: "Зерно",    val: origin >= 0 ? ORIGINS[origin].label                             : "—" },
+            { label: "Зерно",    val: originLabel },
             { label: "Обжарка",  val: ROASTS[roast].label                                                    },
             { label: "Упаковка", val: pkg    >= 0 ? PACKAGINGS[pkg].label                             : "—" },
             { label: "Дизайн",   val: design >= 0 && !DESIGNS[design].soon ? DESIGNS[design].label    : "—" },

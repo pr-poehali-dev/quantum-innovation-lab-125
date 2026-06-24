@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
-import { STEPS, ORIGINS, ROASTS, PACKAGINGS, DESIGNS, OptionCardProps } from "./calculator.types";
+import { STEPS, ROASTS, PACKAGINGS, DESIGNS, OptionCardProps } from "./calculator.types";
 import CalculatorAiHint from "./CalculatorAiHint";
+import type { CalcOrigin } from "@/components/PriceCalculator";
 
 // ── Анимированная карточка ────────────────────────────────────
 
@@ -85,6 +86,7 @@ interface CalculatorStepPanelProps {
   setVolume: (v: number) => void;
   goNext: () => void;
   onSubmit: () => void;
+  dynamicOrigins?: CalcOrigin[];
 }
 
 // ── Компонент ─────────────────────────────────────────────────
@@ -93,7 +95,7 @@ const CalculatorStepPanel = ({
   step, origin, roast, pkg, design, volume,
   canNext, isLast,
   setStep, setOrigin, setRoast, setPkg, setDesign, setVolume,
-  goNext, onSubmit,
+  goNext, onSubmit, dynamicOrigins,
 }: CalculatorStepPanelProps) => {
   return (
     <div className="lg:col-span-2">
@@ -179,8 +181,8 @@ const CalculatorStepPanel = ({
             {/* 0 — Зерно */}
             {step === 0 && (
               <div className="grid grid-cols-2 gap-3">
-                {ORIGINS.map((o, i) => (
-                  <OptionCard key={o.label} {...o} selected={origin === i}
+                {(dynamicOrigins ?? []).map((o, i) => (
+                  <OptionCard key={o.id} label={o.label} desc={o.desc} selected={origin === i}
                     onClick={() => { setOrigin(i); }} />
                 ))}
               </div>

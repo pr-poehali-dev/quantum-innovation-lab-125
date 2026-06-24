@@ -178,6 +178,61 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"ok": True})
 
+        # ── get-calc: публичные данные калькулятора ───────────────
+        if action == "get-calc":
+            cur.execute(f"""
+                SELECT id, label, desc_text, price_usd, sort_order
+                FROM {SCHEMA}.calc_origins WHERE active=TRUE ORDER BY sort_order, id
+            """)
+            origins = [
+                {"id": r[0], "label": r[1], "desc": r[2], "price_usd": float(r[3]), "sort_order": r[4]}
+                for r in cur.fetchall()
+            ]
+            cur.execute(f"SELECT key, value, label FROM {SCHEMA}.calc_params ORDER BY key")
+            params = {r[0]: {"value": float(r[1]), "label": r[2]} for r in cur.fetchall()}
+            cur.execute(f"SELECT value FROM {SCHEMA}.site_settings WHERE key='usd_rate'")
+            rate_row = cur.fetchone()
+            usd_rate = float(rate_row[0]) if rate_row else 85.0
+            return ok({"origins": origins, "params": params, "usd_rate": usd_rate})
+
+        # ── save-calc: сохранить данные калькулятора ──────────────
+        if action == "save-calc":
+            if not check_admin(headers):
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+
+            # Обновить сорта зерна
+            if "origins" in body:
+                for o in body["origins"]:
+                    oid = o.get("id")
+                    if oid:
+                        cur.execute(f"""
+                            UPDATE {SCHEMA}.calc_origins
+                            SET label=%s, desc_text=%s, price_usd=%s, sort_order=%s
+                            WHERE id=%s
+                        """, (o["label"], o.get("desc",""), float(o["price_usd"]), o.get("sort_order", 0), oid))
+                    else:
+                        cur.execute(f"""
+                            INSERT INTO {SCHEMA}.calc_origins (label, desc_text, price_usd, sort_order)
+                            VALUES (%s, %s, %s, (SELECT COALESCE(MAX(sort_order),0)+1 FROM {SCHEMA}.calc_origins))
+                            RETURNING id
+                        """, (o["label"], o.get("desc",""), float(o["price_usd"])))
+
+            # Удалить сорта, которых нет в присланном списке (по id)
+            if "delete_origin_ids" in body:
+                for did in body["delete_origin_ids"]:
+                    cur.execute(f"UPDATE {SCHEMA}.calc_origins SET active=FALSE WHERE id=%s", (did,))
+
+            # Обновить параметры
+            if "params" in body:
+                for key, val in body["params"].items():
+                    cur.execute(f"""
+                        UPDATE {SCHEMA}.calc_params SET value=%s WHERE key=%s
+                    """, (float(val), key))
+
+            conn.commit()
+            return ok({"ok": True})
+
         # ── get-rate: получить курс доллара ──────────────────────
         if action == "get-rate":
             cur.execute(f"SELECT value, updated_at FROM {SCHEMA}.site_settings WHERE key='usd_rate'")
