@@ -20,12 +20,17 @@ const Header = () => {
   const [scrolled,      setScrolled]      = useState(false);
   const [activeSection, setActiveSection] = useState("");
   const [logoUrl,       setLogoUrl]       = useState(FALLBACK_LOGO);
+  const [usdRate,       setUsdRate]       = useState<number | null>(null);
   const { openModal } = useLeadModal();
 
   useEffect(() => {
-    fetch(ABOUT_URL)
+    fetch(ABOUT_URL, { headers: { "X-Action": "get-content" } })
       .then(r => r.json())
       .then(d => { if (d.content?.logo_url) setLogoUrl(d.content.logo_url); })
+      .catch(() => {});
+    fetch(ABOUT_URL, { headers: { "X-Action": "get-rate" } })
+      .then(r => r.json())
+      .then(d => { if (d.rate) setUsdRate(d.rate); })
       .catch(() => {});
   }, []);
 
@@ -98,6 +103,14 @@ const Header = () => {
               );
             })}
           </nav>
+
+          {/* Курс доллара */}
+          {usdRate !== null && (
+            <div className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full border border-black/10 bg-black/3 flex-shrink-0">
+              <span className="text-[11px] font-mono text-black/35">USD</span>
+              <span className="text-[12px] font-mono font-semibold text-black/70">{usdRate.toFixed(2)} ₽</span>
+            </div>
+          )}
 
           {/* Правая часть */}
           <div className="flex items-center gap-2 flex-shrink-0">

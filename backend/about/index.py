@@ -178,6 +178,30 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"ok": True})
 
+        # ── get-rate: получить курс доллара ──────────────────────
+        if action == "get-rate":
+            cur.execute(f"SELECT value, updated_at FROM {SCHEMA}.site_settings WHERE key='usd_rate'")
+            row = cur.fetchone()
+            if row:
+                return ok({"rate": float(row[0]), "updated_at": str(row[1])})
+            return ok({"rate": None, "updated_at": None})
+
+        # ── save-rate: сохранить курс доллара ─────────────────────
+        if action == "save-rate":
+            if not check_admin(headers):
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            rate = body.get("rate")
+            if rate is None:
+                return err("rate required")
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.site_settings (key, value, updated_at)
+                VALUES ('usd_rate', %s, NOW())
+                ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
+            """, (str(float(rate)),))
+            conn.commit()
+            return ok({"ok": True, "rate": float(rate)})
+
         return err(f"Unknown action: {action}", 400)
 
     finally:
