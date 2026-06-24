@@ -70,7 +70,7 @@ const Header = () => {
             <img
               src={logoUrl}
               alt="КОНТРАКТ КОФЕ"
-              className="h-7 w-auto object-contain group-hover:opacity-80 transition-opacity"
+              className="h-10 w-auto object-contain group-hover:opacity-80 transition-opacity"
               style={{ filter: "brightness(0)" }}
             />
           </Link>
