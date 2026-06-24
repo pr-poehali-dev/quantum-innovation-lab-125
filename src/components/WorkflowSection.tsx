@@ -188,7 +188,8 @@ const WorkflowSection = () => {
 
                 {/* Текстовая часть */}
                 <div className="p-4 flex flex-col flex-1">
-                  <div className="flex items-start justify-between gap-2 mb-1">
+                  {/* Заголовок — фиксированная высота на 2 строки */}
+                  <div className="flex items-start justify-between gap-2 mb-1" style={{ minHeight: 40 }}>
                     <h3 className="font-semibold text-[14px] leading-snug">{step.title}</h3>
                     {step.badge && (
                       <span className="text-[9px] font-mono font-bold bg-primary/10 text-primary border border-primary/20 rounded-full px-2 py-0.5 flex-shrink-0">
@@ -196,9 +197,10 @@ const WorkflowSection = () => {
                       </span>
                     )}
                   </div>
-                  <p className="text-[11px] text-muted-foreground font-mono">{step.sub}</p>
+                  {/* Подзаголовок — фиксированная высота */}
+                  <p className="text-[11px] text-muted-foreground font-mono" style={{ minHeight: 32 }}>{step.sub}</p>
 
-                  {/* Раскрытие */}
+                  {/* Раскрытие — прижато к низу */}
                   <button
                     onClick={() => setOpenStep(openStep === index ? null : index)}
                     className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-colors mt-auto pt-3">
