@@ -14,14 +14,16 @@ const AboutAdmin = () => {
   const [loading,      setLoading]      = useState(true);
   const [saving,       setSaving]       = useState(false);
   const [toast,        setToast]        = useState<{ msg: string; ok: boolean } | null>(null);
-  const [newUrl,       setNewUrl]       = useState("");
+  const [newUrl,       setNewUrl]       = useState(""); // внешний URL для фото
   const [newLabel,     setNewLabel]     = useState("");
   const [newDesc,      setNewDesc]      = useState("");
-  const [addingPhoto,  setAddingPhoto]  = useState(false);
-  const [deletingId,   setDeletingId]   = useState<number | null>(null);
-  const [logoPreview,  setLogoPreview]  = useState<string>("");
-  const [logoB64,      setLogoB64]      = useState<string>("");
+  const [addingPhoto,   setAddingPhoto]   = useState(false);
+  const [deletingId,    setDeletingId]    = useState<number | null>(null);
+  const [logoPreview,   setLogoPreview]   = useState<string>("");
+  const [logoFile,      setLogoFile]      = useState<File | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [photoFile,     setPhotoFile]     = useState<File | null>(null);
+  const [photoPreview,  setPhotoPreview]  = useState<string>("");
   const fileRef    = useRef<HTMLInputElement>(null);
   const logoRef    = useRef<HTMLInputElement>(null);
 
@@ -43,53 +45,111 @@ const AboutAdmin = () => {
 
   useEffect(() => { load(); }, []);
 
-  const onLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // ── Вспомогательная: preview файла ──────────────────────────
+  const makePreview = (file: File, cb: (url: string) => void) => {
     const reader = new FileReader();
-    reader.onload = ev => {
-      const dataUrl = ev.target?.result as string;
-      // Ресайзим через canvas — максимум 600px по ширине, PNG с прозрачностью
-      const img = new Image();
-      img.onload = () => {
-        const MAX_W = 600;
-        const scale = img.width > MAX_W ? MAX_W / img.width : 1;
-        const w = Math.round(img.width  * scale);
-        const h = Math.round(img.height * scale);
-        const canvas = document.createElement("canvas");
-        canvas.width  = w;
-        canvas.height = h;
-        const ctx = canvas.getContext("2d")!;
-        ctx.clearRect(0, 0, w, h);
-        ctx.drawImage(img, 0, 0, w, h);
-        const resized = canvas.toDataURL("image/png");
-        setLogoPreview(resized);
-        setLogoB64(resized.split(",")[1]);
-      };
-      img.src = dataUrl;
-    };
+    reader.onload = e => cb(e.target?.result as string);
     reader.readAsDataURL(file);
   };
 
+  // ── Вспомогательная: загрузить файл напрямую в S3 ────────────
+  // 1. GET /presign → получаем presigned PUT-URL
+  // 2. PUT напрямую в S3 (без нашего бэкенда — нет лимита тела)
+  // 3. POST /confirm-* → сохраняем CDN URL в БД
+  const presignAndUpload = async (file: File, type: "logo" | "photo") => {
+    const ext = file.name.split(".").pop()?.toLowerCase() || "png";
+    // 1. Получить presigned URL
+    const presignRes = await fetch(
+      `${ABOUT_URL}/presign?type=${type}&ext=${ext}`,
+      { headers: { "X-Admin-Key": ADMIN_KEY } }
+    );
+    if (!presignRes.ok) throw new Error("Ошибка получения URL загрузки");
+    const { upload_url, cdn_url } = await presignRes.json();
+
+    // 2. Залить файл напрямую в S3
+    const uploadRes = await fetch(upload_url, {
+      method: "PUT",
+      headers: { "Content-Type": file.type || "image/png" },
+      body: file,
+    });
+    if (!uploadRes.ok) throw new Error("Ошибка загрузки в хранилище");
+
+    return cdn_url as string;
+  };
+
+  const onLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoFile(file);
+    makePreview(file, setLogoPreview);
+  };
+
   const uploadLogo = async () => {
-    if (!logoB64) return;
+    if (!logoFile) return;
     setUploadingLogo(true);
     try {
-      const r = await fetch(`${ABOUT_URL}/logo`, {
+      const cdn_url = await presignAndUpload(logoFile, "logo");
+      // Сохранить URL в БД
+      const r = await fetch(`${ABOUT_URL}/confirm-logo`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY },
-        body: JSON.stringify({ file_base64: logoB64 }),
+        body: JSON.stringify({ cdn_url }),
       });
-      const d = await r.json();
       if (r.ok) {
         showToast("Логотип обновлён ✓");
         setLogoPreview("");
-        setLogoB64("");
+        setLogoFile(null);
         if (logoRef.current) logoRef.current.value = "";
-        setContent(c => ({ ...c, logo_url: d.logo_url }));
-      } else showToast("Ошибка загрузки", false);
-    } catch { showToast("Ошибка сети", false); }
+        setContent(c => ({ ...c, logo_url: cdn_url }));
+      } else showToast("Ошибка сохранения", false);
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Ошибка загрузки", false);
+    }
     finally { setUploadingLogo(false); }
+  };
+
+  const onPhotoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoFile(file);
+    makePreview(file, setPhotoPreview);
+  };
+
+  const addPhoto = async () => {
+    if (!photoFile && !newUrl.trim()) return;
+    setAddingPhoto(true);
+    try {
+      if (photoFile) {
+        // Загрузка файла напрямую в S3
+        const cdn_url = await presignAndUpload(photoFile, "photo");
+        const r = await fetch(`${ABOUT_URL}/confirm-photo`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY },
+          body: JSON.stringify({ cdn_url, label: newLabel, description: newDesc }),
+        });
+        if (r.ok) {
+          showToast("Фото добавлено ✓");
+          setPhotoFile(null); setPhotoPreview(""); setNewLabel(""); setNewDesc("");
+          if (fileRef.current) fileRef.current.value = "";
+          load();
+        } else showToast("Ошибка сохранения", false);
+      } else {
+        // Внешний URL
+        const r = await fetch(`${ABOUT_URL}/photos`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY },
+          body: JSON.stringify({ url: newUrl, label: newLabel, description: newDesc }),
+        });
+        if (r.ok) {
+          showToast("Фото добавлено ✓");
+          setNewUrl(""); setNewLabel(""); setNewDesc("");
+          load();
+        } else showToast("Ошибка добавления", false);
+      }
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : "Ошибка сети", false);
+    }
+    finally { setAddingPhoto(false); }
   };
 
   const saveContent = async () => {
@@ -104,24 +164,6 @@ const AboutAdmin = () => {
       else showToast("Ошибка сохранения", false);
     } catch { showToast("Ошибка сети", false); }
     finally { setSaving(false); }
-  };
-
-  const addPhoto = async () => {
-    if (!newUrl.trim()) return;
-    setAddingPhoto(true);
-    try {
-      const r = await fetch(`${ABOUT_URL}/photos`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY },
-        body: JSON.stringify({ url: newUrl, label: newLabel, description: newDesc }),
-      });
-      if (r.ok) {
-        showToast("Фото добавлено ✓");
-        setNewUrl(""); setNewLabel(""); setNewDesc("");
-        load();
-      } else showToast("Ошибка добавления", false);
-    } catch { showToast("Ошибка сети", false); }
-    finally { setAddingPhoto(false); }
   };
 
   const deletePhoto = async (id: number) => {
@@ -222,7 +264,7 @@ const AboutAdmin = () => {
                     </div>
                     <button
                       onClick={uploadLogo}
-                      disabled={!logoB64 || uploadingLogo}
+                      disabled={!logoFile || uploadingLogo}
                       className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-40 active:scale-95"
                     >
                       <Icon name={uploadingLogo ? "Loader" : "Upload"} size={14} className={uploadingLogo ? "animate-spin" : ""} />
@@ -320,13 +362,42 @@ const AboutAdmin = () => {
               <div className="px-4 pb-4">
                 <div className="border border-dashed border-border rounded-xl p-4 space-y-3">
                   <p className="text-[11px] font-mono text-muted-foreground">ДОБАВИТЬ ФОТО</p>
-                  <div className="grid md:grid-cols-3 gap-3">
-                    <input
-                      value={newUrl}
-                      onChange={e => setNewUrl(e.target.value)}
-                      placeholder="URL фотографии (https://...)"
-                      className="md:col-span-3 border border-border rounded-xl px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                    />
+
+                  {/* Загрузка файла */}
+                  <div
+                    className="border border-border rounded-xl p-3 text-center hover:border-primary/40 transition-colors cursor-pointer bg-secondary/30"
+                    onClick={() => fileRef.current?.click()}
+                  >
+                    <input ref={fileRef} type="file" accept="image/*" onChange={onPhotoFileChange} className="hidden" />
+                    {photoPreview ? (
+                      <div className="flex items-center gap-3">
+                        <img src={photoPreview} alt="preview" className="w-16 h-12 object-cover rounded-lg" />
+                        <span className="text-sm text-green-600 font-medium">
+                          {photoFile?.name} — готово к загрузке
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 py-1">
+                        <Icon name="Upload" size={16} className="text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Выбрать файл с компьютера</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ИЛИ внешний URL */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-px bg-border" />
+                    <span className="text-[11px] text-muted-foreground font-mono">ИЛИ ВСТАВЬТЕ URL</span>
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
+                  <input
+                    value={newUrl}
+                    onChange={e => { setNewUrl(e.target.value); if (e.target.value) { setPhotoFile(null); setPhotoPreview(""); } }}
+                    placeholder="https://example.com/photo.jpg"
+                    className="w-full border border-border rounded-xl px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  />
+
+                  <div className="grid grid-cols-2 gap-3">
                     <input
                       value={newLabel}
                       onChange={e => setNewLabel(e.target.value)}
@@ -339,18 +410,15 @@ const AboutAdmin = () => {
                       placeholder="Описание (коротко)"
                       className="border border-border rounded-xl px-3 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                     />
-                    <button
-                      onClick={addPhoto}
-                      disabled={addingPhoto || !newUrl.trim()}
-                      className="flex items-center justify-center gap-2 bg-foreground text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-foreground/80 transition-all disabled:opacity-40 active:scale-95">
-                      <Icon name={addingPhoto ? "Loader" : "Plus"} size={14}
-                        className={addingPhoto ? "animate-spin" : ""} />
-                      {addingPhoto ? "Добавляю..." : "Добавить"}
-                    </button>
                   </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Вставьте прямую ссылку на изображение. Рекомендуемый размер: 800×600px и выше.
-                  </p>
+                  <button
+                    onClick={addPhoto}
+                    disabled={addingPhoto || (!photoFile && !newUrl.trim())}
+                    className="w-full flex items-center justify-center gap-2 bg-foreground text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-foreground/80 transition-all disabled:opacity-40 active:scale-95">
+                    <Icon name={addingPhoto ? "Loader" : "Plus"} size={14}
+                      className={addingPhoto ? "animate-spin" : ""} />
+                    {addingPhoto ? "Загружаю..." : "Добавить фото"}
+                  </button>
                 </div>
               </div>
             </div>
