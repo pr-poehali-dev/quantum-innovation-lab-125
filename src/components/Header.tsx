@@ -115,13 +115,14 @@ const Header = () => {
           {/* Правая часть */}
           <div className="flex items-center gap-2 flex-shrink-0">
             <a href="tel:+79042474302"
-              className="hidden xl:flex items-center gap-1.5 text-[13px] font-medium text-black/55 hover:text-primary transition-colors">
-              <Icon name="Phone" size={13} className="text-primary/70" />
-              +7 904 247-43-02
+              className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full hover:bg-primary/8 text-black/40 hover:text-primary transition-all"
+              title="+7 904 247-43-02">
+              <Icon name="Phone" size={14} />
             </a>
 
             <a href="https://t.me/kontraktkafe" target="_blank" rel="noopener noreferrer"
-              className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full hover:bg-primary/8 text-black/40 hover:text-primary transition-all">
+              className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full hover:bg-primary/8 text-black/40 hover:text-primary transition-all"
+              title="Написать в Telegram">
               <Icon name="Send" size={14} />
             </a>
 
