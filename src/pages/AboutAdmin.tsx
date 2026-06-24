@@ -32,10 +32,18 @@ const AboutAdmin = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
+  // Вспомогательная: POST на единый URL с X-Action заголовком
+  const api = (action: string, body?: object, extraHeaders?: Record<string, string>) =>
+    fetch(ABOUT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY, "X-Action": action, ...extraHeaders },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
   const load = async () => {
     setLoading(true);
     try {
-      const r = await fetch(ABOUT_URL);
+      const r = await fetch(ABOUT_URL, { headers: { "X-Action": "get-content" } });
       const d = await r.json();
       if (d.content) setContent(d.content);
       if (d.photos)  setPhotos(d.photos);
@@ -45,35 +53,25 @@ const AboutAdmin = () => {
 
   useEffect(() => { load(); }, []);
 
-  // ── Вспомогательная: preview файла ──────────────────────────
   const makePreview = (file: File, cb: (url: string) => void) => {
     const reader = new FileReader();
     reader.onload = e => cb(e.target?.result as string);
     reader.readAsDataURL(file);
   };
 
-  // ── Вспомогательная: загрузить файл напрямую в S3 ────────────
-  // 1. GET /presign → получаем presigned PUT-URL
-  // 2. PUT напрямую в S3 (без нашего бэкенда — нет лимита тела)
-  // 3. POST /confirm-* → сохраняем CDN URL в БД
-  const presignAndUpload = async (file: File, type: "logo" | "photo") => {
-    const ext = file.name.split(".").pop()?.toLowerCase() || "png";
-    // 1. Получить presigned URL
-    const presignRes = await fetch(
-      `${ABOUT_URL}/presign?type=${type}&ext=${ext}`,
-      { headers: { "X-Admin-Key": ADMIN_KEY } }
-    );
-    if (!presignRes.ok) throw new Error("Ошибка получения URL загрузки");
-    const { upload_url, cdn_url } = await presignRes.json();
+  // Загрузка файла напрямую в S3 через presigned URL (без лимита тела)
+  const presignAndUpload = async (file: File, action: "presign-logo" | "presign-photo") => {
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const presignRes = await api(action, { ext });
+    if (!presignRes.ok) throw new Error("Ошибка получения ссылки для загрузки");
+    const { upload_url, cdn_url, content_type } = await presignRes.json();
 
-    // 2. Залить файл напрямую в S3
     const uploadRes = await fetch(upload_url, {
       method: "PUT",
-      headers: { "Content-Type": file.type || "image/png" },
+      headers: { "Content-Type": content_type || file.type || "image/jpeg" },
       body: file,
     });
     if (!uploadRes.ok) throw new Error("Ошибка загрузки в хранилище");
-
     return cdn_url as string;
   };
 
@@ -88,17 +86,11 @@ const AboutAdmin = () => {
     if (!logoFile) return;
     setUploadingLogo(true);
     try {
-      const cdn_url = await presignAndUpload(logoFile, "logo");
-      // Сохранить URL в БД
-      const r = await fetch(`${ABOUT_URL}/confirm-logo`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY },
-        body: JSON.stringify({ cdn_url }),
-      });
+      const cdn_url = await presignAndUpload(logoFile, "presign-logo");
+      const r = await api("confirm-logo", { cdn_url });
       if (r.ok) {
         showToast("Логотип обновлён ✓");
-        setLogoPreview("");
-        setLogoFile(null);
+        setLogoPreview(""); setLogoFile(null);
         if (logoRef.current) logoRef.current.value = "";
         setContent(c => ({ ...c, logo_url: cdn_url }));
       } else showToast("Ошибка сохранения", false);
@@ -120,13 +112,8 @@ const AboutAdmin = () => {
     setAddingPhoto(true);
     try {
       if (photoFile) {
-        // Загрузка файла напрямую в S3
-        const cdn_url = await presignAndUpload(photoFile, "photo");
-        const r = await fetch(`${ABOUT_URL}/confirm-photo`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY },
-          body: JSON.stringify({ cdn_url, label: newLabel, description: newDesc }),
-        });
+        const cdn_url = await presignAndUpload(photoFile, "presign-photo");
+        const r = await api("confirm-photo", { cdn_url, label: newLabel, description: newDesc });
         if (r.ok) {
           showToast("Фото добавлено ✓");
           setPhotoFile(null); setPhotoPreview(""); setNewLabel(""); setNewDesc("");
@@ -134,12 +121,7 @@ const AboutAdmin = () => {
           load();
         } else showToast("Ошибка сохранения", false);
       } else {
-        // Внешний URL
-        const r = await fetch(`${ABOUT_URL}/photos`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY },
-          body: JSON.stringify({ url: newUrl, label: newLabel, description: newDesc }),
-        });
+        const r = await api("add-photo-url", { url: newUrl, label: newLabel, description: newDesc });
         if (r.ok) {
           showToast("Фото добавлено ✓");
           setNewUrl(""); setNewLabel(""); setNewDesc("");
@@ -155,11 +137,7 @@ const AboutAdmin = () => {
   const saveContent = async () => {
     setSaving(true);
     try {
-      const r = await fetch(ABOUT_URL, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY },
-        body: JSON.stringify(content),
-      });
+      const r = await api("save-texts", content);
       if (r.ok) showToast("Текст сохранён ✓");
       else showToast("Ошибка сохранения", false);
     } catch { showToast("Ошибка сети", false); }
@@ -169,9 +147,9 @@ const AboutAdmin = () => {
   const deletePhoto = async (id: number) => {
     setDeletingId(id);
     try {
-      const r = await fetch(`${ABOUT_URL}/photos/${id}`, {
-        method: "DELETE",
-        headers: { "X-Admin-Key": ADMIN_KEY },
+      const r = await fetch(ABOUT_URL, {
+        method: "POST",
+        headers: { "X-Admin-Key": ADMIN_KEY, "X-Action": "delete-photo", "X-Photo-Id": String(id), "Content-Type": "application/json" },
       });
       if (r.ok) { showToast("Фото удалено"); load(); }
       else showToast("Ошибка удаления", false);

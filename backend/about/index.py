@@ -1,13 +1,15 @@
 """
 API для блока 'О компании'.
-GET  /              — публичное чтение контента и фото
-PUT  /              — обновить тексты (admin)
-GET  /presign?key=  — получить presigned URL для прямой загрузки файла в S3 (admin)
-POST /confirm-logo  — сохранить URL логотипа в БД после прямой загрузки (admin)
-POST /confirm-photo — добавить запись фото после прямой загрузки (admin)
-POST /photos        — добавить фото по внешнему URL (admin)
-DELETE /photos/{id} — удалить фото (admin)
-PUT  /photos/reorder — изменить порядок (admin)
+Роутинг через заголовок X-Action (URL path недоступен на платформе).
+
+X-Action значения:
+  get-content      — GET публичное чтение (без авторизации)
+  save-texts       — PUT сохранить тексты
+  presign-logo     — GET presigned URL для логотипа
+  presign-photo    — GET presigned URL для фото
+  confirm-logo     — POST сохранить URL логотипа в БД
+  confirm-photo    — POST сохранить URL фото в БД
+  delete-photo     — DELETE удалить фото (X-Photo-Id в заголовке)
 """
 import json
 import os
@@ -19,13 +21,13 @@ from botocore.config import Config
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key",
+    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Action, X-Photo-Id",
 }
-SCHEMA    = "t_p21475602_quantum_innovation_l"
-ADMIN_KEY = os.environ.get("ABOUT_ADMIN_KEY", "kontraktkafe-admin-2024")
-AWS_KEY   = os.environ.get("AWS_ACCESS_KEY_ID", "")
-AWS_SEC   = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
-CDN_BASE  = f"https://cdn.poehali.dev/projects/{AWS_KEY}/bucket"
+SCHEMA      = "t_p21475602_quantum_innovation_l"
+ADMIN_KEY   = os.environ.get("ABOUT_ADMIN_KEY", "kontraktkafe-admin-2024")
+AWS_KEY     = os.environ.get("AWS_ACCESS_KEY_ID", "")
+AWS_SEC     = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+CDN_BASE    = f"https://cdn.poehali.dev/projects/{AWS_KEY}/bucket"
 S3_ENDPOINT = "https://bucket.poehali.dev"
 
 
@@ -52,40 +54,30 @@ def err(msg, status=400):
 
 
 def check_admin(headers: dict) -> bool:
-    key = headers.get("x-admin-key") or headers.get("X-Admin-Key") or ""
+    key = headers.get("x-admin-key", "")
     return key == ADMIN_KEY
 
 
-def get_suffix(event: dict) -> str:
-    raw_url = event.get("url", "") or ""
-    parts   = raw_url.split("?")[0].split("/")
-    # URL: https://functions.poehali.dev/{func-id}/suffix
-    suffix  = ("/" + "/".join(parts[3:])).rstrip("/") or "/"
-    return suffix
-
-
 def handler(event: dict, context) -> dict:
+    """Обработчик API блока 'О компании'."""
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
-    method  = event.get("httpMethod", "GET")
-    suffix  = get_suffix(event)
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
-    params  = event.get("queryStringParameters") or {}
+    action  = headers.get("x-action", "get-content")
 
     conn = get_conn()
     cur  = conn.cursor()
 
     try:
-        # ── GET / — публичное чтение ───────────────────────────
-        if method == "GET" and suffix == "/":
+        # ── get-content: публичное чтение ────────────────────────
+        if action == "get-content":
             cur.execute(f"""
                 SELECT title, subtitle, bottom_text, logo_url
                 FROM {SCHEMA}.about_content ORDER BY id DESC LIMIT 1
             """)
             row     = cur.fetchone()
             content = {"title": row[0], "subtitle": row[1], "bottom_text": row[2], "logo_url": row[3]} if row else {}
-
             cur.execute(f"""
                 SELECT id, url, label, description, sort_order
                 FROM {SCHEMA}.about_photos ORDER BY sort_order, id
@@ -96,8 +88,8 @@ def handler(event: dict, context) -> dict:
             ]
             return ok({"content": content, "photos": photos})
 
-        # ── PUT / — обновить тексты ───────────────────────────
-        if method == "PUT" and suffix == "/":
+        # ── save-texts: обновить тексты ──────────────────────────
+        if action == "save-texts":
             if not check_admin(headers):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
@@ -109,36 +101,39 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"ok": True})
 
-        # ── GET /presign — presigned URL для прямой загрузки в S3 ──
-        if method == "GET" and suffix == "/presign":
+        # ── presign-logo: presigned URL для логотипа ─────────────
+        if action == "presign-logo":
             if not check_admin(headers):
                 return err("Unauthorized", 401)
-
-            # key: "logo" или "photo"
-            file_type = params.get("type", "photo")
-            ext       = params.get("ext", "png").lower()
-
-            if file_type == "logo":
-                s3_key = "brand/logo.png"
-            else:
-                s3_key = f"photos/{uuid.uuid4()}.{ext}"
-
-            content_type_map = {
-                "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
-                "gif": "image/gif", "webp": "image/webp",
-            }
-            content_type = content_type_map.get(ext, "image/png")
-
-            presigned = get_s3().generate_presigned_url(
+            s3_key       = "brand/logo.png"
+            content_type = "image/png"
+            upload_url   = get_s3().generate_presigned_url(
                 "put_object",
                 Params={"Bucket": "files", "Key": s3_key, "ContentType": content_type},
-                ExpiresIn=300,  # 5 минут
+                ExpiresIn=300,
             )
             cdn_url = f"{CDN_BASE}/{s3_key}?v={uuid.uuid4().hex[:6]}"
-            return ok({"upload_url": presigned, "cdn_url": cdn_url, "s3_key": s3_key})
+            return ok({"upload_url": upload_url, "cdn_url": cdn_url})
 
-        # ── POST /confirm-logo — сохранить URL логотипа в БД ──────
-        if method == "POST" and suffix == "/confirm-logo":
+        # ── presign-photo: presigned URL для фото производства ───
+        if action == "presign-photo":
+            if not check_admin(headers):
+                return err("Unauthorized", 401)
+            body         = json.loads(event.get("body") or "{}")
+            ext          = body.get("ext", "jpg").lower()
+            s3_key       = f"photos/{uuid.uuid4()}.{ext}"
+            ct_map       = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}
+            content_type = ct_map.get(ext, "image/jpeg")
+            upload_url   = get_s3().generate_presigned_url(
+                "put_object",
+                Params={"Bucket": "files", "Key": s3_key, "ContentType": content_type},
+                ExpiresIn=300,
+            )
+            cdn_url = f"{CDN_BASE}/{s3_key}"
+            return ok({"upload_url": upload_url, "cdn_url": cdn_url, "content_type": content_type})
+
+        # ── confirm-logo: сохранить URL логотипа в БД ────────────
+        if action == "confirm-logo":
             if not check_admin(headers):
                 return err("Unauthorized", 401)
             body     = json.loads(event.get("body") or "{}")
@@ -153,8 +148,8 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"logo_url": logo_url, "ok": True})
 
-        # ── POST /confirm-photo — сохранить фото в БД после загрузки ─
-        if method == "POST" and suffix == "/confirm-photo":
+        # ── confirm-photo: добавить запись фото в БД ─────────────
+        if action == "confirm-photo":
             if not check_admin(headers):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
@@ -167,8 +162,8 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"id": new_id, "ok": True}, 201)
 
-        # ── POST /photos — добавить фото по внешнему URL ─────────
-        if method == "POST" and suffix == "/photos":
+        # ── add-photo-url: добавить фото по внешнему URL ─────────
+        if action == "add-photo-url":
             if not check_admin(headers):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
@@ -181,16 +176,17 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"id": new_id, "ok": True}, 201)
 
-        # ── DELETE /photos/{id} ───────────────────────────────
-        if method == "DELETE" and suffix.startswith("/photos/"):
+        # ── delete-photo: удалить фото ────────────────────────────
+        if action == "delete-photo":
             if not check_admin(headers):
                 return err("Unauthorized", 401)
-            photo_id = int(suffix.split("/photos/")[-1])
+            photo_id = int(headers.get("x-photo-id", "0"))
+            if not photo_id:
+                return err("x-photo-id required")
             cur.execute(f"SELECT url FROM {SCHEMA}.about_photos WHERE id=%s", (photo_id,))
             row = cur.fetchone()
             if row:
                 photo_url = row[0]
-                # Удаляем из S3 если это наш CDN
                 if CDN_BASE in photo_url:
                     s3_key = photo_url.replace(f"{CDN_BASE}/", "").split("?")[0]
                     try:
@@ -201,18 +197,7 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"ok": True})
 
-        # ── PUT /photos/reorder ───────────────────────────────
-        if method == "PUT" and suffix == "/photos/reorder":
-            if not check_admin(headers):
-                return err("Unauthorized", 401)
-            body = json.loads(event.get("body") or "{}")
-            for item in body.get("order", []):
-                cur.execute(f"UPDATE {SCHEMA}.about_photos SET sort_order=%s WHERE id=%s",
-                            (item["sort_order"], item["id"]))
-            conn.commit()
-            return ok({"ok": True})
-
-        return err(f"Not found: {method} {suffix}", 404)
+        return err(f"Unknown action: {action}", 400)
 
     finally:
         cur.close()
