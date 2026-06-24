@@ -179,8 +179,8 @@ const WorkflowSection = () => {
 
               {/* Карточка */}
               <div className="bg-background border border-border rounded-2xl overflow-hidden flex flex-col flex-1 shadow-sm">
-                {/* Визуал — фиксированная высота */}
-                <div className="p-4 border-b border-border" style={{ minHeight: 148 }}>
+                {/* Визуал — строго фиксированная высота */}
+                <div className="p-4 border-b border-border overflow-hidden" style={{ height: 172, flexShrink: 0 }}>
                   <div className="h-full flex items-start">
                     {VISUALS[index]}
                   </div>
