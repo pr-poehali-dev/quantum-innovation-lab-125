@@ -53,26 +53,35 @@ const AboutAdmin = () => {
 
   useEffect(() => { load(); }, []);
 
+  // Сжать файл через canvas → base64 (макс maxW, PNG или JPEG)
+  const compressToBase64 = (file: File, maxW: number, isPng: boolean, quality = 0.85): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = reject;
+      reader.onload = ev => {
+        const img = new Image();
+        img.onerror = reject;
+        img.onload = () => {
+          const scale = img.width > maxW ? maxW / img.width : 1;
+          const w = Math.round(img.width * scale);
+          const h = Math.round(img.height * scale);
+          const canvas = document.createElement("canvas");
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext("2d")!;
+          ctx.clearRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL(isPng ? "image/png" : "image/jpeg", quality);
+          resolve(dataUrl.split(",")[1]);
+        };
+        img.src = ev.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+
   const makePreview = (file: File, cb: (url: string) => void) => {
     const reader = new FileReader();
     reader.onload = e => cb(e.target?.result as string);
     reader.readAsDataURL(file);
-  };
-
-  // Загрузка файла напрямую в S3 через presigned URL (без лимита тела)
-  const presignAndUpload = async (file: File, action: "presign-logo" | "presign-photo") => {
-    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-    const presignRes = await api(action, { ext });
-    if (!presignRes.ok) throw new Error("Ошибка получения ссылки для загрузки");
-    const { upload_url, cdn_url, content_type } = await presignRes.json();
-
-    const uploadRes = await fetch(upload_url, {
-      method: "PUT",
-      headers: { "Content-Type": content_type || file.type || "image/jpeg" },
-      body: file,
-    });
-    if (!uploadRes.ok) throw new Error("Ошибка загрузки в хранилище");
-    return cdn_url as string;
   };
 
   const onLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -86,14 +95,15 @@ const AboutAdmin = () => {
     if (!logoFile) return;
     setUploadingLogo(true);
     try {
-      const cdn_url = await presignAndUpload(logoFile, "presign-logo");
-      const r = await api("confirm-logo", { cdn_url });
+      const b64 = await compressToBase64(logoFile, 500, true);
+      const r = await api("upload-logo", { file_base64: b64 });
+      const d = await r.json();
       if (r.ok) {
         showToast("Логотип обновлён ✓");
         setLogoPreview(""); setLogoFile(null);
         if (logoRef.current) logoRef.current.value = "";
-        setContent(c => ({ ...c, logo_url: cdn_url }));
-      } else showToast("Ошибка сохранения", false);
+        setContent(c => ({ ...c, logo_url: d.logo_url }));
+      } else showToast(d.error || "Ошибка сохранения", false);
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Ошибка загрузки", false);
     }
@@ -112,14 +122,15 @@ const AboutAdmin = () => {
     setAddingPhoto(true);
     try {
       if (photoFile) {
-        const cdn_url = await presignAndUpload(photoFile, "presign-photo");
-        const r = await api("confirm-photo", { cdn_url, label: newLabel, description: newDesc });
+        const b64 = await compressToBase64(photoFile, 900, false, 0.82);
+        const r = await api("upload-photo", { file_base64: b64, label: newLabel, description: newDesc });
+        const d = await r.json();
         if (r.ok) {
           showToast("Фото добавлено ✓");
           setPhotoFile(null); setPhotoPreview(""); setNewLabel(""); setNewDesc("");
           if (fileRef.current) fileRef.current.value = "";
           load();
-        } else showToast("Ошибка сохранения", false);
+        } else showToast(d.error || "Ошибка загрузки", false);
       } else {
         const r = await api("add-photo-url", { url: newUrl, label: newLabel, description: newDesc });
         if (r.ok) {

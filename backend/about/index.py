@@ -14,6 +14,7 @@ X-Action значения:
 import json
 import os
 import uuid
+import base64
 import psycopg2
 import boto3
 from botocore.config import Config
@@ -101,45 +102,18 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"ok": True})
 
-        # ── presign-logo: presigned URL для логотипа ─────────────
-        if action == "presign-logo":
+        # ── upload-logo: принять base64, залить в S3, сохранить URL ─
+        if action == "upload-logo":
             if not check_admin(headers):
                 return err("Unauthorized", 401)
-            s3_key       = "brand/logo.png"
-            content_type = "image/png"
-            upload_url   = get_s3().generate_presigned_url(
-                "put_object",
-                Params={"Bucket": "files", "Key": s3_key, "ContentType": content_type},
-                ExpiresIn=300,
-            )
-            cdn_url = f"{CDN_BASE}/{s3_key}?v={uuid.uuid4().hex[:6]}"
-            return ok({"upload_url": upload_url, "cdn_url": cdn_url})
-
-        # ── presign-photo: presigned URL для фото производства ───
-        if action == "presign-photo":
-            if not check_admin(headers):
-                return err("Unauthorized", 401)
-            body         = json.loads(event.get("body") or "{}")
-            ext          = body.get("ext", "jpg").lower()
-            s3_key       = f"photos/{uuid.uuid4()}.{ext}"
-            ct_map       = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp"}
-            content_type = ct_map.get(ext, "image/jpeg")
-            upload_url   = get_s3().generate_presigned_url(
-                "put_object",
-                Params={"Bucket": "files", "Key": s3_key, "ContentType": content_type},
-                ExpiresIn=300,
-            )
-            cdn_url = f"{CDN_BASE}/{s3_key}"
-            return ok({"upload_url": upload_url, "cdn_url": cdn_url, "content_type": content_type})
-
-        # ── confirm-logo: сохранить URL логотипа в БД ────────────
-        if action == "confirm-logo":
-            if not check_admin(headers):
-                return err("Unauthorized", 401)
-            body     = json.loads(event.get("body") or "{}")
-            logo_url = body.get("cdn_url", "")
-            if not logo_url:
-                return err("cdn_url required")
+            body    = json.loads(event.get("body") or "{}")
+            b64     = body.get("file_base64", "")
+            if not b64:
+                return err("file_base64 required")
+            data    = base64.b64decode(b64)
+            s3_key  = "brand/logo.png"
+            get_s3().put_object(Bucket="files", Key=s3_key, Body=data, ContentType="image/png")
+            logo_url = f"{CDN_BASE}/{s3_key}?v={uuid.uuid4().hex[:6]}"
             cur.execute(f"""
                 UPDATE {SCHEMA}.about_content
                 SET logo_url=%s, updated_at=NOW()
@@ -148,19 +122,26 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"logo_url": logo_url, "ok": True})
 
-        # ── confirm-photo: добавить запись фото в БД ─────────────
-        if action == "confirm-photo":
+        # ── upload-photo: принять base64, залить в S3, сохранить запись ─
+        if action == "upload-photo":
             if not check_admin(headers):
                 return err("Unauthorized", 401)
-            body = json.loads(event.get("body") or "{}")
+            body  = json.loads(event.get("body") or "{}")
+            b64   = body.get("file_base64", "")
+            if not b64:
+                return err("file_base64 required")
+            data     = base64.b64decode(b64)
+            s3_key   = f"photos/{uuid.uuid4()}.jpg"
+            get_s3().put_object(Bucket="files", Key=s3_key, Body=data, ContentType="image/jpeg")
+            cdn_url  = f"{CDN_BASE}/{s3_key}"
             cur.execute(f"""
                 INSERT INTO {SCHEMA}.about_photos (url, label, description, sort_order)
                 VALUES (%s, %s, %s, (SELECT COALESCE(MAX(sort_order),0)+1 FROM {SCHEMA}.about_photos))
                 RETURNING id
-            """, (body["cdn_url"], body.get("label", ""), body.get("description", "")))
+            """, (cdn_url, body.get("label", ""), body.get("description", "")))
             new_id = cur.fetchone()[0]
             conn.commit()
-            return ok({"id": new_id, "ok": True}, 201)
+            return ok({"id": new_id, "cdn_url": cdn_url, "ok": True}, 201)
 
         # ── add-photo-url: добавить фото по внешнему URL ─────────
         if action == "add-photo-url":
