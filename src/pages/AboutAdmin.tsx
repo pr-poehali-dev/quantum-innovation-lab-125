@@ -49,8 +49,24 @@ const AboutAdmin = () => {
     const reader = new FileReader();
     reader.onload = ev => {
       const dataUrl = ev.target?.result as string;
-      setLogoPreview(dataUrl);
-      setLogoB64(dataUrl.split(",")[1]);
+      // Ресайзим через canvas — максимум 600px по ширине, PNG с прозрачностью
+      const img = new Image();
+      img.onload = () => {
+        const MAX_W = 600;
+        const scale = img.width > MAX_W ? MAX_W / img.width : 1;
+        const w = Math.round(img.width  * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width  = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d")!;
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        const resized = canvas.toDataURL("image/png");
+        setLogoPreview(resized);
+        setLogoB64(resized.split(",")[1]);
+      };
+      img.src = dataUrl;
     };
     reader.readAsDataURL(file);
   };
