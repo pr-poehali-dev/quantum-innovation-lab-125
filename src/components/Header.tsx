@@ -12,13 +12,22 @@ const NAV_ITEMS = [
   { label: "Контакты",      href: "#contacts",      section: "contacts"      },
 ];
 
-const LOGO_URL =
+const FALLBACK_LOGO =
   "https://cdn.poehali.dev/projects/9054c912-be91-4f90-8cab-0a91d0d7eafe/bucket/9db39a90-e361-4243-b645-550db60b6f4c.png";
+const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
 
 const Header = () => {
   const [scrolled,      setScrolled]      = useState(false);
   const [activeSection, setActiveSection] = useState("");
+  const [logoUrl,       setLogoUrl]       = useState(FALLBACK_LOGO);
   const { openModal } = useLeadModal();
+
+  useEffect(() => {
+    fetch(ABOUT_URL)
+      .then(r => r.json())
+      .then(d => { if (d.content?.logo_url) setLogoUrl(d.content.logo_url); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const onScroll = () => {
@@ -59,7 +68,7 @@ const Header = () => {
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             className="flex-shrink-0 group">
             <img
-              src={LOGO_URL}
+              src={logoUrl}
               alt="КОНТРАКТ КОФЕ"
               className="h-7 w-auto object-contain group-hover:opacity-80 transition-opacity"
               style={{ filter: "brightness(0)" }}

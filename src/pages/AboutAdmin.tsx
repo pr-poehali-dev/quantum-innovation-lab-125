@@ -6,20 +6,24 @@ const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e2
 const ADMIN_KEY = "kontraktkafe-admin-2024";
 
 interface Photo   { id: number; url: string; label: string; description: string; sort_order: number }
-interface Content { title: string; subtitle: string; bottom_text: string }
+interface Content { title: string; subtitle: string; bottom_text: string; logo_url?: string }
 
 const AboutAdmin = () => {
-  const [content,    setContent]    = useState<Content>({ title: "", subtitle: "", bottom_text: "" });
-  const [photos,     setPhotos]     = useState<Photo[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [saving,     setSaving]     = useState(false);
-  const [toast,      setToast]      = useState<{ msg: string; ok: boolean } | null>(null);
-  const [newUrl,     setNewUrl]     = useState("");
-  const [newLabel,   setNewLabel]   = useState("");
-  const [newDesc,    setNewDesc]    = useState("");
-  const [addingPhoto, setAddingPhoto] = useState(false);
-  const [deletingId,  setDeletingId]  = useState<number | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [content,      setContent]      = useState<Content>({ title: "", subtitle: "", bottom_text: "" });
+  const [photos,       setPhotos]       = useState<Photo[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [saving,       setSaving]       = useState(false);
+  const [toast,        setToast]        = useState<{ msg: string; ok: boolean } | null>(null);
+  const [newUrl,       setNewUrl]       = useState("");
+  const [newLabel,     setNewLabel]     = useState("");
+  const [newDesc,      setNewDesc]      = useState("");
+  const [addingPhoto,  setAddingPhoto]  = useState(false);
+  const [deletingId,   setDeletingId]   = useState<number | null>(null);
+  const [logoPreview,  setLogoPreview]  = useState<string>("");
+  const [logoB64,      setLogoB64]      = useState<string>("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const fileRef    = useRef<HTMLInputElement>(null);
+  const logoRef    = useRef<HTMLInputElement>(null);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -38,6 +42,39 @@ const AboutAdmin = () => {
   };
 
   useEffect(() => { load(); }, []);
+
+  const onLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const dataUrl = ev.target?.result as string;
+      setLogoPreview(dataUrl);
+      setLogoB64(dataUrl.split(",")[1]);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const uploadLogo = async () => {
+    if (!logoB64) return;
+    setUploadingLogo(true);
+    try {
+      const r = await fetch(`${ABOUT_URL}/logo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY },
+        body: JSON.stringify({ file_base64: logoB64 }),
+      });
+      const d = await r.json();
+      if (r.ok) {
+        showToast("Логотип обновлён ✓");
+        setLogoPreview("");
+        setLogoB64("");
+        if (logoRef.current) logoRef.current.value = "";
+        setContent(c => ({ ...c, logo_url: d.logo_url }));
+      } else showToast("Ошибка загрузки", false);
+    } catch { showToast("Ошибка сети", false); }
+    finally { setUploadingLogo(false); }
+  };
 
   const saveContent = async () => {
     setSaving(true);
@@ -123,6 +160,63 @@ const AboutAdmin = () => {
           </div>
         ) : (
           <>
+            {/* ── Блок 0: Логотип ── */}
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <div className="px-6 py-4 border-b border-border flex items-center gap-2">
+                <Icon name="ImageIcon" fallback="Image" size={16} className="text-primary" />
+                <h2 className="font-semibold text-sm">Логотип в шапке</h2>
+              </div>
+              <div className="p-6">
+                <div className="flex items-start gap-6">
+                  {/* Текущий логотип */}
+                  <div className="flex-shrink-0">
+                    <p className="text-[11px] font-mono text-muted-foreground mb-2">ТЕКУЩИЙ</p>
+                    <div className="w-32 h-16 rounded-xl border border-border bg-secondary flex items-center justify-center overflow-hidden">
+                      {content.logo_url ? (
+                        <img src={content.logo_url} alt="Логотип" className="h-8 w-auto object-contain" style={{ filter: "brightness(0)" }} />
+                      ) : (
+                        <Icon name="Image" size={20} className="text-muted-foreground/40" />
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground mt-1.5 font-mono">
+                      {content.logo_url ? "загружен" : "не задан, используется стандартный"}
+                    </p>
+                  </div>
+
+                  {/* Загрузка нового */}
+                  <div className="flex-1">
+                    <p className="text-[11px] font-mono text-muted-foreground mb-2">ЗАГРУЗИТЬ НОВЫЙ (PNG)</p>
+                    <div
+                      className="border-2 border-dashed border-border rounded-xl p-4 text-center hover:border-primary/40 transition-colors cursor-pointer mb-3"
+                      onClick={() => logoRef.current?.click()}
+                    >
+                      <input ref={logoRef} type="file" accept="image/png,image/svg+xml" onChange={onLogoFileChange} className="hidden" />
+                      {logoPreview ? (
+                        <div className="flex items-center justify-center gap-3">
+                          <img src={logoPreview} alt="preview" className="h-8 w-auto object-contain" style={{ filter: "brightness(0)" }} />
+                          <span className="text-sm text-green-600 font-medium">Готово к загрузке</span>
+                        </div>
+                      ) : (
+                        <>
+                          <Icon name="Upload" size={18} className="text-muted-foreground mx-auto mb-1.5" />
+                          <p className="text-[13px] text-muted-foreground">Нажмите, чтобы выбрать PNG-файл</p>
+                          <p className="text-[11px] text-muted-foreground/60 mt-0.5">Рекомендуем прозрачный фон, ширина от 300px</p>
+                        </>
+                      )}
+                    </div>
+                    <button
+                      onClick={uploadLogo}
+                      disabled={!logoB64 || uploadingLogo}
+                      className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-40 active:scale-95"
+                    >
+                      <Icon name={uploadingLogo ? "Loader" : "Upload"} size={14} className={uploadingLogo ? "animate-spin" : ""} />
+                      {uploadingLogo ? "Загружаю..." : "Загрузить логотип"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* ── Блок 1: Тексты ── */}
             <div className="bg-card border border-border rounded-2xl overflow-hidden">
               <div className="px-6 py-4 border-b border-border flex items-center gap-2">

@@ -1,26 +1,42 @@
 """
-API для блока 'О компании': чтение и редактирование текстов и фото.
+API для блока 'О компании': чтение и редактирование текстов, логотипа и фото.
 GET  / — получить контент (публичный)
 PUT  / — обновить тексты (требует X-Admin-Key)
+POST /logo — загрузить PNG-логотип в S3 (требует X-Admin-Key)
 POST /photos — добавить фото (URL + label + desc)
 DELETE /photos/{id} — удалить фото
 PUT /photos/reorder — изменить порядок
 """
 import json
 import os
+import base64
+import uuid
 import psycopg2
+import boto3
 
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key",
 }
-SCHEMA = "t_p21475602_quantum_innovation_l"
+SCHEMA    = "t_p21475602_quantum_innovation_l"
 ADMIN_KEY = os.environ.get("ABOUT_ADMIN_KEY", "kontraktkafe-admin-2024")
+AWS_KEY   = os.environ.get("AWS_ACCESS_KEY_ID", "")
+AWS_SEC   = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+CDN_BASE  = f"https://cdn.poehali.dev/projects/{AWS_KEY}/bucket"
 
 
 def get_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
+
+
+def get_s3():
+    return boto3.client(
+        "s3",
+        endpoint_url="https://bucket.poehali.dev",
+        aws_access_key_id=AWS_KEY,
+        aws_secret_access_key=AWS_SEC,
+    )
 
 
 def ok(body, status=200):
@@ -50,9 +66,9 @@ def handler(event: dict, context) -> dict:
     try:
         # ── GET / — публичное чтение ───────────────────────────
         if method == "GET" and path in ("", "/"):
-            cur.execute(f"SELECT title, subtitle, bottom_text FROM {SCHEMA}.about_content ORDER BY id DESC LIMIT 1")
+            cur.execute(f"SELECT title, subtitle, bottom_text, logo_url FROM {SCHEMA}.about_content ORDER BY id DESC LIMIT 1")
             row = cur.fetchone()
-            content = {"title": row[0], "subtitle": row[1], "bottom_text": row[2]} if row else {}
+            content = {"title": row[0], "subtitle": row[1], "bottom_text": row[2], "logo_url": row[3]} if row else {}
 
             cur.execute(f"SELECT id, url, label, description, sort_order FROM {SCHEMA}.about_photos ORDER BY sort_order, id")
             photos = [{"id": r[0], "url": r[1], "label": r[2], "description": r[3], "sort_order": r[4]} for r in cur.fetchall()]
@@ -71,6 +87,35 @@ def handler(event: dict, context) -> dict:
             """, (body.get("title"), body.get("subtitle"), body.get("bottom_text")))
             conn.commit()
             return ok({"ok": True})
+
+        # ── POST /logo — загрузить PNG-логотип в S3 ──────────
+        if method == "POST" and path.endswith("/logo"):
+            if not check_admin(headers):
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            file_b64 = body.get("file_base64", "")
+            if not file_b64:
+                return err("file_base64 is required")
+
+            file_data = base64.b64decode(file_b64)
+            # Фиксированный ключ — каждая загрузка перезаписывает предыдущий логотип
+            s3_key = "brand/logo.png"
+            get_s3().put_object(
+                Bucket="files",
+                Key=s3_key,
+                Body=file_data,
+                ContentType="image/png",
+            )
+            # cache-bust суффикс чтобы браузер не кешировал старый файл
+            logo_url = f"{CDN_BASE}/{s3_key}?v={uuid.uuid4().hex[:8]}"
+
+            cur.execute(f"""
+                UPDATE {SCHEMA}.about_content
+                SET logo_url=%s, updated_at=NOW()
+                WHERE id=(SELECT id FROM {SCHEMA}.about_content ORDER BY id DESC LIMIT 1)
+            """, (logo_url,))
+            conn.commit()
+            return ok({"logo_url": logo_url, "ok": True})
 
         # ── POST /photos — добавить фото ─────────────────────
         if method == "POST" and path.endswith("/photos"):
