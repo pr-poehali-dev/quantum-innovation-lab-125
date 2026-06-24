@@ -1,84 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
-import { COFFEE_BRANDS, CYCLE_MS, type CoffeeBrand } from "@/config/coffeeBrands";
-
-const BAG_PNG = "https://cdn.poehali.dev/projects/9054c912-be91-4f90-8cab-0a91d0d7eafe/bucket/bc48b67d-cd2c-4300-8dd4-4486cb69cf7f.png";
-
-// ── Пачка: PNG + CSS-цветовой оверлей ────────────────────────
-
-interface BagProps { brand: CoffeeBrand; active: boolean }
-
-const CoffeeBag = ({ brand, active }: BagProps) => (
-  <div
-    className="absolute inset-0 flex items-end justify-center"
-    style={{
-      opacity: active ? 1 : 0,
-      transition: "opacity 1.2s ease-in-out",
-      pointerEvents: "none",
-    }}
-  >
-    <div className="relative" style={{ width: 260, height: 340 }}>
-
-      {/* Пачка с цветовым тонированием через CSS-фильтр */}
-      <img
-        src={BAG_PNG}
-        alt={brand.name}
-        draggable={false}
-        className="absolute inset-0 w-full h-full object-contain transition-all duration-1000"
-        style={{ filter: `${brand.cssFilter ?? ""} drop-shadow(0 20px 40px ${brand.colorTop}55)` }}
-      />
-
-      {/* Этикетка поверх пачки */}
-      <div
-        className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5"
-        style={{ top: "22%", width: 130, zIndex: 2 }}
-      >
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center mb-0.5"
-          style={{ background: `${brand.colorTop}22`, border: `1.5px solid ${brand.colorTop}55` }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path d="M17 8h1a4 4 0 0 1 0 8h-1" stroke={brand.colorTop} strokeWidth="2" strokeLinecap="round"/>
-            <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8z" stroke={brand.colorTop} strokeWidth="2" strokeLinecap="round"/>
-            <path d="M6 1v3M10 1v3M14 1v3" stroke={brand.colorTop} strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-        </div>
-        <div style={{
-          fontFamily: "Georgia, serif", fontSize: 15, fontWeight: 700,
-          color: brand.colorBottom, letterSpacing: "0.1em", textAlign: "center", lineHeight: 1.2,
-        }}>
-          {brand.name.split(" ").map((w, i) => <div key={i}>{w}</div>)}
-        </div>
-        <div style={{ width: 28, height: 1, background: `${brand.colorTop}66`, margin: "3px 0" }} />
-        <div style={{ fontFamily: "monospace", fontSize: 8, color: `${brand.colorBottom}99`, letterSpacing: "0.16em", textAlign: "center" }}>
-          {brand.sub}
-        </div>
-        <div style={{
-          marginTop: 4, padding: "2px 10px", borderRadius: 99,
-          border: `1px solid ${brand.colorTop}44`,
-          fontFamily: "monospace", fontSize: 7,
-          color: brand.colorTop, letterSpacing: "0.1em",
-        }}>
-          {brand.roast}
-        </div>
-      </div>
-
-      {/* Вес */}
-      <div className="absolute left-1/2 -translate-x-1/2" style={{ bottom: 30, zIndex: 2,
-        fontFamily: "monospace", fontSize: 9, color: `${brand.colorBottom}55`, letterSpacing: "0.25em" }}>
-        250г
-      </div>
-
-      {/* Свечение под пачкой */}
-      <div
-        className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-32 h-6 rounded-full blur-2xl transition-all duration-1000"
-        style={{ background: brand.colorTop, opacity: 0.35 }}
-      />
-    </div>
-  </div>
-);
-
-// ── Главный компонент ─────────────────────────────────────────
+import { COFFEE_BRANDS, CYCLE_MS } from "@/config/coffeeBrands";
 
 const HeroSection = () => {
   const [current, setCurrent] = useState(0);
@@ -87,11 +9,12 @@ const HeroSection = () => {
 
   useEffect(() => {
     if (paused) return;
-    timerRef.current = setTimeout(() => setCurrent(c => (c + 1) % COFFEE_BRANDS.length), CYCLE_MS);
+    timerRef.current = setTimeout(
+      () => setCurrent(c => (c + 1) % COFFEE_BRANDS.length),
+      CYCLE_MS,
+    );
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [current, paused]);
-
-  const brand = COFFEE_BRANDS[current];
 
   return (
     <section className="relative overflow-hidden bg-background">
@@ -157,62 +80,59 @@ const HeroSection = () => {
               <p className="text-[10px] text-muted-foreground font-mono">+38% после запуска бренда</p>
             </div>
 
-            {/* V2 slot */}
             <style>{`
               @keyframes bagFloat {
                 0%,100% { transform: translateY(0px) rotate(-0.4deg); }
-                50%     { transform: translateY(-16px) rotate(0.4deg); }
+                50%     { transform: translateY(-14px) rotate(0.4deg); }
               }
               .bag-float { animation: bagFloat 9s ease-in-out infinite; }
               .bag-float.paused { animation-play-state: paused; }
             `}</style>
 
-            <a
-              href="#calculator"
-              className="relative flex flex-col items-center cursor-pointer"
+            {/* Обёртка пачки + точки */}
+            <div
+              className="flex flex-col items-center"
               onMouseEnter={() => setPaused(true)}
               onMouseLeave={() => setPaused(false)}
-              onTouchStart={() => setPaused(p => !p)}
             >
-              <div className={`bag-float ${paused ? "paused" : ""} relative`} style={{ width: 260, height: 360 }}>
+              {/* Пачка */}
+              <div className={`bag-float ${paused ? "paused" : ""} relative`} style={{ width: 300, height: 390 }}>
                 {COFFEE_BRANDS.map((b, i) => (
-                  <CoffeeBag key={b.name} brand={b} active={i === current} />
-                ))}
-
-                {/* Hover CTA */}
-                <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 z-10 ${paused ? "opacity-100" : "opacity-0"}`}>
-                  <div className="bg-black/55 backdrop-blur-sm rounded-2xl px-5 py-3 flex items-center gap-2 text-white text-sm font-medium shadow-xl">
-                    <Icon name="Sparkles" size={15} />
-                    Собрать свою пачку
+                  <div
+                    key={b.id}
+                    className="absolute inset-0 flex items-center justify-center"
+                    style={{
+                      opacity: i === current ? 1 : 0,
+                      transition: "opacity 0.8s ease-in-out",
+                      pointerEvents: "none",
+                    }}
+                  >
+                    <img
+                      src={b.image}
+                      alt={`Вариант ${b.id}`}
+                      draggable={false}
+                      className="w-full h-full object-contain"
+                    />
                   </div>
-                </div>
+                ))}
               </div>
 
               {/* Точки-индикаторы */}
-              <div className="flex gap-2 mt-2">
+              <div className="flex gap-3 mt-4">
                 {COFFEE_BRANDS.map((b, i) => (
-                  <button key={b.name}
-                    onClick={e => { e.preventDefault(); setCurrent(i); setPaused(true); setTimeout(() => setPaused(false), 5000); }}
-                    className="w-2 h-2 rounded-full transition-all duration-300"
+                  <button
+                    key={b.id}
+                    onClick={() => { setCurrent(i); setPaused(true); setTimeout(() => setPaused(false), 5000); }}
+                    className="rounded-full transition-all duration-300 focus:outline-none"
                     style={{
+                      width:  i === current ? 24 : 8,
+                      height: 8,
                       background: i === current ? b.accent : "#88888840",
-                      transform: i === current ? "scale(1.5)" : "scale(1)",
                     }}
                   />
                 ))}
               </div>
-
-              {/* Название бренда */}
-              <div className="relative mt-3 text-center" style={{ height: 34 }}>
-                {COFFEE_BRANDS.map((b, i) => (
-                  <div key={b.name} className="absolute inset-x-0 transition-all duration-700"
-                    style={{ opacity: i === current ? 1 : 0, transform: `translateY(${i === current ? 0 : 6}px)` }}>
-                    <p className="text-sm font-serif font-bold tracking-wide" style={{ color: b.accent }}>{b.name}</p>
-                    <p className="text-[10px] font-mono text-muted-foreground">{b.sub}</p>
-                  </div>
-                ))}
-              </div>
-            </a>
+            </div>
 
           </div>
         </div>
