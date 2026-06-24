@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useLeadModal } from "@/context/LeadModalContext";
@@ -21,7 +21,20 @@ const Header = () => {
   const [activeSection, setActiveSection] = useState("");
   const [logoUrl,       setLogoUrl]       = useState(FALLBACK_LOGO);
   const [usdRate,       setUsdRate]       = useState<number | null>(null);
+  const [phoneOpen,     setPhoneOpen]     = useState(false);
+  const phoneRef = useRef<HTMLDivElement>(null);
   const { openModal } = useLeadModal();
+
+  // Закрыть попап телефона при клике вне
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (phoneRef.current && !phoneRef.current.contains(e.target as Node)) {
+        setPhoneOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   useEffect(() => {
     fetch(ABOUT_URL, { headers: { "X-Action": "get-content" } })
@@ -114,17 +127,46 @@ const Header = () => {
 
           {/* Правая часть */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            <a href="tel:+79042474302"
-              className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full hover:bg-primary/8 text-black/40 hover:text-primary transition-all"
-              title="+7 904 247-43-02">
-              <Icon name="Phone" size={14} />
-            </a>
 
-            <a href="https://t.me/kontraktkafe" target="_blank" rel="noopener noreferrer"
-              className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full hover:bg-primary/8 text-black/40 hover:text-primary transition-all"
-              title="Написать в Telegram">
-              <Icon name="Send" size={14} />
-            </a>
+            {/* Телефон — попап с номером */}
+            <div ref={phoneRef} className="hidden sm:block relative">
+              <button
+                onClick={() => setPhoneOpen(o => !o)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-primary/8 text-black/40 hover:text-primary transition-all"
+              >
+                <Icon name="Phone" size={14} />
+              </button>
+              {phoneOpen && (
+                <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-black/10 rounded-2xl shadow-xl p-4 min-w-[200px]">
+                  <p className="text-[10px] font-mono text-black/35 mb-1.5 tracking-wider">ПОЗВОНИТЬ</p>
+                  <a
+                    href="tel:+79042474302"
+                    className="flex items-center gap-2 text-[15px] font-semibold text-foreground hover:text-primary transition-colors"
+                    onClick={() => setPhoneOpen(false)}
+                  >
+                    <Icon name="Phone" size={14} className="text-primary" />
+                    +7 904 247-43-02
+                  </a>
+                  <p className="text-[11px] text-black/35 mt-1.5">Пн–Пт, 9:00–18:00</p>
+                </div>
+              )}
+            </div>
+
+            {/* Telegram — тултип при наведении */}
+            <div className="hidden sm:block relative group/tg">
+              <a
+                href="https://t.me/kontraktkafe"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-primary/8 text-black/40 hover:text-primary transition-all"
+              >
+                <Icon name="Send" size={14} />
+              </a>
+              <div className="pointer-events-none absolute right-0 top-full mt-2 z-50 opacity-0 group-hover/tg:opacity-100 transition-opacity duration-200 bg-foreground text-white text-[12px] rounded-xl px-3 py-2 shadow-lg whitespace-nowrap">
+                Можете написать нам напрямую в Telegram
+                <div className="absolute -top-1.5 right-3 w-3 h-3 bg-foreground rotate-45" />
+              </div>
+            </div>
 
             <Link to="/cabinet"
               className="hidden sm:flex items-center gap-1.5 text-[13px] font-medium text-black/55 hover:text-foreground border border-black/12 hover:border-black/25 px-3 py-1.5 rounded-full transition-all">

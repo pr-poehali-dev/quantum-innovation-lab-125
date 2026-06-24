@@ -1,5 +1,9 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
+
+const FALLBACK_LOGO = "https://cdn.poehali.dev/projects/9054c912-be91-4f90-8cab-0a91d0d7eafe/bucket/9db39a90-e361-4243-b645-550db60b6f4c.png";
+const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
 
 const navLinks = [
   { label: "О производстве", href: "#features"  },
@@ -17,6 +21,15 @@ const docLinks = [
 ];
 
 const Footer = () => {
+  const [logoUrl, setLogoUrl] = useState(FALLBACK_LOGO);
+
+  useEffect(() => {
+    fetch(ABOUT_URL, { headers: { "X-Action": "get-content" } })
+      .then(r => r.json())
+      .then(d => { if (d.content?.logo_url) setLogoUrl(d.content.logo_url); })
+      .catch(() => {});
+  }, []);
+
   return (
     <footer id="contacts" className="pt-16 pb-8 border-t border-border bg-foreground text-white">
       <div className="max-w-7xl mx-auto px-6">
@@ -24,18 +37,13 @@ const Footer = () => {
 
           {/* Brand */}
           <div className="md:col-span-2">
-            <Link to="/" className="flex items-center gap-2.5 mb-5 group w-fit">
-              <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center group-hover:scale-105 transition-transform">
-                <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
-                  <path d="M3 7h8v3.5A3 3 0 0 1 8 13.5 3 3 0 0 1 3 10.5Z" fill="white" opacity="0.95"/>
-                  <path d="M11 8.5h1a1.5 1.5 0 0 1 0 3h-1" stroke="white" strokeWidth="1.2" strokeLinecap="round" fill="none"/>
-                  <path d="M5 5C5 4.2 5.8 3.8 5.8 3S5 1.8 5 1M7.5 5C7.5 4.2 8.3 3.8 8.3 3S7.5 1.8 7.5 1M10 5C10 4.2 10.8 3.8 10.8 3S10 1.8 10 1" stroke="white" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.8"/>
-                </svg>
-              </div>
-              <div className="flex flex-col leading-none">
-                <span className="font-serif text-[15px] font-bold text-white">КонтрактКофе</span>
-                <span className="text-[10px] font-mono text-white/40 tracking-widest mt-0.5 uppercase">производство стм полного цикла</span>
-              </div>
+            <Link to="/" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="inline-block mb-5 group">
+              <img
+                src={logoUrl}
+                alt="КОНТРАКТ КОФЕ"
+                className="h-10 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity"
+                style={{ filter: "brightness(0) invert(1)" }}
+              />
             </Link>
             <p className="text-sm text-white/50 max-w-xs leading-relaxed mb-6">
               Производство кофе под вашей торговой маркой. Полный цикл — от подбора зерна до доставки.
