@@ -96,7 +96,7 @@ const HeroSection = () => {
               onMouseLeave={() => setPaused(false)}
             >
               {/* Пачка */}
-              <div className={`bag-float ${paused ? "paused" : ""} relative`} style={{ width: 300, height: 390 }}>
+              <div className={`bag-float ${paused ? "paused" : ""} relative`} style={{ width: 260, height: 420 }}>
                 {COFFEE_BRANDS.map((b, i) => (
                   <div
                     key={b.id}
