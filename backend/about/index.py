@@ -56,8 +56,17 @@ def handler(event: dict, context) -> dict:
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
-    method = event.get("httpMethod", "GET")
-    path   = event.get("path", "/").rstrip("/")
+    method  = event.get("httpMethod", "GET")
+    # Платформа передаёт путь через 'url', поле 'path' всегда пустое
+    raw_url = event.get("url", "") or ""
+    # Берём только pathname — всё после домена, убираем query string
+    path = raw_url.split("?")[0]
+    # Убираем базовый префикс функции (всё до третьего '/')
+    # URL вида: https://functions.poehali.dev/{function-id}/logo
+    parts = path.split("/")
+    # parts: ['', 'function-id', 'logo'] → нам нужен суффикс после id
+    suffix = "/" + "/".join(parts[2:]) if len(parts) > 2 else "/"
+    suffix = suffix.rstrip("/") or "/"
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
 
     conn = get_conn()
@@ -65,7 +74,7 @@ def handler(event: dict, context) -> dict:
 
     try:
         # ── GET / — публичное чтение ───────────────────────────
-        if method == "GET" and path in ("", "/"):
+        if method == "GET" and suffix == "/":
             cur.execute(f"SELECT title, subtitle, bottom_text, logo_url FROM {SCHEMA}.about_content ORDER BY id DESC LIMIT 1")
             row = cur.fetchone()
             content = {"title": row[0], "subtitle": row[1], "bottom_text": row[2], "logo_url": row[3]} if row else {}
@@ -76,7 +85,7 @@ def handler(event: dict, context) -> dict:
             return ok({"content": content, "photos": photos})
 
         # ── PUT / — обновить тексты ───────────────────────────
-        if method == "PUT" and path in ("", "/"):
+        if method == "PUT" and suffix == "/":
             if not check_admin(headers):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
@@ -89,7 +98,7 @@ def handler(event: dict, context) -> dict:
             return ok({"ok": True})
 
         # ── POST /logo — загрузить PNG-логотип в S3 ──────────
-        if method == "POST" and path.endswith("/logo"):
+        if method == "POST" and suffix == "/logo":
             if not check_admin(headers):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
@@ -98,7 +107,6 @@ def handler(event: dict, context) -> dict:
                 return err("file_base64 is required")
 
             file_data = base64.b64decode(file_b64)
-            # Фиксированный ключ — каждая загрузка перезаписывает предыдущий логотип
             s3_key = "brand/logo.png"
             get_s3().put_object(
                 Bucket="files",
@@ -106,7 +114,6 @@ def handler(event: dict, context) -> dict:
                 Body=file_data,
                 ContentType="image/png",
             )
-            # cache-bust суффикс чтобы браузер не кешировал старый файл
             logo_url = f"{CDN_BASE}/{s3_key}?v={uuid.uuid4().hex[:8]}"
 
             cur.execute(f"""
@@ -118,7 +125,7 @@ def handler(event: dict, context) -> dict:
             return ok({"logo_url": logo_url, "ok": True})
 
         # ── POST /photos — добавить фото ─────────────────────
-        if method == "POST" and path.endswith("/photos"):
+        if method == "POST" and suffix == "/photos":
             if not check_admin(headers):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
@@ -132,16 +139,16 @@ def handler(event: dict, context) -> dict:
             return ok({"id": new_id, "ok": True}, 201)
 
         # ── DELETE /photos/{id} ──────────────────────────────
-        if method == "DELETE" and "/photos/" in path:
+        if method == "DELETE" and suffix.startswith("/photos/"):
             if not check_admin(headers):
                 return err("Unauthorized", 401)
-            photo_id = int(path.split("/photos/")[-1])
+            photo_id = int(suffix.split("/photos/")[-1])
             cur.execute(f"DELETE FROM {SCHEMA}.about_photos WHERE id=%s", (photo_id,))
             conn.commit()
             return ok({"ok": True})
 
         # ── PUT /photos/reorder — порядок ────────────────────
-        if method == "PUT" and path.endswith("/photos/reorder"):
+        if method == "PUT" and suffix == "/photos/reorder":
             if not check_admin(headers):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
@@ -151,7 +158,7 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"ok": True})
 
-        return err("Not found", 404)
+        return err(f"Not found: {method} {suffix}", 404)
 
     finally:
         cur.close()

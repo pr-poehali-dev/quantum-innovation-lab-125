@@ -56,7 +56,10 @@ def handler(event: dict, context) -> dict:
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
     method  = event.get("httpMethod", "GET")
-    path    = event.get("path", "/").rstrip("/")
+    # Платформа передаёт путь через 'url', поле 'path' всегда пустое
+    raw_url = event.get("url", "") or ""
+    parts   = raw_url.split("?")[0].split("/")
+    suffix  = ("/" + "/".join(parts[2:])).rstrip("/") or "/"
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
 
     conn = get_conn()
@@ -64,7 +67,7 @@ def handler(event: dict, context) -> dict:
 
     try:
         # ── GET / — публичный список ───────────────────────────────
-        if method == "GET" and path in ("", "/"):
+        if method == "GET" and suffix == "/":
             cur.execute(f"""
                 SELECT id, title, description, category, file_url, file_name, file_size_kb, sort_order
                 FROM {SCHEMA}.documents
@@ -82,7 +85,7 @@ def handler(event: dict, context) -> dict:
             return ok({"documents": docs})
 
         # ── GET /all — все документы для админки ─────────────────
-        if method == "GET" and path.endswith("/all"):
+        if method == "GET" and suffix == "/all":
             if not check_admin(headers):
                 return err("Unauthorized", 401)
             cur.execute(f"""
@@ -100,7 +103,7 @@ def handler(event: dict, context) -> dict:
             return ok({"documents": docs})
 
         # ── POST /upload — загрузить файл + создать запись ───────
-        if method == "POST" and path.endswith("/upload"):
+        if method == "POST" and suffix == "/upload":
             if not check_admin(headers):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
@@ -112,11 +115,9 @@ def handler(event: dict, context) -> dict:
             file_b64    = body.get("file_base64", "")
 
             if not file_b64:
-                # Если нет файла — просто ссылка
-                file_url = body.get("file_url", "#")
+                file_url  = body.get("file_url", "#")
                 file_size = 0
             else:
-                # Декодируем и заливаем в S3
                 file_data = base64.b64decode(file_b64)
                 file_size = len(file_data) // 1024
                 ext       = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else "pdf"
@@ -142,11 +143,22 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"id": new_id, "file_url": file_url, "ok": True}, 201)
 
-        # ── PUT /{id} — обновить метаданные ──────────────────────
-        if method == "PUT" and path not in ("", "/", "/reorder"):
+        # ── PUT /reorder — порядок (должен быть ДО PUT /{id}) ────
+        if method == "PUT" and suffix == "/reorder":
             if not check_admin(headers):
                 return err("Unauthorized", 401)
-            doc_id = int(path.split("/")[-1])
+            body = json.loads(event.get("body") or "{}")
+            for item in body.get("order", []):
+                cur.execute(f"UPDATE {SCHEMA}.documents SET sort_order=%s WHERE id=%s",
+                            (item["sort_order"], item["id"]))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── PUT /{id} — обновить метаданные ──────────────────────
+        if method == "PUT" and suffix not in ("/", "/reorder"):
+            if not check_admin(headers):
+                return err("Unauthorized", 401)
+            doc_id = int(suffix.split("/")[-1])
             body   = json.loads(event.get("body") or "{}")
             cur.execute(f"""
                 UPDATE {SCHEMA}.documents
@@ -157,29 +169,17 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"ok": True})
 
-        # ── PUT /reorder — порядок ────────────────────────────────
-        if method == "PUT" and path.endswith("/reorder"):
-            if not check_admin(headers):
-                return err("Unauthorized", 401)
-            body = json.loads(event.get("body") or "{}")
-            for item in body.get("order", []):
-                cur.execute(f"UPDATE {SCHEMA}.documents SET sort_order=%s WHERE id=%s",
-                            (item["sort_order"], item["id"]))
-            conn.commit()
-            return ok({"ok": True})
-
         # ── DELETE /{id} — удалить ────────────────────────────────
         if method == "DELETE":
             if not check_admin(headers):
                 return err("Unauthorized", 401)
-            doc_id = int(path.split("/")[-1])
+            doc_id = int(suffix.split("/")[-1])
             cur.execute(f"SELECT file_url FROM {SCHEMA}.documents WHERE id=%s", (doc_id,))
             row = cur.fetchone()
             if row:
                 file_url = row[0]
-                # Удаляем из S3 если это наш файл
                 if CDN_BASE in file_url and "documents/" in file_url:
-                    s3_key = "documents/" + file_url.split("documents/")[-1]
+                    s3_key = "documents/" + file_url.split("documents/")[-1].split("?")[0]
                     try:
                         get_s3().delete_object(Bucket="files", Key=s3_key)
                     except Exception:
