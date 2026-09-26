@@ -1,10 +1,25 @@
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
+import { useStaffAuth } from "@/context/StaffAuthContext";
 
 const LOGO_URL =
   "https://cdn.poehali.dev/projects/9054c912-be91-4f90-8cab-0a91d0d7eafe/bucket/9db39a90-e361-4243-b645-550db60b6f4c.png";
 
 const SECTIONS = [
+  {
+    href: "/admin/crm",
+    icon: "Users",
+    title: "Клиенты и сделки",
+    desc: "Новые заявки, профили клиентов, этапы сделок",
+    tag: "CRM",
+  },
+  {
+    href: "/admin/staff",
+    icon: "UserPlus",
+    title: "Сотрудники",
+    desc: "Приглашения коллег в закрытую админку",
+    tag: "Доступ",
+  },
   {
     href: "/admin/about",
     icon: "Image",
@@ -36,6 +51,7 @@ const SECTIONS = [
 ];
 
 const Admin = () => {
+  const { staff, logout } = useStaffAuth();
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-white border-b border-border">
@@ -44,9 +60,13 @@ const Admin = () => {
             <img src={LOGO_URL} alt="КОНТРАКТ КОФЕ" className="h-7 w-auto object-contain"
               style={{ filter: "brightness(0)" }} />
           </Link>
-          <div className="flex items-center gap-2 text-[12px] font-mono text-muted-foreground">
-            <div className="w-2 h-2 rounded-full bg-green-500" />
-            ПАНЕЛЬ УПРАВЛЕНИЯ
+          <div className="flex items-center gap-3">
+            {staff && (
+              <span className="text-[13px] text-muted-foreground">{staff.name || staff.email}</span>
+            )}
+            <button onClick={logout} className="text-muted-foreground hover:text-destructive transition-colors" title="Выйти">
+              <Icon name="LogOut" size={16} />
+            </button>
           </div>
         </div>
       </header>

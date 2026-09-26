@@ -6,16 +6,25 @@ import CabinetPassport from "./cabinet/CabinetPassport";
 import CabinetLive from "./cabinet/CabinetLive";
 import CabinetReorder from "./cabinet/CabinetReorder";
 import CabinetDocs from "./cabinet/CabinetDocs";
+import ClientLoginGate from "@/components/cabinet/ClientLoginGate";
+import { useClientAuth } from "@/context/ClientAuthContext";
 
-const Cabinet = () => {
+const CabinetContent = () => {
   const [tab,           setTab]           = useState<Tab>("passport");
   const [passportVer,   setPassportVer]   = useState(0);
   const [reorderVolume, setReorderVolume] = useState(200);
   const [reorderSent,   setReorderSent]   = useState(false);
 
+  const { client, deals, stages, logout } = useClientAuth();
+  const activeDeal = deals[0];
+
   const activeVersion   = PASSPORT.versions[passportVer];
   const currentProgress = TIMELINE.filter(t => t.done).length;
   const totalProgress   = TIMELINE.length;
+
+  const dealProgress = activeDeal
+    ? Math.round((activeDeal.stage_order / (stages[stages.length - 1]?.sort_order || 1)) * 100)
+    : 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -35,13 +44,44 @@ const Cabinet = () => {
               <span className="font-serif text-sm font-bold">КонтрактКофе</span>
             </Link>
             <span className="text-border text-lg">/</span>
-            <span className="text-sm text-muted-foreground">Личный кабинет</span>
+            <span className="text-sm text-muted-foreground">{client?.name || "Личный кабинет"}</span>
           </div>
-          <Link to="/" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <Icon name="ArrowLeft" size={14} /> На сайт
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link to="/" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <Icon name="ArrowLeft" size={14} /> На сайт
+            </Link>
+            <button onClick={logout} className="text-muted-foreground hover:text-destructive transition-colors" title="Выйти">
+              <Icon name="LogOut" size={15} />
+            </button>
+          </div>
         </div>
       </header>
+
+      {/* Реальные сделки клиента */}
+      {activeDeal && (
+        <div className="max-w-6xl mx-auto px-6 pt-6">
+          <div className="bg-card border border-border rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <p className="text-[11px] font-mono text-muted-foreground tracking-wider mb-0.5">ТЕКУЩАЯ СДЕЛКА</p>
+              <p className="font-serif text-lg font-bold">{activeDeal.brand || `Заказ №${activeDeal.id}`}</p>
+              {activeDeal.volume && <p className="text-[12px] text-muted-foreground">{activeDeal.volume} кг</p>}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono px-2.5 py-1 rounded-full text-white" style={{ background: activeDeal.stage_color }}>
+                {activeDeal.stage_name}
+              </span>
+            </div>
+            <div className="w-full sm:w-40">
+              <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${dealProgress}%` }} />
+              </div>
+            </div>
+          </div>
+          {deals.length > 1 && (
+            <p className="text-[12px] text-muted-foreground mt-2">Всего сделок: {deals.length}</p>
+          )}
+        </div>
+      )}
 
       <div className="max-w-6xl mx-auto px-6 py-8">
 
@@ -160,5 +200,11 @@ const Cabinet = () => {
     </div>
   );
 };
+
+const Cabinet = () => (
+  <ClientLoginGate>
+    <CabinetContent />
+  </ClientLoginGate>
+);
 
 export default Cabinet;
