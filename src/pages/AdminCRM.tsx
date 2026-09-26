@@ -14,6 +14,9 @@ interface Lead {
   email: string | null;
   created_at: string;
   has_deal: boolean;
+  client_id: number | null;
+  stage_name: string | null;
+  stage_color: string | null;
 }
 
 interface ClientRow {
@@ -38,7 +41,6 @@ const AdminCRM = () => {
   const [loading, setLoading] = useState(true);
   const [openClientId, setOpenClientId] = useState<number | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
-  const [creatingFromLead, setCreatingFromLead] = useState<number | null>(null);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -73,26 +75,6 @@ const AdminCRM = () => {
     }).catch(() => showToast("Ошибка загрузки", false))
       .finally(() => setLoading(false));
   }, [token]);
-
-  const createDealFromLead = async (leadId: number) => {
-    setCreatingFromLead(leadId);
-    try {
-      const r = await fetch(CRM_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Action": "create-deal", ...authHeaders },
-        body: JSON.stringify({ lead_id: leadId }),
-      });
-      const d = await r.json();
-      if (r.ok) {
-        showToast("Сделка создана ✓");
-        loadLeads();
-        loadClients();
-        setTab("clients");
-        setOpenClientId(d.client_id);
-      } else showToast(d.error || "Ошибка", false);
-    } catch { showToast("Ошибка сети", false); }
-    finally { setCreatingFromLead(null); }
-  };
 
   const formatDate = (iso: string) => {
     const d = new Date(iso);
@@ -140,9 +122,9 @@ const AdminCRM = () => {
             }`}>
             <Icon name="Inbox" size={14} />
             Новые заявки
-            {leads.filter(l => !l.has_deal).length > 0 && (
+            {leads.filter(l => l.stage_name === "Новая заявка").length > 0 && (
               <span className="text-[10px] font-mono bg-primary/15 text-primary rounded-full px-1.5 py-0.5">
-                {leads.filter(l => !l.has_deal).length}
+                {leads.filter(l => l.stage_name === "Новая заявка").length}
               </span>
             )}
           </button>
@@ -168,13 +150,20 @@ const AdminCRM = () => {
               <p className="text-sm text-muted-foreground py-10 text-center">Заявок пока нет</p>
             )}
             {leads.map(lead => (
-              <div key={lead.id} className="bg-card border border-border rounded-xl px-4 py-3.5 flex items-center justify-between gap-4">
+              <button
+                key={lead.id}
+                onClick={() => lead.client_id !== null && setOpenClientId(lead.client_id)}
+                disabled={lead.client_id === null}
+                className="w-full bg-card border border-border rounded-xl px-4 py-3.5 flex items-center justify-between gap-4 text-left hover:border-primary/40 hover:shadow-sm transition-all disabled:opacity-70 disabled:cursor-default"
+              >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold">{lead.name}</p>
                     <span className="text-[11px] font-mono text-muted-foreground">{lead.phone}</span>
-                    {lead.has_deal && (
-                      <span className="text-[10px] font-mono bg-green-100 text-green-700 rounded-full px-1.5 py-0.5">в работе</span>
+                    {lead.stage_name && (
+                      <span className="text-[10px] font-mono rounded-full px-1.5 py-0.5 text-white" style={{ background: lead.stage_color || "#64748b" }}>
+                        {lead.stage_name}
+                      </span>
                     )}
                   </div>
                   <div className="flex items-center gap-3 mt-0.5 text-[12px] text-muted-foreground">
@@ -183,20 +172,10 @@ const AdminCRM = () => {
                     <span>{formatDate(lead.created_at)}</span>
                   </div>
                 </div>
-                {!lead.has_deal && (
-                  <button
-                    onClick={() => createDealFromLead(lead.id)}
-                    disabled={creatingFromLead === lead.id}
-                    className="flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-full text-[13px] font-medium hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-60 flex-shrink-0"
-                  >
-                    {creatingFromLead === lead.id
-                      ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      : <Icon name="Plus" size={13} />
-                    }
-                    В сделку
-                  </button>
+                {lead.client_id !== null && (
+                  <Icon name="ChevronRight" size={16} className="text-muted-foreground flex-shrink-0" />
                 )}
-              </div>
+              </button>
             ))}
           </div>
         ) : (
@@ -236,7 +215,7 @@ const AdminCRM = () => {
         <ClientDrawer
           clientId={openClientId}
           onClose={() => setOpenClientId(null)}
-          onChanged={() => { loadClients(); }}
+          onChanged={() => { loadClients(); loadLeads(); }}
           showToast={showToast}
         />
       )}

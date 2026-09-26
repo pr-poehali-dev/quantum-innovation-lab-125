@@ -77,13 +77,18 @@ def handler(event: dict, context) -> dict:
         if action == "list-leads":
             cur.execute(f"""
                 SELECT l.id, l.name, l.phone, l.city, l.email, l.brief, l.created_at,
-                       (SELECT COUNT(*) FROM {SCHEMA}.deals d WHERE d.lead_id = l.id) AS deals_count
-                FROM {SCHEMA}.leads l ORDER BY l.created_at DESC LIMIT 200
+                       d.client_id, ds.name, ds.color
+                FROM {SCHEMA}.leads l
+                LEFT JOIN {SCHEMA}.deals d ON d.lead_id = l.id
+                LEFT JOIN {SCHEMA}.deal_stages ds ON ds.id = d.stage_id
+                ORDER BY l.created_at DESC LIMIT 200
             """)
             leads = [
                 {
                     "id": r[0], "name": r[1], "phone": r[2], "city": r[3], "email": r[4],
-                    "brief": r[5], "created_at": str(r[6]), "has_deal": r[7] > 0,
+                    "brief": r[5], "created_at": str(r[6]),
+                    "client_id": r[7], "has_deal": r[7] is not None,
+                    "stage_name": r[8], "stage_color": r[9],
                 }
                 for r in cur.fetchall()
             ]
