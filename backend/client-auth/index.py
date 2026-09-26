@@ -12,6 +12,7 @@ import os
 import random
 import secrets
 import urllib.request
+import urllib.parse
 import urllib.error
 from datetime import datetime, timedelta
 import psycopg2
@@ -22,7 +23,9 @@ CORS = {
     "Access-Control-Allow-Headers": "Content-Type, X-Action, X-Client-Token",
 }
 SCHEMA = "t_p21475602_quantum_innovation_l"
-RESEND_KEY = os.environ.get("RESEND_API_KEY", "")
+UNISENDER_KEY = os.environ.get("UNISENDER_API_KEY", "")
+SENDER_EMAIL = "marketing1@aromateacoffee.ru"
+SENDER_NAME = "КонтрактКофе"
 
 
 def get_conn():
@@ -37,24 +40,39 @@ def err(msg, status=400):
     return {"statusCode": status, "headers": CORS, "body": json.dumps({"error": msg}, ensure_ascii=False)}
 
 
+def unisender_call(method: str, params: dict) -> dict:
+    params = {**params, "api_key": UNISENDER_KEY, "format": "json"}
+    data = urllib.parse.urlencode(params).encode("utf-8")
+    req = urllib.request.Request(f"https://api.unisender.com/ru/api/{method}", data=data, method="POST")
+    with urllib.request.urlopen(req, timeout=6) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def get_or_create_list_id() -> str:
+    result = unisender_call("getLists", {})
+    lists = result.get("result") or []
+    if lists:
+        return str(lists[0]["id"])
+    created = unisender_call("createList", {"title": "КонтрактКофе — системные письма"})
+    return str(created.get("result", {}).get("id", ""))
+
+
 def send_email(to_email: str, subject: str, html: str):
-    if not RESEND_KEY:
+    if not UNISENDER_KEY:
         return
-    payload = json.dumps({
-        "from": "КонтрактКофе <noreply@kontraktkafe.ru>",
-        "to": [to_email],
-        "subject": subject,
-        "html": html,
-    }).encode("utf-8")
-    req = urllib.request.Request(
-        "https://api.resend.com/emails",
-        data=payload,
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {RESEND_KEY}"},
-        method="POST",
-    )
     try:
-        urllib.request.urlopen(req, timeout=6)
-    except urllib.error.URLError:
+        list_id = get_or_create_list_id()
+        if not list_id:
+            return
+        unisender_call("sendEmail", {
+            "email": to_email,
+            "sender_name": SENDER_NAME,
+            "sender_email": SENDER_EMAIL,
+            "subject": subject,
+            "body": html,
+            "list_id": list_id,
+        })
+    except Exception:
         pass
 
 
