@@ -51,7 +51,8 @@ const AdminStaff = () => {
       });
       const d = await r.json();
       if (r.ok) {
-        setInviteLink(d.invite_link);
+        const path = d.invite_path || d.invite_link;
+        setInviteLink(`${window.location.origin}${path}`);
         setInviteEmail("");
         showToast("Приглашение создано ✓");
       } else showToast(d.error || "Ошибка", false);

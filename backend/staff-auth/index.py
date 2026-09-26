@@ -27,7 +27,6 @@ CORS = {
     "Access-Control-Allow-Headers": "Content-Type, X-Action, X-Staff-Token, X-Invite-Token",
 }
 SCHEMA = "t_p21475602_quantum_innovation_l"
-SITE_URL = "https://kontraktkafe.ru"
 RESEND_KEY = os.environ.get("RESEND_API_KEY", "")
 
 
@@ -122,13 +121,15 @@ def handler(event: dict, context) -> dict:
             """, (email, token, inviter["id"] if inviter else None, expires))
             conn.commit()
 
-            invite_link = f"{SITE_URL}/admin/join?token={token}"
+            invite_path = f"/admin/join?token={token}"
+            origin = headers.get("origin") or headers.get("referer", "").rstrip("/")
+            invite_link = f"{origin}{invite_path}" if origin else invite_path
             send_email(email, "Приглашение в админку КонтрактКофе", f"""
                 <p>Вас пригласили в закрытую админ-панель КонтрактКофе.</p>
                 <p><a href="{invite_link}">Перейти и задать пароль →</a></p>
                 <p style="color:#888;font-size:12px">Ссылка действует 7 дней.</p>
             """)
-            return ok({"ok": True, "invite_link": invite_link}, 201)
+            return ok({"ok": True, "invite_link": invite_link, "invite_path": invite_path}, 201)
 
         # ── check-invite ──────────────────────────────────────────
         if action == "check-invite":
