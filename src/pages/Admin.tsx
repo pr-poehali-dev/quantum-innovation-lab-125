@@ -1,7 +1,10 @@
 import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import { useStaffAuth } from "@/context/StaffAuthContext";
 import logo from "@/assets/logo.png";
+
+const CHAT_URL = "https://functions.poehali.dev/f943216e-4ba2-4e31-9cff-fcfc562f339b";
 
 const SECTIONS = [
   {
@@ -10,6 +13,13 @@ const SECTIONS = [
     title: "Клиенты и сделки",
     desc: "Новые заявки, профили клиентов, этапы сделок",
     tag: "CRM",
+  },
+  {
+    href: "/admin/chats",
+    icon: "MessageCircle",
+    title: "Чаты с клиентами",
+    desc: "Переписка из личного кабинета — поддержка и менеджеры",
+    tag: "Чат",
   },
   {
     href: "/admin/staff",
@@ -49,7 +59,17 @@ const SECTIONS = [
 ];
 
 const Admin = () => {
-  const { staff, logout } = useStaffAuth();
+  const { staff, token, logout } = useStaffAuth();
+  const [unreadChats, setUnreadChats] = useState(0);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(CHAT_URL, { headers: { "X-Action": "list-conversations", "X-Staff-Token": token } })
+      .then(r => r.json())
+      .then(d => setUnreadChats((d.conversations || []).reduce((sum: number, c: { unread: number }) => sum + c.unread, 0)))
+      .catch(() => {});
+  }, [token]);
+
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-white border-b border-border">
@@ -89,6 +109,11 @@ const Admin = () => {
                   <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
                     {s.tag}
                   </span>
+                  {s.href === "/admin/chats" && unreadChats > 0 && (
+                    <span className="text-[10px] font-mono bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full">
+                      {unreadChats}
+                    </span>
+                  )}
                 </div>
                 <p className="text-[13px] text-muted-foreground mt-0.5">{s.desc}</p>
               </div>

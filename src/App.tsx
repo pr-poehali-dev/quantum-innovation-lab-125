@@ -16,6 +16,7 @@ import AdminJoin from "./pages/AdminJoin";
 import AdminCRM from "./pages/AdminCRM";
 import AdminStages from "./pages/AdminStages";
 import AdminStaff from "./pages/AdminStaff";
+import AdminChats from "./pages/AdminChats";
 import Documents from "./pages/Documents";
 import NotFound from "./pages/NotFound";
 import { LeadModalProvider } from "./context/LeadModalContext";
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/admin/crm" element={<StaffGuard><AdminCRM /></StaffGuard>} />
               <Route path="/admin/stages" element={<StaffGuard><AdminStages /></StaffGuard>} />
               <Route path="/admin/staff" element={<StaffGuard><AdminStaff /></StaffGuard>} />
+              <Route path="/admin/chats" element={<StaffGuard><AdminChats /></StaffGuard>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

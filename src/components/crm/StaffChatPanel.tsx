@@ -15,9 +15,10 @@ interface Message {
 
 interface Props {
   clientId: number;
+  height?: number;
 }
 
-const StaffChatPanel = ({ clientId }: Props) => {
+const StaffChatPanel = ({ clientId, height = 380 }: Props) => {
   const { token } = useStaffAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
@@ -66,7 +67,7 @@ const StaffChatPanel = ({ clientId }: Props) => {
     new Date(iso).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
   return (
-    <div className="bg-card border border-border rounded-2xl overflow-hidden flex flex-col" style={{ height: 380 }}>
+    <div className="bg-card border border-border rounded-2xl overflow-hidden flex flex-col" style={{ height }}>
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5">
         {loading ? (
           <div className="flex items-center justify-center h-full">
