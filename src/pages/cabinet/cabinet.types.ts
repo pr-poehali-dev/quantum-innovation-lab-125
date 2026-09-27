@@ -51,12 +51,51 @@ export const MOCKUPS = [
   { name: "brand_guide_nord.ai",     date: "18.02.2026", status: "approved", comment: ""                     },
 ];
 
-export type Tab = "passport" | "live" | "reorder" | "docs";
+export type Tab = "dashboard" | "batch" | "passport" | "reorder" | "docs" | "chat";
 
-export const TABS: { id: Tab; label: string; icon: string; badge?: string }[] = [
-  { id: "passport", label: "Паспорт продукта", icon: "BookOpen"              },
-  { id: "live",     label: "Партия в эфире",   icon: "Radio",  badge: "LIVE" },
-  { id: "reorder",  label: "Повторить партию", icon: "RefreshCw"             },
-  { id: "docs",     label: "Документы",        icon: "FileText"              },
+export interface SidebarItem {
+  id: Tab;
+  label: string;
+  icon: string;
+  badge?: string | number;
+}
+
+export interface SidebarGroup {
+  title: string;
+  items: SidebarItem[];
+}
+
+export const SIDEBAR_GROUPS: SidebarGroup[] = [
+  {
+    title: "Обзор",
+    items: [
+      { id: "dashboard", label: "Дашборд",         icon: "LayoutDashboard" },
+      { id: "batch",     label: "Активная партия",  icon: "Radio", badge: "LIVE" },
+    ],
+  },
+  {
+    title: "Мои данные",
+    items: [
+      { id: "docs",     label: "Документы",        icon: "FileText" },
+      { id: "passport", label: "Паспорт продукта", icon: "BookOpen" },
+      { id: "reorder",  label: "Повторить партию", icon: "RefreshCw" },
+    ],
+  },
+  {
+    title: "Коммуникации",
+    items: [
+      { id: "chat", label: "Чат с менеджером", icon: "MessageCircle" },
+    ],
+  },
 ];
 
+export const MANAGER = {
+  name: "Михаил Карпов",
+  initials: "МК",
+  online: true,
+  messages: [
+    { from: "in",  text: "Ваша партия прошла фасовку, сейчас на контроле качества. Всё идёт по плану 👍", time: "10:22" },
+    { from: "out", text: "Когда ждать трек-номер?", time: "10:35" },
+    { from: "in",  text: "Трек придёт автоматически после отгрузки.", time: "10:37" },
+  ],
+};
