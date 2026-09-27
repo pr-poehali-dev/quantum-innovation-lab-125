@@ -16,13 +16,13 @@ import AdminJoin from "./pages/AdminJoin";
 import AdminCRM from "./pages/AdminCRM";
 import AdminStages from "./pages/AdminStages";
 import AdminStaff from "./pages/AdminStaff";
-import AdminChats from "./pages/AdminChats";
 import Documents from "./pages/Documents";
 import NotFound from "./pages/NotFound";
 import { LeadModalProvider } from "./context/LeadModalContext";
 import { StaffAuthProvider } from "./context/StaffAuthContext";
 import { ClientAuthProvider } from "./context/ClientAuthContext";
 import StaffGuard from "./components/StaffGuard";
+import RoleGuard from "./components/RoleGuard";
 
 const queryClient = new QueryClient();
 
@@ -42,14 +42,13 @@ const App = () => (
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin/join" element={<AdminJoin />} />
               <Route path="/admin" element={<StaffGuard><Admin /></StaffGuard>} />
-              <Route path="/admin/about" element={<StaffGuard><AboutAdmin /></StaffGuard>} />
-              <Route path="/admin/documents" element={<StaffGuard><AdminDocuments /></StaffGuard>} />
-              <Route path="/admin/rate" element={<StaffGuard><AdminRate /></StaffGuard>} />
-              <Route path="/admin/calc" element={<StaffGuard><AdminCalc /></StaffGuard>} />
-              <Route path="/admin/crm" element={<StaffGuard><AdminCRM /></StaffGuard>} />
-              <Route path="/admin/stages" element={<StaffGuard><AdminStages /></StaffGuard>} />
-              <Route path="/admin/staff" element={<StaffGuard><AdminStaff /></StaffGuard>} />
-              <Route path="/admin/chats" element={<StaffGuard><AdminChats /></StaffGuard>} />
+              <Route path="/admin/about" element={<RoleGuard allowedRoles={["owner"]}><AboutAdmin /></RoleGuard>} />
+              <Route path="/admin/documents" element={<RoleGuard allowedRoles={["owner", "manager"]}><AdminDocuments /></RoleGuard>} />
+              <Route path="/admin/rate" element={<RoleGuard allowedRoles={["owner", "manager"]}><AdminRate /></RoleGuard>} />
+              <Route path="/admin/calc" element={<RoleGuard allowedRoles={["owner", "manager"]}><AdminCalc /></RoleGuard>} />
+              <Route path="/admin/crm" element={<RoleGuard allowedRoles={["owner", "manager", "support"]}><AdminCRM /></RoleGuard>} />
+              <Route path="/admin/stages" element={<RoleGuard allowedRoles={["owner", "manager"]}><AdminStages /></RoleGuard>} />
+              <Route path="/admin/staff" element={<RoleGuard allowedRoles={["owner"]}><AdminStaff /></RoleGuard>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -1,15 +1,20 @@
 """
-API для блока 'О компании'.
+API для блока 'О компании', курса доллара и калькулятора.
 Роутинг через заголовок X-Action (URL path недоступен на платформе).
 
 X-Action значения:
   get-content      — GET публичное чтение (без авторизации)
-  save-texts       — PUT сохранить тексты
-  presign-logo     — GET presigned URL для логотипа
-  presign-photo    — GET presigned URL для фото
-  confirm-logo     — POST сохранить URL логотипа в БД
-  confirm-photo    — POST сохранить URL фото в БД
-  delete-photo     — DELETE удалить фото (X-Photo-Id в заголовке)
+  save-texts       — PUT сохранить тексты (только владелец)
+  upload-logo      — POST загрузить логотип (только владелец)
+  upload-photo     — POST загрузить фото (только владелец)
+  add-photo-url    — POST добавить фото по URL (только владелец)
+  delete-photo     — DELETE удалить фото (только владелец)
+  get-calc         — GET публичные данные калькулятора
+  save-calc        — POST сохранить калькулятор (владелец и менеджер)
+  get-rate         — GET курс доллара
+  save-rate        — POST сохранить курс доллара (владелец и менеджер)
+
+Авторизация редактирования — X-Staff-Token (сессия сотрудника), не статичный ключ.
 """
 import json
 import os
@@ -22,10 +27,9 @@ from botocore.config import Config
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Action, X-Photo-Id",
+    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Staff-Token, X-Action, X-Photo-Id",
 }
 SCHEMA      = "t_p21475602_quantum_innovation_l"
-ADMIN_KEY   = os.environ.get("ABOUT_ADMIN_KEY", "kontraktkafe-admin-2024")
 AWS_KEY     = os.environ.get("AWS_ACCESS_KEY_ID", "")
 AWS_SEC     = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
 CDN_BASE    = f"https://cdn.poehali.dev/projects/{AWS_KEY}/bucket"
@@ -54,9 +58,22 @@ def err(msg, status=400):
     return {"statusCode": status, "headers": CORS, "body": json.dumps({"error": msg})}
 
 
-def check_admin(headers: dict) -> bool:
-    key = headers.get("x-admin-key", "")
-    return key == ADMIN_KEY
+def get_staff_role(cur, headers: dict):
+    token = headers.get("x-staff-token", "")
+    if not token:
+        return None
+    cur.execute(f"""
+        SELECT COALESCE(ss.preview_role, s.role) FROM {SCHEMA}.staff_sessions ss
+        JOIN {SCHEMA}.staff_users s ON s.id = ss.staff_id
+        WHERE ss.token=%s AND ss.expires_at > NOW() AND s.active=TRUE
+    """, (token,))
+    row = cur.fetchone()
+    return row[0] if row else None
+
+
+def check_role(cur, headers: dict, allowed: tuple) -> bool:
+    role = get_staff_role(cur, headers)
+    return role in allowed
 
 
 def handler(event: dict, context) -> dict:
@@ -91,7 +108,7 @@ def handler(event: dict, context) -> dict:
 
         # ── save-texts: обновить тексты ──────────────────────────
         if action == "save-texts":
-            if not check_admin(headers):
+            if not check_role(cur, headers, ("owner",)):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
             cur.execute(f"""
@@ -104,7 +121,7 @@ def handler(event: dict, context) -> dict:
 
         # ── upload-logo: принять base64, залить в S3, сохранить URL ─
         if action == "upload-logo":
-            if not check_admin(headers):
+            if not check_role(cur, headers, ("owner",)):
                 return err("Unauthorized", 401)
             body    = json.loads(event.get("body") or "{}")
             b64     = body.get("file_base64", "")
@@ -124,7 +141,7 @@ def handler(event: dict, context) -> dict:
 
         # ── upload-photo: принять base64, залить в S3, сохранить запись ─
         if action == "upload-photo":
-            if not check_admin(headers):
+            if not check_role(cur, headers, ("owner",)):
                 return err("Unauthorized", 401)
             body  = json.loads(event.get("body") or "{}")
             b64   = body.get("file_base64", "")
@@ -145,7 +162,7 @@ def handler(event: dict, context) -> dict:
 
         # ── add-photo-url: добавить фото по внешнему URL ─────────
         if action == "add-photo-url":
-            if not check_admin(headers):
+            if not check_role(cur, headers, ("owner",)):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
             cur.execute(f"""
@@ -159,7 +176,7 @@ def handler(event: dict, context) -> dict:
 
         # ── delete-photo: удалить фото ────────────────────────────
         if action == "delete-photo":
-            if not check_admin(headers):
+            if not check_role(cur, headers, ("owner",)):
                 return err("Unauthorized", 401)
             photo_id = int(headers.get("x-photo-id", "0"))
             if not photo_id:
@@ -197,7 +214,7 @@ def handler(event: dict, context) -> dict:
 
         # ── save-calc: сохранить данные калькулятора ──────────────
         if action == "save-calc":
-            if not check_admin(headers):
+            if not check_role(cur, headers, ("owner", "manager")):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
 
@@ -243,7 +260,7 @@ def handler(event: dict, context) -> dict:
 
         # ── save-rate: сохранить курс доллара ─────────────────────
         if action == "save-rate":
-            if not check_admin(headers):
+            if not check_role(cur, headers, ("owner", "manager")):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
             rate = body.get("rate")

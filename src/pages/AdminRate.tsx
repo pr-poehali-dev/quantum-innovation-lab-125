@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
+import { useStaffAuth } from "@/context/StaffAuthContext";
 
 const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
-const ADMIN_KEY = "kontraktkafe-admin-2024";
 
 const AdminRate = () => {
+  const { token } = useStaffAuth();
   const [rate,      setRate]      = useState("");
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [loading,   setLoading]   = useState(true);
@@ -35,7 +36,7 @@ const AdminRate = () => {
     try {
       const r = await fetch(ABOUT_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY, "X-Action": "save-rate" },
+        headers: { "Content-Type": "application/json", "X-Staff-Token": token || "", "X-Action": "save-rate" },
         body: JSON.stringify({ rate: num }),
       });
       const d = await r.json();

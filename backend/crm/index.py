@@ -48,7 +48,7 @@ def get_staff(cur, token: str):
     if not token:
         return None
     cur.execute(f"""
-        SELECT s.id, s.email, s.name, s.is_owner, s.role
+        SELECT s.id, s.email, s.name, s.is_owner, COALESCE(ss.preview_role, s.role)
         FROM {SCHEMA}.staff_sessions ss
         JOIN {SCHEMA}.staff_users s ON s.id = ss.staff_id
         WHERE ss.token=%s AND ss.expires_at > NOW() AND s.active=TRUE

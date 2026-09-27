@@ -42,6 +42,7 @@ interface Stage {
 interface Props {
   onOpenClient: (clientId: number) => void;
   showToast: (msg: string, ok?: boolean) => void;
+  refreshSignal?: number;
 }
 
 interface PendingMove {
@@ -49,7 +50,7 @@ interface PendingMove {
   toStage: Stage;
 }
 
-const KanbanBoard = ({ onOpenClient, showToast }: Props) => {
+const KanbanBoard = ({ onOpenClient, showToast, refreshSignal }: Props) => {
   const { token } = useStaffAuth();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
@@ -73,7 +74,7 @@ const KanbanBoard = ({ onOpenClient, showToast }: Props) => {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { if (token) load(); }, [token]);
+  useEffect(() => { if (token) load(); }, [token, refreshSignal]);
 
   const formatMoney = (n: number | null) => n ? `${n.toLocaleString("ru-RU")} ₽` : "—";
 

@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
+import { useStaffAuth } from "@/context/StaffAuthContext";
 
 const ABOUT_URL  = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
-const ADMIN_KEY  = "kontraktkafe-admin-2024";
 
 interface Origin {
   id?: number;
@@ -24,6 +24,7 @@ const PARAM_ORDER = [
 ];
 
 const AdminCalc = () => {
+  const { token } = useStaffAuth();
   const [origins,      setOrigins]      = useState<Origin[]>([]);
   const [params,       setParams]       = useState<Params>({});
   const [usdRate,      setUsdRate]      = useState<number>(85);
@@ -75,7 +76,7 @@ const AdminCalc = () => {
     try {
       const r = await fetch(ABOUT_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY, "X-Action": "save-calc" },
+        headers: { "Content-Type": "application/json", "X-Staff-Token": token || "", "X-Action": "save-calc" },
         body: JSON.stringify({
           origins: origins.map((o, i) => ({ ...o, sort_order: i + 1 })),
           delete_origin_ids: deleteIds,

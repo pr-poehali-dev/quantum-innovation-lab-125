@@ -12,6 +12,8 @@ X-Action значения:
   list-staff       — GET список сотрудников (нужна сессия)
   update-role      — POST изменить роль сотрудника (только owner): staff_id, role (manager|support)
   set-active       — POST включить/выключить доступ сотруднику (только owner): staff_id, active
+  preview-login    — POST владелец получает временный токен с ролью manager|support (быстрый просмотр
+                      рабочего пространства менеджера, без выхода из своей сессии): role
 
 Роли: owner (владелец, полный доступ), manager (менеджер, ведёт сделки),
 support (поддержка 24/7 — первичная обработка новых обращений в чате).
@@ -76,7 +78,7 @@ def get_staff_by_token(cur, token: str):
     if not token:
         return None
     cur.execute(f"""
-        SELECT s.id, s.email, s.name, s.is_owner, s.role
+        SELECT s.id, s.email, s.name, s.is_owner, COALESCE(ss.preview_role, s.role), ss.preview_role IS NOT NULL
         FROM {SCHEMA}.staff_sessions ss
         JOIN {SCHEMA}.staff_users s ON s.id = ss.staff_id
         WHERE ss.token=%s AND ss.expires_at > NOW() AND s.active=TRUE
@@ -84,7 +86,10 @@ def get_staff_by_token(cur, token: str):
     row = cur.fetchone()
     if not row:
         return None
-    return {"id": row[0], "email": row[1], "name": row[2], "is_owner": row[3], "role": row[4]}
+    return {
+        "id": row[0], "email": row[1], "name": row[2], "is_owner": row[3] and not row[5],
+        "role": row[4], "is_preview": row[5],
+    }
 
 
 def handler(event: dict, context) -> dict:
@@ -185,8 +190,8 @@ def handler(event: dict, context) -> dict:
             salt = secrets.token_hex(16)
             pwd_hash = hash_password(password, salt)
             cur.execute(f"""
-                INSERT INTO {SCHEMA}.staff_users (email, name, password_hash, password_salt, is_owner, role)
-                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+                INSERT INTO {SCHEMA}.staff_users (email, name, password_hash, password_salt, is_owner, role, last_login_at)
+                VALUES (%s, %s, %s, %s, %s, %s, NOW()) RETURNING id
             """, (email, name, pwd_hash, salt, is_first, final_role))
             staff_id = cur.fetchone()[0]
 
@@ -222,6 +227,7 @@ def handler(event: dict, context) -> dict:
             cur.execute(f"""
                 INSERT INTO {SCHEMA}.staff_sessions (staff_id, token, expires_at) VALUES (%s, %s, %s)
             """, (staff_id, session_token, session_expires))
+            cur.execute(f"UPDATE {SCHEMA}.staff_users SET last_login_at=NOW() WHERE id=%s", (staff_id,))
             conn.commit()
             return ok({"ok": True, "token": session_token, "name": name, "email": email, "role": role})
 
@@ -243,13 +249,17 @@ def handler(event: dict, context) -> dict:
             staff = get_staff_by_token(cur, staff_token)
             if not staff:
                 return err("Unauthorized", 401)
+            if staff["role"] != "owner":
+                return err("Только владелец видит список сотрудников", 403)
             cur.execute(f"""
-                SELECT id, email, name, is_owner, active, created_at, role FROM {SCHEMA}.staff_users ORDER BY created_at
+                SELECT id, email, name, is_owner, active, created_at, role, last_login_at
+                FROM {SCHEMA}.staff_users ORDER BY created_at
             """)
             rows = [
                 {
                     "id": r[0], "email": r[1], "name": r[2], "is_owner": r[3], "active": r[4],
                     "created_at": str(r[5]), "role": r[6],
+                    "last_login_at": str(r[7]) if r[7] else None,
                 }
                 for r in cur.fetchall()
             ]
@@ -292,6 +302,27 @@ def handler(event: dict, context) -> dict:
             """, (active, target_id))
             conn.commit()
             return ok({"ok": True})
+
+        # ── preview-login ─────────────────────────────────────────
+        if action == "preview-login":
+            staff = get_staff_by_token(cur, staff_token)
+            if not staff:
+                return err("Unauthorized", 401)
+            if staff["role"] != "owner":
+                return err("Только владелец может смотреть от лица других ролей", 403)
+            body = json.loads(event.get("body") or "{}")
+            preview_role = body.get("role")
+            if preview_role not in ("manager", "support"):
+                return err("Роль должна быть manager или support")
+
+            preview_token = secrets.token_urlsafe(32)
+            preview_expires = datetime.utcnow() + timedelta(hours=2)
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.staff_sessions (staff_id, token, expires_at, preview_role)
+                VALUES (%s, %s, %s, %s)
+            """, (staff["id"], preview_token, preview_expires, preview_role))
+            conn.commit()
+            return ok({"ok": True, "token": preview_token, "role": preview_role}, 201)
 
         return err(f"Unknown action: {action}", 400)
     finally:

@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
+import { useStaffAuth } from "@/context/StaffAuthContext";
 
 const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
-const ADMIN_KEY = "kontraktkafe-admin-2024";
 
 interface Photo   { id: number; url: string; label: string; description: string; sort_order: number }
 interface Content { title: string; subtitle: string; bottom_text: string; logo_url?: string }
 
 const AboutAdmin = () => {
+  const { token } = useStaffAuth();
   const [content,      setContent]      = useState<Content>({ title: "", subtitle: "", bottom_text: "" });
   const [photos,       setPhotos]       = useState<Photo[]>([]);
   const [loading,      setLoading]      = useState(true);
@@ -36,7 +37,7 @@ const AboutAdmin = () => {
   const api = (action: string, body?: object, extraHeaders?: Record<string, string>) =>
     fetch(ABOUT_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY, "X-Action": action, ...extraHeaders },
+      headers: { "Content-Type": "application/json", "X-Staff-Token": token || "", "X-Action": action, ...extraHeaders },
       body: body ? JSON.stringify(body) : undefined,
     });
 
@@ -160,7 +161,7 @@ const AboutAdmin = () => {
     try {
       const r = await fetch(ABOUT_URL, {
         method: "POST",
-        headers: { "X-Admin-Key": ADMIN_KEY, "X-Action": "delete-photo", "X-Photo-Id": String(id), "Content-Type": "application/json" },
+        headers: { "X-Staff-Token": token || "", "X-Action": "delete-photo", "X-Photo-Id": String(id), "Content-Type": "application/json" },
       });
       if (r.ok) { showToast("Фото удалено"); load(); }
       else showToast("Ошибка удаления", false);

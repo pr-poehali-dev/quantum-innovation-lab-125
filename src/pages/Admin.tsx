@@ -1,39 +1,38 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useStaffAuth } from "@/context/StaffAuthContext";
 import logo from "@/assets/logo.png";
 
 const CHAT_URL = "https://functions.poehali.dev/f943216e-4ba2-4e31-9cff-fcfc562f339b";
+const TEST_CLIENT_EMAIL = "test-client@kontraktkafe.ru";
+const TEST_CLIENT_CODE = "000000";
 
-const SECTIONS = [
+type Role = "owner" | "manager" | "support";
+
+interface Section {
+  href: string;
+  icon: string;
+  title: string;
+  desc: string;
+  tag: string;
+  roles: Role[];
+}
+
+const SECTIONS: Section[] = [
   {
     href: "/admin/crm",
     icon: "Users",
-    title: "Клиенты и сделки",
-    desc: "Новые заявки, профили клиентов, этапы сделок",
+    title: "Клиенты, сделки и чаты",
+    desc: "Канбан сделок, новые заявки, переписка с клиентами — единое рабочее пространство",
     tag: "CRM",
-  },
-  {
-    href: "/admin/chats",
-    icon: "MessageCircle",
-    title: "Чаты с клиентами",
-    desc: "Переписка из личного кабинета — поддержка и менеджеры",
-    tag: "Чат",
-  },
-  {
-    href: "/admin/staff",
-    icon: "UserPlus",
-    title: "Сотрудники",
-    desc: "Приглашения коллег в закрытую админку",
-    tag: "Доступ",
-  },
-  {
-    href: "/admin/about",
-    icon: "Image",
-    title: "Блок «О компании»",
-    desc: "Фотографии производства, тексты, статистика",
-    tag: "Контент",
+    roles: ["owner", "manager", "support"],
   },
   {
     href: "/admin/documents",
@@ -41,6 +40,7 @@ const SECTIONS = [
     title: "Документы и сертификаты",
     desc: "Загрузка PDF, управление категориями, видимость",
     tag: "Файлы",
+    roles: ["owner", "manager"],
   },
   {
     href: "/admin/rate",
@@ -48,6 +48,7 @@ const SECTIONS = [
     title: "Курс доллара",
     desc: "Обновляйте раз в неделю — курс влияет на стоимость кофе",
     tag: "Шапка",
+    roles: ["owner", "manager"],
   },
   {
     href: "/admin/calc",
@@ -55,12 +56,42 @@ const SECTIONS = [
     title: "Калькулятор кофе",
     desc: "Сорта, цены зерна, логистика — данные для расчёта",
     tag: "Калькулятор",
+    roles: ["owner", "manager"],
+  },
+  {
+    href: "/admin/staff",
+    icon: "UserPlus",
+    title: "Сотрудники",
+    desc: "Приглашения коллег, роли и доступ",
+    tag: "Доступ",
+    roles: ["owner"],
+  },
+  {
+    href: "/admin/about",
+    icon: "Image",
+    title: "Блок «О компании»",
+    desc: "Фотографии производства, тексты, статистика",
+    tag: "Контент",
+    roles: ["owner"],
   },
 ];
 
+const ROLE_LABELS: Record<Role, string> = { owner: "Владелец", manager: "Менеджер", support: "Поддержка" };
+
 const Admin = () => {
-  const { staff, token, logout } = useStaffAuth();
+  const { staff, token, logout, startPreview } = useStaffAuth();
   const [unreadChats, setUnreadChats] = useState(0);
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const [clientBusy, setClientBusy] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  const role: Role = staff?.role || (staff?.is_owner ? "owner" : "manager");
+  const isOwner = role === "owner" && !staff?.is_preview;
+
+  const showToast = (msg: string, ok = true) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   useEffect(() => {
     if (!token) return;
@@ -70,8 +101,43 @@ const Admin = () => {
       .catch(() => {});
   }, [token]);
 
+  const visibleSections = SECTIONS.filter(s => s.roles.includes(role));
+
+  const openPreview = async (previewRole: "manager" | "support") => {
+    setPreviewBusy(true);
+    const res = await startPreview(previewRole);
+    setPreviewBusy(false);
+    if (res.ok && res.url) window.open(res.url, "_blank", "noopener");
+    else showToast(res.error || "Не удалось открыть просмотр", false);
+  };
+
+  const openClientPreview = async () => {
+    setClientBusy(true);
+    try {
+      const r = await fetch("https://functions.poehali.dev/6de59166-2dc1-44b2-831e-bc348d5c3c83", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Action": "verify-code" },
+        body: JSON.stringify({ email: TEST_CLIENT_EMAIL, code: TEST_CLIENT_CODE }),
+      });
+      const d = await r.json();
+      if (!r.ok) { showToast(d.error || "Не удалось открыть кабинет клиента", false); return; }
+      window.open(`${window.location.origin}/cabinet?client_token=${d.token}`, "_blank", "noopener");
+    } catch {
+      showToast("Ошибка сети", false);
+    } finally {
+      setClientBusy(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
+      {staff?.is_preview && (
+        <div className="sticky top-0 z-50 bg-amber-500 text-white text-[13px] font-medium px-4 py-2 flex items-center justify-center gap-2">
+          <Icon name="Eye" size={14} />
+          Режим просмотра: вы видите админку глазами роли «{ROLE_LABELS[role]}» — редактирование части разделов ограничено
+        </div>
+      )}
+
       <header className="bg-white border-b border-border">
         <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
           <Link to="/admin" className="flex-shrink-0">
@@ -79,7 +145,14 @@ const Admin = () => {
           </Link>
           <div className="flex items-center gap-3">
             {staff && (
-              <span className="text-[13px] text-muted-foreground">{staff.name || staff.email}</span>
+              <span className="text-[13px] text-muted-foreground">
+                {staff.name || staff.email}
+                {!staff.is_preview && (
+                  <span className="ml-1.5 text-[10px] font-mono bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full align-middle">
+                    {ROLE_LABELS[role]}
+                  </span>
+                )}
+              </span>
             )}
             <button onClick={logout} className="text-muted-foreground hover:text-destructive transition-colors" title="Выйти">
               <Icon name="LogOut" size={16} />
@@ -88,16 +161,55 @@ const Admin = () => {
         </div>
       </header>
 
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg text-sm font-medium ${
+          toast.ok ? "bg-green-500 text-white" : "bg-destructive text-white"
+        }`}>
+          <Icon name={toast.ok ? "Check" : "X"} size={14} />
+          {toast.msg}
+        </div>
+      )}
+
       <div className="max-w-3xl mx-auto px-6 py-12">
-        <div className="mb-10">
-          <h1 className="font-serif text-3xl font-bold">Администрирование</h1>
-          <p className="text-muted-foreground mt-2 text-sm">
-            Управление контентом сайта КонтрактКофе
-          </p>
+        <div className="mb-10 flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="font-serif text-3xl font-bold">Администрирование</h1>
+            <p className="text-muted-foreground mt-2 text-sm">
+              Управление контентом сайта КонтрактКофе
+            </p>
+          </div>
+
+          {isOwner && (
+            <div className="flex items-center gap-2">
+              <button onClick={openClientPreview} disabled={clientBusy}
+                className="flex items-center gap-1.5 text-[13px] font-medium border border-border px-3 py-2 rounded-xl hover:border-primary/40 hover:bg-primary/5 transition-all disabled:opacity-60">
+                {clientBusy ? <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <Icon name="User" size={14} />}
+                Как клиент
+              </button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button disabled={previewBusy}
+                    className="flex items-center gap-1.5 text-[13px] font-medium border border-border px-3 py-2 rounded-xl hover:border-primary/40 hover:bg-primary/5 transition-all disabled:opacity-60">
+                    {previewBusy ? <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <Icon name="Eye" size={14} />}
+                    Как менеджер
+                    <Icon name="ChevronDown" size={12} className="text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => openPreview("manager")} className="gap-2">
+                    <Icon name="UserCog" size={14} /> Как менеджер
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openPreview("support")} className="gap-2">
+                    <Icon name="Headset" size={14} /> Как поддержка
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
         </div>
 
         <div className="grid gap-3">
-          {SECTIONS.map(s => (
+          {visibleSections.map(s => (
             <Link key={s.href} to={s.href}
               className="flex items-center gap-4 bg-card border border-border rounded-2xl px-5 py-4 hover:border-primary/40 hover:shadow-sm transition-all group">
               <div className="w-10 h-10 rounded-xl bg-primary/8 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/15 transition-colors">
@@ -109,7 +221,7 @@ const Admin = () => {
                   <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
                     {s.tag}
                   </span>
-                  {s.href === "/admin/chats" && unreadChats > 0 && (
+                  {s.href === "/admin/crm" && unreadChats > 0 && (
                     <span className="text-[10px] font-mono bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full">
                       {unreadChats}
                     </span>

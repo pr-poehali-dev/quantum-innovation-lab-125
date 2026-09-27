@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
+import { useStaffAuth } from "@/context/StaffAuthContext";
 
 const DOCS_URL  = "https://functions.poehali.dev/728446de-2a8e-45c1-a93a-a0040873e23b";
-const ADMIN_KEY = "kontraktkafe-admin-2024";
 
 interface Doc {
   id: number;
@@ -24,6 +24,7 @@ const CATEGORIES = [
 ];
 
 const AdminDocuments = () => {
+  const { token } = useStaffAuth();
   const [docs,       setDocs]       = useState<Doc[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [toast,      setToast]      = useState<{ msg: string; ok: boolean } | null>(null);
@@ -48,14 +49,14 @@ const AdminDocuments = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const r = await fetch(`${DOCS_URL}/all`, { headers: { "X-Admin-Key": ADMIN_KEY } });
+      const r = await fetch(`${DOCS_URL}/all`, { headers: { "X-Staff-Token": token || "" } });
       const d = await r.json();
       if (d.documents) setDocs(d.documents);
     } catch { showToast("Ошибка загрузки", false); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { if (token) load(); }, [token]);
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -85,7 +86,7 @@ const AdminDocuments = () => {
       }
       const r = await fetch(`${DOCS_URL}/upload`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY },
+        headers: { "Content-Type": "application/json", "X-Staff-Token": token || "" },
         body: JSON.stringify(body),
       });
       if (r.ok) {
@@ -101,7 +102,7 @@ const AdminDocuments = () => {
   const toggleVisible = async (doc: Doc) => {
     await fetch(`${DOCS_URL}/${doc.id}`, {
       method: "PUT",
-      headers: { "Content-Type": "application/json", "X-Admin-Key": ADMIN_KEY },
+      headers: { "Content-Type": "application/json", "X-Staff-Token": token || "" },
       body: JSON.stringify({ ...doc, is_visible: !doc.is_visible }),
     });
     load();
@@ -111,7 +112,7 @@ const AdminDocuments = () => {
     if (!confirm("Удалить документ? Файл будет удалён из хранилища.")) return;
     setDeletingId(id);
     try {
-      await fetch(`${DOCS_URL}/${id}`, { method: "DELETE", headers: { "X-Admin-Key": ADMIN_KEY } });
+      await fetch(`${DOCS_URL}/${id}`, { method: "DELETE", headers: { "X-Staff-Token": token || "" } });
       showToast("Удалён");
       load();
     } catch { showToast("Ошибка", false); }

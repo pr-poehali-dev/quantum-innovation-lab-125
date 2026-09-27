@@ -4,8 +4,10 @@ import Icon from "@/components/ui/icon";
 import { useStaffAuth } from "@/context/StaffAuthContext";
 import ClientDrawer from "@/components/crm/ClientDrawer";
 import KanbanBoard from "@/components/crm/KanbanBoard";
+import ChatsInbox from "@/components/crm/ChatsInbox";
 
 const CRM_URL = "https://functions.poehali.dev/0fbf69fe-e1ba-4899-a9c0-98d37524abe1";
+const CHAT_URL = "https://functions.poehali.dev/f943216e-4ba2-4e31-9cff-fcfc562f339b";
 
 interface Lead {
   id: number;
@@ -32,7 +34,7 @@ interface ClientRow {
   total_amount: number;
 }
 
-type Tab = "leads" | "clients" | "kanban";
+type Tab = "leads" | "clients" | "kanban" | "chats";
 
 const AdminCRM = () => {
   const { token } = useStaffAuth();
@@ -42,6 +44,8 @@ const AdminCRM = () => {
   const [loading, setLoading] = useState(true);
   const [openClientId, setOpenClientId] = useState<number | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [kanbanRefresh, setKanbanRefresh] = useState(0);
+  const [unreadChats, setUnreadChats] = useState(0);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -75,6 +79,20 @@ const AdminCRM = () => {
       setClients(c.clients || []);
     }).catch(() => showToast("Ошибка загрузки", false))
       .finally(() => setLoading(false));
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    const loadUnread = () => {
+      fetch(CHAT_URL, { headers: { "X-Action": "list-conversations", ...authHeaders } })
+        .then(r => r.json())
+        .then(d => setUnreadChats((d.conversations || []).reduce((sum: number, c: { unread: number }) => sum + c.unread, 0)))
+        .catch(() => {});
+    };
+    loadUnread();
+    const interval = setInterval(loadUnread, 8000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const formatDate = (iso: string) => {
@@ -146,10 +164,24 @@ const AdminCRM = () => {
               {clients.length}
             </span>
           </button>
+          <button onClick={() => setTab("chats")}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              tab === "chats" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}>
+            <Icon name="MessageCircle" size={14} />
+            Чаты
+            {unreadChats > 0 && (
+              <span className="text-[10px] font-mono bg-primary text-primary-foreground rounded-full px-1.5 py-0.5">
+                {unreadChats}
+              </span>
+            )}
+          </button>
         </div>
 
         {tab === "kanban" ? (
-          <KanbanBoard onOpenClient={setOpenClientId} showToast={showToast} />
+          <KanbanBoard onOpenClient={setOpenClientId} showToast={showToast} refreshSignal={kanbanRefresh} />
+        ) : tab === "chats" ? (
+          <ChatsInbox onOpenClient={setOpenClientId} />
         ) : loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -225,7 +257,7 @@ const AdminCRM = () => {
         <ClientDrawer
           clientId={openClientId}
           onClose={() => setOpenClientId(null)}
-          onChanged={() => { loadClients(); loadLeads(); }}
+          onChanged={() => { loadClients(); loadLeads(); setKanbanRefresh(n => n + 1); }}
           showToast={showToast}
         />
       )}

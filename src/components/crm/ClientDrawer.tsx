@@ -114,7 +114,7 @@ const ClientDrawer = ({ clientId, onClose, onChanged, showToast }: Props) => {
         headers: { "Content-Type": "application/json", "X-Action": "assign-deal", ...authHeaders },
         body: JSON.stringify({ deal_id: dealId, staff_id: staffId }),
       });
-      if (r.ok) showToast(staffId ? "Ответственный назначен ✓" : "Ответственный снят");
+      if (r.ok) { showToast(staffId ? "Ответственный назначен ✓" : "Ответственный снят"); onChanged(); }
       else { const d = await r.json(); showToast(d.error || "Ошибка", false); }
     } catch { showToast("Ошибка сети", false); }
   };

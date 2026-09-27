@@ -1,10 +1,12 @@
 """
 API документов: публичное чтение, загрузка/удаление через админку.
 GET  /         — список документов (публично)
-POST /upload   — загрузить файл base64 → S3 → сохранить в БД (admin)
-PUT  /{id}     — обновить метаданные (admin)
-DELETE /{id}   — удалить документ + файл из S3 (admin)
-PUT  /reorder  — изменить порядок (admin)
+POST /upload   — загрузить файл base64 → S3 → сохранить в БД (владелец, менеджер)
+PUT  /{id}     — обновить метаданные (владелец, менеджер)
+DELETE /{id}   — удалить документ + файл из S3 (владелец, менеджер)
+PUT  /reorder  — изменить порядок (владелец, менеджер)
+
+Авторизация редактирования — X-Staff-Token (сессия сотрудника с ролью owner/manager).
 """
 import json
 import os
@@ -16,10 +18,9 @@ import boto3
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key",
+    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Staff-Token",
 }
 SCHEMA    = os.environ.get("MAIN_DB_SCHEMA", "t_p21475602_quantum_innovation_l")
-ADMIN_KEY = os.environ.get("ABOUT_ADMIN_KEY", "kontraktkafe-admin-2024")
 AWS_KEY   = os.environ.get("AWS_ACCESS_KEY_ID", "")
 AWS_SEC   = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
 CDN_BASE  = f"https://cdn.poehali.dev/projects/{AWS_KEY}/bucket"
@@ -46,9 +47,17 @@ def err(msg, status=400):
     return {"statusCode": status, "headers": CORS, "body": json.dumps({"error": msg})}
 
 
-def check_admin(headers: dict) -> bool:
-    key = headers.get("x-admin-key") or headers.get("X-Admin-Key") or ""
-    return key == ADMIN_KEY
+def check_admin(cur, headers: dict) -> bool:
+    token = headers.get("x-staff-token") or headers.get("X-Staff-Token") or ""
+    if not token:
+        return False
+    cur.execute(f"""
+        SELECT COALESCE(ss.preview_role, s.role) FROM {SCHEMA}.staff_sessions ss
+        JOIN {SCHEMA}.staff_users s ON s.id = ss.staff_id
+        WHERE ss.token=%s AND ss.expires_at > NOW() AND s.active=TRUE
+    """, (token,))
+    row = cur.fetchone()
+    return row is not None and row[0] in ("owner", "manager")
 
 
 def handler(event: dict, context) -> dict:
@@ -86,7 +95,7 @@ def handler(event: dict, context) -> dict:
 
         # ── GET /all — все документы для админки ─────────────────
         if method == "GET" and suffix == "/all":
-            if not check_admin(headers):
+            if not check_admin(cur, headers):
                 return err("Unauthorized", 401)
             cur.execute(f"""
                 SELECT id, title, description, category, file_url, file_name, file_size_kb, sort_order, is_visible
@@ -104,7 +113,7 @@ def handler(event: dict, context) -> dict:
 
         # ── POST /upload — загрузить файл + создать запись ───────
         if method == "POST" and suffix == "/upload":
-            if not check_admin(headers):
+            if not check_admin(cur, headers):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
 
@@ -145,7 +154,7 @@ def handler(event: dict, context) -> dict:
 
         # ── PUT /reorder — порядок (должен быть ДО PUT /{id}) ────
         if method == "PUT" and suffix == "/reorder":
-            if not check_admin(headers):
+            if not check_admin(cur, headers):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
             for item in body.get("order", []):
@@ -156,7 +165,7 @@ def handler(event: dict, context) -> dict:
 
         # ── PUT /{id} — обновить метаданные ──────────────────────
         if method == "PUT" and suffix not in ("/", "/reorder"):
-            if not check_admin(headers):
+            if not check_admin(cur, headers):
                 return err("Unauthorized", 401)
             doc_id = int(suffix.split("/")[-1])
             body   = json.loads(event.get("body") or "{}")
@@ -171,7 +180,7 @@ def handler(event: dict, context) -> dict:
 
         # ── DELETE /{id} — удалить ────────────────────────────────
         if method == "DELETE":
-            if not check_admin(headers):
+            if not check_admin(cur, headers):
                 return err("Unauthorized", 401)
             doc_id = int(suffix.split("/")[-1])
             cur.execute(f"SELECT file_url FROM {SCHEMA}.documents WHERE id=%s", (doc_id,))

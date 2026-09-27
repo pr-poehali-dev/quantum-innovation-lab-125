@@ -75,6 +75,15 @@ export const ClientAuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+    const url = new URL(window.location.href);
+    const urlToken = url.searchParams.get("client_token");
+    if (urlToken) {
+      localStorage.setItem(STORAGE_KEY, urlToken);
+      url.searchParams.delete("client_token");
+      window.history.replaceState({}, "", url.pathname + url.search);
+      fetchMe(urlToken);
+      return;
+    }
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) { setLoading(false); return; }
     fetchMe(saved);

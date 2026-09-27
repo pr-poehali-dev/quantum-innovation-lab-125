@@ -15,7 +15,21 @@ interface StaffRow {
   active: boolean;
   created_at: string;
   role: Role;
+  last_login_at: string | null;
 }
+
+const formatLastSeen = (iso: string | null) => {
+  if (!iso) return "ещё не заходил";
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const min = Math.floor(diffMs / 60000);
+  if (min < 1) return "сейчас на связи";
+  if (min < 60) return `заходил ${min} мин назад`;
+  const hours = Math.floor(min / 60);
+  if (hours < 24) return `заходил ${hours} ч назад`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `заходил ${days} дн назад`;
+  return `заходил ${new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}`;
+};
 
 const ROLE_LABELS: Record<Role, string> = {
   owner: "Владелец",
@@ -212,6 +226,7 @@ const AdminStaff = () => {
                         )}
                       </p>
                       <p className="text-[12px] text-muted-foreground truncate">{s.email}</p>
+                      <p className="text-[11px] text-muted-foreground/70">{formatLastSeen(s.last_login_at)}</p>
                     </div>
                   </div>
 
