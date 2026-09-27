@@ -3,13 +3,18 @@
 Роутинг через заголовок X-Action.
 
 X-Action значения:
-  create-invite   — POST создать ссылку-приглашение (нужна сессия, либо это первый сотрудник)
+  create-invite   — POST создать ссылку-приглашение (нужна сессия, либо это первый сотрудник; можно указать role)
   accept-invite    — POST принять приглашение: задать имя и пароль → создаётся аккаунт
   check-invite     — GET проверить токен приглашения (валиден/email)
   login            — POST вход по email+паролю → токен сессии
   me               — GET текущий сотрудник по X-Staff-Token
   logout           — POST удалить сессию
   list-staff       — GET список сотрудников (нужна сессия)
+  update-role      — POST изменить роль сотрудника (только owner): staff_id, role (manager|support)
+  set-active       — POST включить/выключить доступ сотруднику (только owner): staff_id, active
+
+Роли: owner (владелец, полный доступ), manager (менеджер, ведёт сделки),
+support (поддержка 24/7 — первичная обработка новых обращений в чате).
 """
 import json
 import os
@@ -71,7 +76,7 @@ def get_staff_by_token(cur, token: str):
     if not token:
         return None
     cur.execute(f"""
-        SELECT s.id, s.email, s.name, s.is_owner
+        SELECT s.id, s.email, s.name, s.is_owner, s.role
         FROM {SCHEMA}.staff_sessions ss
         JOIN {SCHEMA}.staff_users s ON s.id = ss.staff_id
         WHERE ss.token=%s AND ss.expires_at > NOW() AND s.active=TRUE
@@ -79,7 +84,7 @@ def get_staff_by_token(cur, token: str):
     row = cur.fetchone()
     if not row:
         return None
-    return {"id": row[0], "email": row[1], "name": row[2], "is_owner": row[3]}
+    return {"id": row[0], "email": row[1], "name": row[2], "is_owner": row[3], "role": row[4]}
 
 
 def handler(event: dict, context) -> dict:
@@ -99,6 +104,9 @@ def handler(event: dict, context) -> dict:
         if action == "create-invite":
             body = json.loads(event.get("body") or "{}")
             email = (body.get("email") or "").strip().lower()
+            role = body.get("role") or "manager"
+            if role not in ("manager", "support"):
+                role = "manager"
             if not email:
                 return err("email required")
 
@@ -108,6 +116,8 @@ def handler(event: dict, context) -> dict:
             inviter = get_staff_by_token(cur, staff_token)
             if staff_count > 0 and not inviter:
                 return err("Unauthorized", 401)
+            if staff_count > 0 and inviter["role"] != "owner":
+                return err("Только владелец может приглашать сотрудников", 403)
 
             cur.execute(f"SELECT id FROM {SCHEMA}.staff_users WHERE email=%s", (email,))
             if cur.fetchone():
@@ -116,9 +126,9 @@ def handler(event: dict, context) -> dict:
             token = secrets.token_urlsafe(24)
             expires = datetime.utcnow() + timedelta(days=7)
             cur.execute(f"""
-                INSERT INTO {SCHEMA}.staff_invites (email, token, invited_by, expires_at)
-                VALUES (%s, %s, %s, %s)
-            """, (email, token, inviter["id"] if inviter else None, expires))
+                INSERT INTO {SCHEMA}.staff_invites (email, token, invited_by, expires_at, role)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (email, token, inviter["id"] if inviter else None, expires, role))
             conn.commit()
 
             invite_path = f"/admin/join?token={token}"
@@ -135,17 +145,17 @@ def handler(event: dict, context) -> dict:
         if action == "check-invite":
             token = headers.get("x-invite-token", "")
             cur.execute(f"""
-                SELECT email, expires_at, accepted_at FROM {SCHEMA}.staff_invites WHERE token=%s
+                SELECT email, expires_at, accepted_at, role FROM {SCHEMA}.staff_invites WHERE token=%s
             """, (token,))
             row = cur.fetchone()
             if not row:
                 return err("Приглашение не найдено", 404)
-            email, expires_at, accepted_at = row
+            email, expires_at, accepted_at, role = row
             if accepted_at:
                 return err("Приглашение уже использовано")
             if expires_at < datetime.utcnow().replace(tzinfo=expires_at.tzinfo):
                 return err("Приглашение истекло")
-            return ok({"email": email})
+            return ok({"email": email, "role": role})
 
         # ── accept-invite ─────────────────────────────────────────
         if action == "accept-invite":
@@ -157,12 +167,12 @@ def handler(event: dict, context) -> dict:
                 return err("Укажите имя и пароль не короче 6 символов")
 
             cur.execute(f"""
-                SELECT id, email, expires_at, accepted_at FROM {SCHEMA}.staff_invites WHERE token=%s
+                SELECT id, email, expires_at, accepted_at, role FROM {SCHEMA}.staff_invites WHERE token=%s
             """, (token,))
             row = cur.fetchone()
             if not row:
                 return err("Приглашение не найдено", 404)
-            invite_id, email, expires_at, accepted_at = row
+            invite_id, email, expires_at, accepted_at, invite_role = row
             if accepted_at:
                 return err("Приглашение уже использовано")
             if expires_at < datetime.utcnow().replace(tzinfo=expires_at.tzinfo):
@@ -170,13 +180,14 @@ def handler(event: dict, context) -> dict:
 
             cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.staff_users")
             is_first = cur.fetchone()[0] == 0
+            final_role = "owner" if is_first else invite_role
 
             salt = secrets.token_hex(16)
             pwd_hash = hash_password(password, salt)
             cur.execute(f"""
-                INSERT INTO {SCHEMA}.staff_users (email, name, password_hash, password_salt, is_owner)
-                VALUES (%s, %s, %s, %s, %s) RETURNING id
-            """, (email, name, pwd_hash, salt, is_first))
+                INSERT INTO {SCHEMA}.staff_users (email, name, password_hash, password_salt, is_owner, role)
+                VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+            """, (email, name, pwd_hash, salt, is_first, final_role))
             staff_id = cur.fetchone()[0]
 
             cur.execute(f"UPDATE {SCHEMA}.staff_invites SET accepted_at=NOW() WHERE id=%s", (invite_id,))
@@ -195,12 +206,12 @@ def handler(event: dict, context) -> dict:
             email = (body.get("email") or "").strip().lower()
             password = body.get("password") or ""
             cur.execute(f"""
-                SELECT id, name, password_hash, password_salt, active FROM {SCHEMA}.staff_users WHERE email=%s
+                SELECT id, name, password_hash, password_salt, active, role FROM {SCHEMA}.staff_users WHERE email=%s
             """, (email,))
             row = cur.fetchone()
             if not row:
                 return err("Неверный email или пароль", 401)
-            staff_id, name, pwd_hash, salt, active = row
+            staff_id, name, pwd_hash, salt, active, role = row
             if not active:
                 return err("Доступ отключён", 403)
             if hash_password(password, salt) != pwd_hash:
@@ -212,7 +223,7 @@ def handler(event: dict, context) -> dict:
                 INSERT INTO {SCHEMA}.staff_sessions (staff_id, token, expires_at) VALUES (%s, %s, %s)
             """, (staff_id, session_token, session_expires))
             conn.commit()
-            return ok({"ok": True, "token": session_token, "name": name, "email": email})
+            return ok({"ok": True, "token": session_token, "name": name, "email": email, "role": role})
 
         # ── me ────────────────────────────────────────────────────
         if action == "me":
@@ -233,13 +244,54 @@ def handler(event: dict, context) -> dict:
             if not staff:
                 return err("Unauthorized", 401)
             cur.execute(f"""
-                SELECT id, email, name, is_owner, active, created_at FROM {SCHEMA}.staff_users ORDER BY created_at
+                SELECT id, email, name, is_owner, active, created_at, role FROM {SCHEMA}.staff_users ORDER BY created_at
             """)
             rows = [
-                {"id": r[0], "email": r[1], "name": r[2], "is_owner": r[3], "active": r[4], "created_at": str(r[5])}
+                {
+                    "id": r[0], "email": r[1], "name": r[2], "is_owner": r[3], "active": r[4],
+                    "created_at": str(r[5]), "role": r[6],
+                }
                 for r in cur.fetchall()
             ]
             return ok({"staff": rows})
+
+        # ── update-role ───────────────────────────────────────────
+        if action == "update-role":
+            staff = get_staff_by_token(cur, staff_token)
+            if not staff:
+                return err("Unauthorized", 401)
+            if staff["role"] != "owner":
+                return err("Только владелец может менять роли", 403)
+            body = json.loads(event.get("body") or "{}")
+            target_id = body.get("staff_id")
+            new_role = body.get("role")
+            if new_role not in ("manager", "support"):
+                return err("Роль должна быть manager или support")
+            if target_id == staff["id"]:
+                return err("Нельзя изменить свою собственную роль")
+            cur.execute(f"""
+                UPDATE {SCHEMA}.staff_users SET role=%s WHERE id=%s AND is_owner=FALSE
+            """, (new_role, target_id))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── set-active ────────────────────────────────────────────
+        if action == "set-active":
+            staff = get_staff_by_token(cur, staff_token)
+            if not staff:
+                return err("Unauthorized", 401)
+            if staff["role"] != "owner":
+                return err("Только владелец может отключать доступ", 403)
+            body = json.loads(event.get("body") or "{}")
+            target_id = body.get("staff_id")
+            active = bool(body.get("active"))
+            if target_id == staff["id"]:
+                return err("Нельзя отключить самого себя")
+            cur.execute(f"""
+                UPDATE {SCHEMA}.staff_users SET active=%s WHERE id=%s AND is_owner=FALSE
+            """, (active, target_id))
+            conn.commit()
+            return ok({"ok": True})
 
         return err(f"Unknown action: {action}", 400)
     finally:

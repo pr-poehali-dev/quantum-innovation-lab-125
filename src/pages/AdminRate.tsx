@@ -68,8 +68,8 @@ const AdminRate = () => {
               <span className="font-semibold text-sm">Курс доллара</span>
             </div>
           </div>
-          <Link to="/" className="text-[13px] text-muted-foreground hover:text-foreground transition-colors">
-            На сайт →
+          <Link to="/admin" className="text-[13px] text-muted-foreground hover:text-foreground transition-colors">
+            ← В админку
           </Link>
         </div>
       </header>

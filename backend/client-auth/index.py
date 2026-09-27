@@ -6,6 +6,7 @@ X-Action значения:
   request-code   — POST отправить код на email клиента (если у него есть сделки)
   verify-code    — POST проверить код → выдать токен сессии клиента
   me             — GET текущий клиент по X-Client-Token
+  create-reorder — POST клиент создаёт новую сделку-повтор (brand, volume) на первом этапе воронки
 """
 import json
 import os
@@ -38,6 +39,22 @@ def ok(body, status=200):
 
 def err(msg, status=400):
     return {"statusCode": status, "headers": CORS, "body": json.dumps({"error": msg}, ensure_ascii=False)}
+
+
+def get_client_by_token(cur, token: str):
+    if not token:
+        return None
+    cur.execute(f"""
+        SELECT email FROM {SCHEMA}.client_sessions WHERE token=%s AND expires_at > NOW()
+    """, (token,))
+    row = cur.fetchone()
+    if not row:
+        return None
+    cur.execute(f"SELECT id, name, phone, email, city, company FROM {SCHEMA}.clients WHERE lower(email)=%s", (row[0],))
+    crow = cur.fetchone()
+    if not crow:
+        return None
+    return {"id": crow[0], "name": crow[1], "phone": crow[2], "email": crow[3], "city": crow[4], "company": crow[5]}
 
 
 def send_email(to_email: str, subject: str, html: str):
@@ -132,23 +149,9 @@ def handler(event: dict, context) -> dict:
 
         # ── me ────────────────────────────────────────────────────
         if action == "me":
-            if not client_token:
+            client = get_client_by_token(cur, client_token)
+            if not client:
                 return err("Unauthorized", 401)
-            cur.execute(f"""
-                SELECT email FROM {SCHEMA}.client_sessions WHERE token=%s AND expires_at > NOW()
-            """, (client_token,))
-            row = cur.fetchone()
-            if not row:
-                return err("Unauthorized", 401)
-            email = row[0]
-
-            cur.execute(f"""
-                SELECT id, name, phone, email, city, company FROM {SCHEMA}.clients WHERE lower(email)=%s
-            """, (email,))
-            crow = cur.fetchone()
-            if not crow:
-                return err("Клиент не найден", 404)
-            client = {"id": crow[0], "name": crow[1], "phone": crow[2], "email": crow[3], "city": crow[4], "company": crow[5]}
 
             cur.execute(f"""
                 SELECT d.id, d.brand, d.volume, d.amount, d.stage_id, s.name, s.color, s.sort_order, d.created_at
@@ -170,6 +173,36 @@ def handler(event: dict, context) -> dict:
             all_stages = [{"id": r[0], "name": r[1], "sort_order": r[2], "color": r[3]} for r in cur.fetchall()]
 
             return ok({"client": client, "deals": deals, "stages": all_stages})
+
+        # ── create-reorder ────────────────────────────────────────
+        if action == "create-reorder":
+            client = get_client_by_token(cur, client_token)
+            if not client:
+                return err("Unauthorized", 401)
+
+            body = json.loads(event.get("body") or "{}")
+            brand = (body.get("brand") or "").strip() or None
+            volume = body.get("volume")
+            amount = body.get("amount")
+
+            cur.execute(f"SELECT id FROM {SCHEMA}.deal_stages ORDER BY sort_order LIMIT 1")
+            first_stage = cur.fetchone()
+            if not first_stage:
+                return err("Нет ни одного этапа сделки")
+            stage_id = first_stage[0]
+
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.deals (client_id, brand, volume, amount, stage_id)
+                VALUES (%s, %s, %s, %s, %s) RETURNING id
+            """, (client["id"], brand, volume, amount, stage_id))
+            deal_id = cur.fetchone()[0]
+
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.deal_stage_log (deal_id, from_stage_id, to_stage_id, staff_id, staff_name)
+                VALUES (%s, NULL, %s, NULL, %s)
+            """, (deal_id, stage_id, f"Повтор партии от клиента ({client['name']})"))
+            conn.commit()
+            return ok({"ok": True, "deal_id": deal_id}, 201)
 
         return err(f"Unknown action: {action}", 400)
     finally:

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useLeadModal } from "@/context/LeadModalContext";
+import fallbackLogo from "@/assets/logo.png";
 
 // Порядок совпадает с порядком блоков на странице
 const NAV_ITEMS = [
@@ -12,8 +13,7 @@ const NAV_ITEMS = [
   { label: "Контакты",      href: "#contacts",      section: "contacts"      },
 ];
 
-const FALLBACK_LOGO =
-  "https://cdn.poehali.dev/projects/9054c912-be91-4f90-8cab-0a91d0d7eafe/bucket/9db39a90-e361-4243-b645-550db60b6f4c.png";
+const FALLBACK_LOGO = fallbackLogo;
 const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
 
 const Header = () => {
@@ -88,6 +88,8 @@ const Header = () => {
             <img
               src={logoUrl}
               alt="КОНТРАКТ КОФЕ"
+              width={158}
+              height={60}
               className="h-10 w-auto object-contain group-hover:opacity-80 transition-opacity"
               style={{ filter: "brightness(0)" }}
             />

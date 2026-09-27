@@ -1,26 +1,35 @@
+import { useState } from "react";
 import Icon from "@/components/ui/icon";
 import { PASSPORT } from "./cabinet.types";
+import { useClientAuth } from "@/context/ClientAuthContext";
 
 interface CabinetReorderProps {
   passportVer: number;
   reorderVolume: number;
-  reorderSent: boolean;
   setReorderVolume: (v: number) => void;
-  setReorderSent: (v: boolean) => void;
 }
 
-const CabinetReorder = ({
-  passportVer,
-  reorderVolume,
-  reorderSent,
-  setReorderVolume,
-  setReorderSent,
-}: CabinetReorderProps) => {
+const CabinetReorder = ({ passportVer, reorderVolume, setReorderVolume }: CabinetReorderProps) => {
+  const { createReorder } = useClientAuth();
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
   const activeVersion = PASSPORT.versions[passportVer];
+
+  const price = Math.round(reorderVolume * 487 * (reorderVolume >= 500 ? 0.9 : reorderVolume >= 200 ? 0.95 : 1));
+
+  const submit = async () => {
+    setSending(true);
+    setError("");
+    const res = await createReorder({ brand: PASSPORT.brand, volume: reorderVolume, amount: price });
+    setSending(false);
+    if (res.ok) setSent(true);
+    else setError(res.error || "Не удалось отправить заявку");
+  };
 
   return (
     <div className="max-w-2xl">
-      {!reorderSent ? (
+      {!sent ? (
         <div className="space-y-4">
           <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="px-6 py-4 border-b border-border flex items-center gap-3">
@@ -83,9 +92,7 @@ const CabinetReorder = ({
             <div className="bg-primary/5 border border-primary/15 rounded-xl px-5 py-4 flex items-center justify-between mb-5">
               <div>
                 <p className="text-[10px] font-mono text-muted-foreground tracking-wider">СТОИМОСТЬ</p>
-                <p className="font-serif text-2xl font-bold text-primary">
-                  {Math.round(reorderVolume * 487 * (reorderVolume >= 500 ? 0.9 : reorderVolume >= 200 ? 0.95 : 1)).toLocaleString("ru-RU")} ₽
-                </p>
+                <p className="font-serif text-2xl font-bold text-primary">{price.toLocaleString("ru-RU")} ₽</p>
               </div>
               <div className="text-right">
                 <p className="text-[10px] font-mono text-muted-foreground tracking-wider">СРОК</p>
@@ -93,10 +100,18 @@ const CabinetReorder = ({
               </div>
             </div>
 
-            <button onClick={() => setReorderSent(true)}
-              className="w-full bg-primary text-primary-foreground py-4 rounded-xl font-bold text-base hover:bg-primary/90 transition-all hover:shadow-xl hover:shadow-primary/20 flex items-center justify-center gap-2 active:scale-[0.99]">
-              <Icon name="RefreshCw" size={18} />
-              Повторить партию — {reorderVolume} кг
+            {error && (
+              <p className="text-sm text-destructive flex items-center gap-1.5 mb-3">
+                <Icon name="AlertCircle" size={14} />{error}
+              </p>
+            )}
+
+            <button onClick={submit} disabled={sending}
+              className="w-full bg-primary text-primary-foreground py-4 rounded-xl font-bold text-base hover:bg-primary/90 transition-all hover:shadow-xl hover:shadow-primary/20 flex items-center justify-center gap-2 active:scale-[0.99] disabled:opacity-60">
+              {sending
+                ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                : <Icon name="RefreshCw" size={18} />}
+              {sending ? "Отправляем…" : `Повторить партию — ${reorderVolume} кг`}
             </button>
           </div>
         </div>
@@ -110,7 +125,7 @@ const CabinetReorder = ({
             Партия <strong>{reorderVolume} кг · {PASSPORT.brand}</strong> передана менеджеру.
           </p>
           <p className="text-[11px] font-mono text-muted-foreground mb-8">Рецептура {activeVersion.v} · без изменений</p>
-          <button onClick={() => setReorderSent(false)}
+          <button onClick={() => setSent(false)}
             className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             Создать ещё одну заявку
           </button>

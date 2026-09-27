@@ -1,0 +1,39 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "list без авторизации",
+      "method": "GET",
+      "path": "/",
+      "headers": { "X-Action": "list" },
+      "expectedStatus": 401
+    },
+    {
+      "name": "send без текста и авторизации",
+      "method": "POST",
+      "path": "/",
+      "headers": { "X-Action": "send", "Content-Type": "application/json" },
+      "body": {},
+      "expectedStatus": 400
+    },
+    {
+      "name": "list-conversations без авторизации",
+      "method": "GET",
+      "path": "/",
+      "headers": { "X-Action": "list-conversations" },
+      "expectedStatus": 401
+    },
+    {
+      "name": "неизвестный action",
+      "method": "GET",
+      "path": "/",
+      "headers": { "X-Action": "unknown-thing" },
+      "expectedStatus": 400
+    }
+  ]
+}

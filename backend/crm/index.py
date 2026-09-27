@@ -10,12 +10,15 @@ X-Action значения:
   create-client      — POST создать клиента
   update-client      — POST обновить данные клиента
   create-deal        — POST создать сделку (из заявки или вручную)
+  list-deals         — GET список всех сделок с данными клиента (для канбана)
   update-deal-stage  — POST изменить этап сделки (+ запись в историю)
   update-deal        — POST обновить бренд/объём/сумму сделки
+  assign-deal        — POST закрепить сотрудника за сделкой: deal_id, staff_id (или null — снять)
   list-stages        — GET список этапов
   create-stage       — POST создать этап
   update-stage       — POST переименовать/изменить порядок и цвет этапа
   delete-stage       — POST скрыть этап (архивировать, если не используется в сделках)
+  list-assignable    — GET список сотрудников, которым можно назначить сделку (не support)
 """
 import json
 import os
@@ -45,7 +48,7 @@ def get_staff(cur, token: str):
     if not token:
         return None
     cur.execute(f"""
-        SELECT s.id, s.email, s.name, s.is_owner
+        SELECT s.id, s.email, s.name, s.is_owner, s.role
         FROM {SCHEMA}.staff_sessions ss
         JOIN {SCHEMA}.staff_users s ON s.id = ss.staff_id
         WHERE ss.token=%s AND ss.expires_at > NOW() AND s.active=TRUE
@@ -53,7 +56,7 @@ def get_staff(cur, token: str):
     row = cur.fetchone()
     if not row:
         return None
-    return {"id": row[0], "email": row[1], "name": row[2], "is_owner": row[3]}
+    return {"id": row[0], "email": row[1], "name": row[2], "is_owner": row[3], "role": row[4]}
 
 
 def handler(event: dict, context) -> dict:
@@ -77,10 +80,12 @@ def handler(event: dict, context) -> dict:
         if action == "list-leads":
             cur.execute(f"""
                 SELECT l.id, l.name, l.phone, l.city, l.email, l.brief, l.created_at,
-                       d.client_id, ds.name, ds.color
+                       d.client_id, ds.name, ds.color, d.id, d.stage_id, d.brand, d.volume, d.amount,
+                       d.assigned_to, st.name
                 FROM {SCHEMA}.leads l
                 LEFT JOIN {SCHEMA}.deals d ON d.lead_id = l.id
                 LEFT JOIN {SCHEMA}.deal_stages ds ON ds.id = d.stage_id
+                LEFT JOIN {SCHEMA}.staff_users st ON st.id = d.assigned_to
                 ORDER BY l.created_at DESC LIMIT 200
             """)
             leads = [
@@ -88,11 +93,39 @@ def handler(event: dict, context) -> dict:
                     "id": r[0], "name": r[1], "phone": r[2], "city": r[3], "email": r[4],
                     "brief": r[5], "created_at": str(r[6]),
                     "client_id": r[7], "has_deal": r[7] is not None,
-                    "stage_name": r[8], "stage_color": r[9],
+                    "stage_name": r[8], "stage_color": r[9], "deal_id": r[10], "stage_id": r[11],
+                    "brand": r[12], "volume": float(r[13]) if r[13] else None,
+                    "amount": float(r[14]) if r[14] else None,
+                    "assigned_to": r[15], "assigned_name": r[16],
                 }
                 for r in cur.fetchall()
             ]
             return ok({"leads": leads})
+
+        # ── list-deals ────────────────────────────────────────────
+        if action == "list-deals":
+            cur.execute(f"""
+                SELECT d.id, d.brand, d.volume, d.amount, d.stage_id, ds.name, ds.color, ds.sort_order,
+                       d.created_at, d.updated_at, d.assigned_to, st.name,
+                       c.id, c.name, c.phone, c.city
+                FROM {SCHEMA}.deals d
+                JOIN {SCHEMA}.deal_stages ds ON ds.id = d.stage_id
+                JOIN {SCHEMA}.clients c ON c.id = d.client_id
+                LEFT JOIN {SCHEMA}.staff_users st ON st.id = d.assigned_to
+                ORDER BY d.updated_at DESC LIMIT 500
+            """)
+            deals = [
+                {
+                    "id": r[0], "brand": r[1], "volume": float(r[2]) if r[2] else None,
+                    "amount": float(r[3]) if r[3] else None, "stage_id": r[4],
+                    "stage_name": r[5], "stage_color": r[6], "stage_order": r[7],
+                    "created_at": str(r[8]), "updated_at": str(r[9]),
+                    "assigned_to": r[10], "assigned_name": r[11],
+                    "client_id": r[12], "client_name": r[13], "client_phone": r[14], "client_city": r[15],
+                }
+                for r in cur.fetchall()
+            ]
+            return ok({"deals": deals})
 
         # ── list-clients ──────────────────────────────────────────
         if action == "list-clients":
@@ -130,9 +163,11 @@ def handler(event: dict, context) -> dict:
             }
 
             cur.execute(f"""
-                SELECT d.id, d.brand, d.volume, d.amount, d.stage_id, s.name, s.color, d.created_at, d.updated_at
+                SELECT d.id, d.brand, d.volume, d.amount, d.stage_id, s.name, s.color, d.created_at, d.updated_at,
+                       d.assigned_to, st.name
                 FROM {SCHEMA}.deals d
                 JOIN {SCHEMA}.deal_stages s ON s.id = d.stage_id
+                LEFT JOIN {SCHEMA}.staff_users st ON st.id = d.assigned_to
                 WHERE d.client_id=%s ORDER BY d.created_at DESC
             """, (client_id,))
             deals = []
@@ -153,6 +188,7 @@ def handler(event: dict, context) -> dict:
                     "amount": float(r[3]) if r[3] else None, "stage_id": r[4],
                     "stage_name": r[5], "stage_color": r[6],
                     "created_at": str(r[7]), "updated_at": str(r[8]), "history": history,
+                    "assigned_to": r[9], "assigned_name": r[10],
                 })
 
             return ok({"client": client, "deals": deals})
@@ -257,6 +293,28 @@ def handler(event: dict, context) -> dict:
             """, (body.get("brand"), body.get("volume"), body.get("amount"), deal_id))
             conn.commit()
             return ok({"ok": True})
+
+        # ── assign-deal ───────────────────────────────────────────
+        if action == "assign-deal":
+            body = json.loads(event.get("body") or "{}")
+            deal_id = body.get("deal_id")
+            new_staff_id = body.get("staff_id")
+            if not deal_id:
+                return err("deal_id required")
+            cur.execute(f"""
+                UPDATE {SCHEMA}.deals SET assigned_to=%s, updated_at=NOW() WHERE id=%s
+            """, (new_staff_id, deal_id))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── list-assignable ───────────────────────────────────────
+        if action == "list-assignable":
+            cur.execute(f"""
+                SELECT id, name, email, role FROM {SCHEMA}.staff_users
+                WHERE active=TRUE AND role != 'support' ORDER BY name
+            """)
+            rows = [{"id": r[0], "name": r[1], "email": r[2], "role": r[3]} for r in cur.fetchall()]
+            return ok({"staff": rows})
 
         # ── list-stages ───────────────────────────────────────────
         if action == "list-stages":

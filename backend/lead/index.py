@@ -18,7 +18,7 @@ def handler(event: dict, context) -> dict:
         return {"statusCode": 200, "headers": cors, "body": ""}
 
     if event.get("httpMethod") != "POST":
-        return {"statusCode": 405, "headers": cors, "body": {"error": "Method not allowed"}}
+        return {"statusCode": 405, "headers": cors, "body": json.dumps({"error": "Method not allowed"})}
 
     # Парсим тело
     raw_body = event.get("body") or "{}"
@@ -37,11 +37,11 @@ def handler(event: dict, context) -> dict:
         return {
             "statusCode": 400,
             "headers": cors,
-            "body": {"error": "name and phone are required"},
+            "body": json.dumps({"error": "name and phone are required"}),
         }
 
     # 1. Сохраняем заявку в БД
-    schema = os.environ.get("MAIN_DB_SCHEMA", "public")
+    schema = "t_p21475602_quantum_innovation_l"
     conn = psycopg2.connect(os.environ["DATABASE_URL"])
     cur = conn.cursor()
     cur.execute(
@@ -103,5 +103,5 @@ def handler(event: dict, context) -> dict:
     return {
         "statusCode": 200,
         "headers": cors,
-        "body": {"ok": True, "lead_id": lead_id},
+        "body": json.dumps({"ok": True, "lead_id": lead_id}),
     }

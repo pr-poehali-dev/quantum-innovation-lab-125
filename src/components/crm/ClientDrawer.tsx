@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import { useStaffAuth } from "@/context/StaffAuthContext";
+import StaffChatPanel from "@/components/crm/StaffChatPanel";
 
 const CRM_URL = "https://functions.poehali.dev/0fbf69fe-e1ba-4899-a9c0-98d37524abe1";
 
@@ -22,6 +23,15 @@ interface Deal {
   created_at: string;
   updated_at: string;
   history: StageHistory[];
+  assigned_to: number | null;
+  assigned_name: string | null;
+}
+
+interface AssignableStaff {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
 }
 
 interface ClientData {
@@ -53,6 +63,7 @@ const ClientDrawer = ({ clientId, onClose, onChanged, showToast }: Props) => {
   const [client, setClient] = useState<ClientData | null>(null);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
+  const [assignable, setAssignable] = useState<AssignableStaff[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedHistory, setExpandedHistory] = useState<number | null>(null);
   const [editingClient, setEditingClient] = useState(false);
@@ -65,10 +76,12 @@ const ClientDrawer = ({ clientId, onClose, onChanged, showToast }: Props) => {
     Promise.all([
       fetch(CRM_URL, { headers: { "X-Action": "get-client", "X-Client-Id": String(clientId), ...authHeaders } }).then(r => r.json()),
       fetch(CRM_URL, { headers: { "X-Action": "list-stages", ...authHeaders } }).then(r => r.json()),
-    ]).then(([c, s]) => {
+      fetch(CRM_URL, { headers: { "X-Action": "list-assignable", ...authHeaders } }).then(r => r.json()),
+    ]).then(([c, s, a]) => {
       setClient(c.client);
       setDeals(c.deals || []);
       setStages(s.stages || []);
+      setAssignable(a.staff || []);
       if (c.client) setForm({
         name: c.client.name || "", phone: c.client.phone || "", email: c.client.email || "",
         city: c.client.city || "", company: c.client.company || "",
@@ -87,6 +100,21 @@ const ClientDrawer = ({ clientId, onClose, onChanged, showToast }: Props) => {
         body: JSON.stringify({ deal_id: dealId, stage_id: stageId }),
       });
       if (r.ok) { load(); onChanged(); showToast("Этап обновлён ✓"); }
+      else { const d = await r.json(); showToast(d.error || "Ошибка", false); }
+    } catch { showToast("Ошибка сети", false); }
+  };
+
+  const assignDeal = async (dealId: number, staffId: number | null) => {
+    setDeals(prev => prev.map(d => d.id === dealId
+      ? { ...d, assigned_to: staffId, assigned_name: assignable.find(a => a.id === staffId)?.name || null }
+      : d));
+    try {
+      const r = await fetch(CRM_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Action": "assign-deal", ...authHeaders },
+        body: JSON.stringify({ deal_id: dealId, staff_id: staffId }),
+      });
+      if (r.ok) showToast(staffId ? "Ответственный назначен ✓" : "Ответственный снят");
       else { const d = await r.json(); showToast(d.error || "Ошибка", false); }
     } catch { showToast("Ошибка сети", false); }
   };
@@ -232,7 +260,7 @@ const ClientDrawer = ({ clientId, onClose, onChanged, showToast }: Props) => {
                     </div>
 
                     {/* Этапы */}
-                    <div className="flex flex-wrap gap-1.5 mb-2">
+                    <div className="flex flex-wrap gap-1.5 mb-3">
                       {stages.map(stage => {
                         const active = deal.stage_id === stage.id;
                         return (
@@ -246,6 +274,21 @@ const ClientDrawer = ({ clientId, onClose, onChanged, showToast }: Props) => {
                           </button>
                         );
                       })}
+                    </div>
+
+                    {/* Ответственный */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <Icon name="UserCheck" size={13} className="text-muted-foreground flex-shrink-0" />
+                      <select
+                        value={deal.assigned_to ?? ""}
+                        onChange={e => assignDeal(deal.id, e.target.value ? Number(e.target.value) : null)}
+                        className="text-[12px] bg-transparent outline-none border-b border-border focus:border-primary transition-colors py-0.5"
+                      >
+                        <option value="">Без ответственного</option>
+                        {assignable.map(a => (
+                          <option key={a.id} value={a.id}>{a.name}</option>
+                        ))}
+                      </select>
                     </div>
 
                     {/* История изменений этапов */}
@@ -268,6 +311,15 @@ const ClientDrawer = ({ clientId, onClose, onChanged, showToast }: Props) => {
                   </div>
                 ))}
               </div>
+            </section>
+
+            {/* Чат с клиентом */}
+            <section>
+              <h3 className="font-serif text-base font-bold mb-3 flex items-center gap-2">
+                <Icon name="MessageCircle" size={16} className="text-primary" />
+                Переписка
+              </h3>
+              <StaffChatPanel clientId={clientId} />
             </section>
           </div>
         )}

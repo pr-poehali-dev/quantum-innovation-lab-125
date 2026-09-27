@@ -39,6 +39,7 @@ interface ClientAuthContextType {
   token: string | null;
   requestCode: (email: string) => Promise<{ ok: boolean; error?: string }>;
   verifyCode: (email: string, code: string) => Promise<{ ok: boolean; error?: string }>;
+  createReorder: (data: { brand?: string; volume?: number; amount?: number }) => Promise<{ ok: boolean; error?: string; dealId?: number }>;
   logout: () => void;
   refresh: () => void;
 }
@@ -51,6 +52,7 @@ const ClientAuthContext = createContext<ClientAuthContextType>({
   token: null,
   requestCode: async () => ({ ok: false }),
   verifyCode: async () => ({ ok: false }),
+  createReorder: async () => ({ ok: false }),
   logout: () => {},
   refresh: () => {},
 });
@@ -111,6 +113,23 @@ export const ClientAuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const createReorder = async (data: { brand?: string; volume?: number; amount?: number }) => {
+    if (!token) return { ok: false, error: "Не авторизован" };
+    try {
+      const r = await fetch(CLIENT_AUTH_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Action": "create-reorder", "X-Client-Token": token },
+        body: JSON.stringify(data),
+      });
+      const d = await r.json();
+      if (!r.ok) return { ok: false, error: d.error || "Не удалось создать заявку" };
+      fetchMe(token);
+      return { ok: true, dealId: d.deal_id };
+    } catch {
+      return { ok: false, error: "Ошибка сети" };
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem(STORAGE_KEY);
     setToken(null);
@@ -121,7 +140,7 @@ export const ClientAuthProvider = ({ children }: { children: ReactNode }) => {
   const refresh = () => { if (token) fetchMe(token); };
 
   return (
-    <ClientAuthContext.Provider value={{ client, deals, stages, loading, token, requestCode, verifyCode, logout, refresh }}>
+    <ClientAuthContext.Provider value={{ client, deals, stages, loading, token, requestCode, verifyCode, createReorder, logout, refresh }}>
       {children}
     </ClientAuthContext.Provider>
   );

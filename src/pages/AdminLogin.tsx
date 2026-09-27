@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useStaffAuth } from "@/context/StaffAuthContext";
-
-const LOGO_URL = "https://cdn.poehali.dev/projects/9054c912-be91-4f90-8cab-0a91d0d7eafe/bucket/9db39a90-e361-4243-b645-550db60b6f4c.png";
+import logo from "@/assets/logo.png";
 
 const AdminLogin = () => {
   const [email, setEmail] = useState("");
@@ -28,7 +27,7 @@ const AdminLogin = () => {
       <div className="w-full max-w-sm">
         <div className="flex justify-center mb-8">
           <Link to="/">
-            <img src={LOGO_URL} alt="КОНТРАКТ КОФЕ" className="h-9 w-auto object-contain" style={{ filter: "brightness(0)" }} />
+            <img src={logo} alt="КОНТРАКТ КОФЕ" width={144} height={54} className="h-9 w-auto object-contain" />
           </Link>
         </div>
 

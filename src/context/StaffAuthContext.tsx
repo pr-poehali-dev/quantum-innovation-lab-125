@@ -8,6 +8,7 @@ export interface Staff {
   email: string;
   name: string;
   is_owner: boolean;
+  role?: "owner" | "manager" | "support";
 }
 
 interface StaffAuthContextType {
@@ -60,7 +61,7 @@ export const StaffAuthProvider = ({ children }: { children: ReactNode }) => {
       });
       const d = await r.json();
       if (!r.ok) return { ok: false, error: d.error || "Ошибка входа" };
-      setSession(d.token, { id: 0, email: d.email, name: d.name, is_owner: false });
+      setSession(d.token, { id: 0, email: d.email, name: d.name, is_owner: d.role === "owner", role: d.role });
       return { ok: true };
     } catch {
       return { ok: false, error: "Ошибка сети" };

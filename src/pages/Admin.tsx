@@ -1,9 +1,7 @@
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useStaffAuth } from "@/context/StaffAuthContext";
-
-const LOGO_URL =
-  "https://cdn.poehali.dev/projects/9054c912-be91-4f90-8cab-0a91d0d7eafe/bucket/9db39a90-e361-4243-b645-550db60b6f4c.png";
+import logo from "@/assets/logo.png";
 
 const SECTIONS = [
   {
@@ -56,9 +54,8 @@ const Admin = () => {
     <div className="min-h-screen bg-background">
       <header className="bg-white border-b border-border">
         <div className="max-w-3xl mx-auto px-6 h-14 flex items-center justify-between">
-          <Link to="/" className="flex-shrink-0">
-            <img src={LOGO_URL} alt="КОНТРАКТ КОФЕ" className="h-7 w-auto object-contain"
-              style={{ filter: "brightness(0)" }} />
+          <Link to="/admin" className="flex-shrink-0">
+            <img src={logo} alt="КОНТРАКТ КОФЕ" width={112} height={42} className="h-7 w-auto object-contain" />
           </Link>
           <div className="flex items-center gap-3">
             {staff && (

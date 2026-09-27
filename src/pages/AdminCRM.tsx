@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useStaffAuth } from "@/context/StaffAuthContext";
 import ClientDrawer from "@/components/crm/ClientDrawer";
+import KanbanBoard from "@/components/crm/KanbanBoard";
 
 const CRM_URL = "https://functions.poehali.dev/0fbf69fe-e1ba-4899-a9c0-98d37524abe1";
 
@@ -31,11 +32,11 @@ interface ClientRow {
   total_amount: number;
 }
 
-type Tab = "leads" | "clients";
+type Tab = "leads" | "clients" | "kanban";
 
 const AdminCRM = () => {
   const { token } = useStaffAuth();
-  const [tab, setTab] = useState<Tab>("leads");
+  const [tab, setTab] = useState<Tab>("kanban");
   const [leads, setLeads] = useState<Lead[]>([]);
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,10 +113,17 @@ const AdminCRM = () => {
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-6 py-8">
 
         {/* Вкладки */}
         <div className="flex gap-1 mb-6 bg-secondary/40 rounded-xl p-1 w-fit">
+          <button onClick={() => setTab("kanban")}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              tab === "kanban" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}>
+            <Icon name="Kanban" size={14} />
+            Канбан
+          </button>
           <button onClick={() => setTab("leads")}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === "leads" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
@@ -140,7 +148,9 @@ const AdminCRM = () => {
           </button>
         </div>
 
-        {loading ? (
+        {tab === "kanban" ? (
+          <KanbanBoard onOpenClient={setOpenClientId} showToast={showToast} />
+        ) : loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           </div>

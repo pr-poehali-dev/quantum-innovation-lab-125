@@ -26,7 +26,6 @@ const CabinetContent = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [passportVer, setPassportVer] = useState(0);
   const [reorderVolume, setReorderVolume] = useState(200);
-  const [reorderSent, setReorderSent] = useState(false);
 
   const { client, deals, stages, logout } = useClientAuth();
 
@@ -81,9 +80,7 @@ const CabinetContent = () => {
             <CabinetReorder
               passportVer={passportVer}
               reorderVolume={reorderVolume}
-              reorderSent={reorderSent}
               setReorderVolume={setReorderVolume}
-              setReorderSent={setReorderSent}
             />
           )}
 

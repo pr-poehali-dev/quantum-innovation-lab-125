@@ -174,7 +174,7 @@ const AboutAdmin = () => {
       <header className="sticky top-0 z-50 bg-white border-b border-border">
         <div className="max-w-4xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link to="/" className="text-muted-foreground hover:text-foreground transition-colors">
+            <Link to="/admin" className="text-muted-foreground hover:text-foreground transition-colors">
               <Icon name="ArrowLeft" size={16} />
             </Link>
             <div className="w-px h-5 bg-border" />
@@ -183,8 +183,8 @@ const AboutAdmin = () => {
               <span className="font-semibold text-sm">Редактор блока «О компании»</span>
             </div>
           </div>
-          <Link to="/" className="text-[13px] text-muted-foreground hover:text-foreground transition-colors">
-            На сайт →
+          <Link to="/admin" className="text-[13px] text-muted-foreground hover:text-foreground transition-colors">
+            ← В админку
           </Link>
         </div>
       </header>
