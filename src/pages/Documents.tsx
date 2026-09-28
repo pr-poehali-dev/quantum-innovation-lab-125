@@ -15,19 +15,13 @@ interface Doc {
   file_size_kb: number;
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  legal:        "Юридические",
-  certificates: "Сертификаты",
-  company:      "О компании",
-  other:        "Прочее",
-};
-
-const CATEGORY_ICONS: Record<string, string> = {
-  legal:        "Scale",
-  certificates: "Award",
-  company:      "Building2",
-  other:        "File",
-};
+interface Category {
+  id: number;
+  key: string;
+  label: string;
+  icon: string;
+  sort_order: number;
+}
 
 const EXT_ICON: Record<string, string> = {
   pdf:  "FileText",
@@ -45,20 +39,28 @@ function getExt(name: string) {
 }
 
 const Documents = () => {
-  const [docs,    setDocs]    = useState<Doc[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter,  setFilter]  = useState("all");
+  const [docs,       setDocs]       = useState<Doc[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [filter,     setFilter]     = useState("all");
 
   useEffect(() => {
-    fetch(DOCS_URL)
-      .then(r => r.json())
-      .then(d => { if (d.documents) setDocs(d.documents); })
+    Promise.all([
+      fetch(DOCS_URL, { headers: { "X-Action": "list" } }).then(r => r.json()),
+      fetch(DOCS_URL, { headers: { "X-Action": "list-categories" } }).then(r => r.json()),
+    ])
+      .then(([dd, cd]) => {
+        if (dd.documents) setDocs(dd.documents);
+        if (cd.categories) setCategories(cd.categories);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 
-  const categories = ["all", ...Array.from(new Set(docs.map(d => d.category)))];
-  const filtered   = filter === "all" ? docs : docs.filter(d => d.category === filter);
+  const catLabel = (key: string) => categories.find(c => c.key === key)?.label ?? key;
+  const catIcon  = (key: string) => categories.find(c => c.key === key)?.icon ?? "Folder";
+  const usedCats = ["all", ...Array.from(new Set(docs.map(d => d.category)))];
+  const filtered = filter === "all" ? docs : docs.filter(d => d.category === filter);
 
   return (
     <div className="min-h-screen bg-background">
@@ -90,16 +92,16 @@ const Documents = () => {
         </div>
 
         {/* Фильтры по категориям */}
-        {categories.length > 2 && (
+        {usedCats.length > 2 && (
           <div className="flex flex-wrap gap-2 mb-8">
-            {categories.map(cat => (
+            {usedCats.map(cat => (
               <button key={cat} onClick={() => setFilter(cat)}
                 className={`px-4 py-1.5 rounded-full text-[13px] font-medium transition-all ${
                   filter === cat
                     ? "bg-foreground text-white"
                     : "bg-card border border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
                 }`}>
-                {cat === "all" ? "Все документы" : (CATEGORY_LABELS[cat] ?? cat)}
+                {cat === "all" ? "Все документы" : catLabel(cat)}
               </button>
             ))}
           </div>
@@ -134,10 +136,10 @@ const Documents = () => {
                   {filter === "all" && (
                     <div className="flex items-center gap-2 mb-3 mt-6 first:mt-0">
                       <div className="w-6 h-6 rounded-lg bg-primary/10 flex items-center justify-center">
-                        <Icon name={CATEGORY_ICONS[cat] ?? "Folder"} fallback="Folder" size={13} className="text-primary" />
+                        <Icon name={catIcon(cat)} fallback="Folder" size={13} className="text-primary" />
                       </div>
                       <h2 className="text-sm font-semibold text-muted-foreground">
-                        {CATEGORY_LABELS[cat] ?? cat}
+                        {catLabel(cat)}
                       </h2>
                     </div>
                   )}

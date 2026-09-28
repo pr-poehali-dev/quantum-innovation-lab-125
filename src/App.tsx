@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Cabinet from "./pages/Cabinet";
 import AboutAdmin from "./pages/AboutAdmin";
+import AdminLanding from "./pages/AdminLanding";
 import Admin from "./pages/Admin";
 import AdminDocuments from "./pages/AdminDocuments";
 import AdminRate from "./pages/AdminRate";
@@ -43,6 +44,7 @@ const App = () => (
               <Route path="/admin/join" element={<AdminJoin />} />
               <Route path="/admin" element={<StaffGuard><Admin /></StaffGuard>} />
               <Route path="/admin/about" element={<RoleGuard allowedRoles={["owner"]}><AboutAdmin /></RoleGuard>} />
+              <Route path="/admin/landing" element={<RoleGuard allowedRoles={["owner"]}><AdminLanding /></RoleGuard>} />
               <Route path="/admin/documents" element={<RoleGuard allowedRoles={["owner", "manager"]}><AdminDocuments /></RoleGuard>} />
               <Route path="/admin/rate" element={<RoleGuard allowedRoles={["owner", "manager"]}><AdminRate /></RoleGuard>} />
               <Route path="/admin/calc" element={<RoleGuard allowedRoles={["owner", "manager"]}><AdminCalc /></RoleGuard>} />

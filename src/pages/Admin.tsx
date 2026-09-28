@@ -74,6 +74,14 @@ const SECTIONS: Section[] = [
     tag: "Контент",
     roles: ["owner"],
   },
+  {
+    href: "/admin/landing",
+    icon: "LayoutTemplate",
+    title: "Редактор лендинга",
+    desc: "Главный экран, этапы работы, преимущества, футер, отзывы",
+    tag: "Контент",
+    roles: ["owner"],
+  },
 ];
 
 const ROLE_LABELS: Record<Role, string> = { owner: "Владелец", manager: "Менеджер", support: "Поддержка" };

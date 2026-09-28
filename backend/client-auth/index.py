@@ -1,36 +1,55 @@
 """
-Вход клиента в личный кабинет по коду на email.
+Вход клиента в личный кабинет по коду на email + управление партиями продукта.
 Роутинг через заголовок X-Action.
 
 X-Action значения:
   request-code   — POST отправить код на email клиента (если у него есть сделки)
   verify-code    — POST проверить код → выдать токен сессии клиента
-  me             — GET текущий клиент по X-Client-Token
-  create-reorder — POST клиент создаёт новую сделку-повтор (brand, volume) на первом этапе воронки
+  me             — GET текущий клиент, его партии (с заказами внутри) и этапы воронки
+  create-order   — POST создать заказ: если batch_id не передан — создаёт новую партию (batch_name обязателен),
+                    иначе добавляет повторный заказ в существующую партию.
+                    Параметры: batch_id?, batch_name?, origin_id, roast, packaging, weight_format, design, volume, amount, note
+  list-mockups   — GET список макетов дизайна партии: X-Batch-Id
+  upload-mockup  — POST клиент загружает макет (base64 → S3): batch_id, file_base64, file_name
 """
 import json
 import os
 import random
 import secrets
+import base64
+import uuid
 import urllib.request
 import urllib.parse
 import urllib.error
 from datetime import datetime, timedelta
 import psycopg2
+import boto3
 
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Action, X-Client-Token",
+    "Access-Control-Allow-Headers": "Content-Type, X-Action, X-Client-Token, X-Batch-Id",
 }
 SCHEMA = "t_p21475602_quantum_innovation_l"
 RESEND_KEY = os.environ.get("RESEND_API_KEY", "")
+AWS_KEY = os.environ.get("AWS_ACCESS_KEY_ID", "")
+AWS_SEC = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+CDN_BASE = f"https://cdn.poehali.dev/projects/{AWS_KEY}/bucket"
 TEST_EMAIL = "test-client@kontraktkafe.ru"
 TEST_CODE = "000000"
 
 
 def get_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
+
+
+def get_s3():
+    return boto3.client(
+        "s3",
+        endpoint_url="https://bucket.poehali.dev",
+        aws_access_key_id=AWS_KEY,
+        aws_secret_access_key=AWS_SEC,
+    )
 
 
 def ok(body, status=200):
@@ -79,7 +98,7 @@ def send_email(to_email: str, subject: str, html: str):
 
 
 def handler(event: dict, context) -> dict:
-    """Обработчик входа клиента в личный кабинет по email-коду."""
+    """Обработчик входа клиента в личный кабинет и управления партиями продукта."""
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
@@ -154,17 +173,44 @@ def handler(event: dict, context) -> dict:
                 return err("Unauthorized", 401)
 
             cur.execute(f"""
-                SELECT d.id, d.brand, d.volume, d.amount, d.stage_id, s.name, s.color, s.sort_order, d.created_at
+                SELECT id, name, created_at FROM {SCHEMA}.product_batches
+                WHERE client_id=%s ORDER BY created_at DESC
+            """, (client["id"],))
+            batch_rows = cur.fetchall()
+            batches = []
+            for b in batch_rows:
+                batch_id = b[0]
+                cur.execute(f"""
+                    SELECT d.id, d.stage_id, s.name, s.color, s.sort_order, d.volume, d.amount, d.created_at,
+                           d.origin_id, co.label, d.roast, d.packaging, d.weight_format, d.design, d.note
+                    FROM {SCHEMA}.deals d
+                    JOIN {SCHEMA}.deal_stages s ON s.id = d.stage_id
+                    LEFT JOIN {SCHEMA}.calc_origins co ON co.id = d.origin_id
+                    WHERE d.batch_id=%s ORDER BY d.created_at DESC
+                """, (batch_id,))
+                orders = [
+                    {
+                        "id": r[0], "stage_id": r[1], "stage_name": r[2], "stage_color": r[3], "stage_order": r[4],
+                        "volume": float(r[5]) if r[5] else None, "amount": float(r[6]) if r[6] else None,
+                        "created_at": str(r[7]), "origin_id": r[8], "origin_label": r[9],
+                        "roast": r[10], "packaging": r[11], "weight_format": r[12], "design": r[13], "note": r[14],
+                    }
+                    for r in cur.fetchall()
+                ]
+                batches.append({"id": batch_id, "name": b[1], "created_at": str(b[2]), "orders": orders})
+
+            # Заказы без партии (созданы напрямую менеджером из заявки, ещё не привязаны)
+            cur.execute(f"""
+                SELECT d.id, d.brand, d.stage_id, s.name, s.color, s.sort_order, d.volume, d.amount, d.created_at
                 FROM {SCHEMA}.deals d
                 JOIN {SCHEMA}.deal_stages s ON s.id = d.stage_id
-                WHERE d.client_id=%s ORDER BY d.created_at DESC
+                WHERE d.client_id=%s AND d.batch_id IS NULL ORDER BY d.created_at DESC
             """, (client["id"],))
-            deals = [
+            unassigned = [
                 {
-                    "id": r[0], "brand": r[1], "volume": float(r[2]) if r[2] else None,
-                    "amount": float(r[3]) if r[3] else None, "stage_id": r[4],
-                    "stage_name": r[5], "stage_color": r[6], "stage_order": r[7],
-                    "created_at": str(r[8]),
+                    "id": r[0], "brand": r[1], "stage_id": r[2], "stage_name": r[3], "stage_color": r[4],
+                    "stage_order": r[5], "volume": float(r[6]) if r[6] else None,
+                    "amount": float(r[7]) if r[7] else None, "created_at": str(r[8]),
                 }
                 for r in cur.fetchall()
             ]
@@ -172,18 +218,29 @@ def handler(event: dict, context) -> dict:
             cur.execute(f"SELECT id, name, sort_order, color FROM {SCHEMA}.deal_stages ORDER BY sort_order")
             all_stages = [{"id": r[0], "name": r[1], "sort_order": r[2], "color": r[3]} for r in cur.fetchall()]
 
-            return ok({"client": client, "deals": deals, "stages": all_stages})
+            return ok({"client": client, "batches": batches, "unassigned_orders": unassigned, "stages": all_stages})
 
-        # ── create-reorder ────────────────────────────────────────
-        if action == "create-reorder":
+        # ── create-order ──────────────────────────────────────────
+        if action == "create-order":
             client = get_client_by_token(cur, client_token)
             if not client:
                 return err("Unauthorized", 401)
 
             body = json.loads(event.get("body") or "{}")
-            brand = (body.get("brand") or "").strip() or None
-            volume = body.get("volume")
-            amount = body.get("amount")
+            batch_id = body.get("batch_id")
+            batch_name = (body.get("batch_name") or "").strip()
+
+            if not batch_id:
+                if not batch_name:
+                    return err("batch_name required for a new batch")
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.product_batches (client_id, name) VALUES (%s, %s) RETURNING id
+                """, (client["id"], batch_name))
+                batch_id = cur.fetchone()[0]
+            else:
+                cur.execute(f"SELECT id FROM {SCHEMA}.product_batches WHERE id=%s AND client_id=%s", (batch_id, client["id"]))
+                if not cur.fetchone():
+                    return err("Партия не найдена", 404)
 
             cur.execute(f"SELECT id FROM {SCHEMA}.deal_stages ORDER BY sort_order LIMIT 1")
             first_stage = cur.fetchone()
@@ -192,17 +249,78 @@ def handler(event: dict, context) -> dict:
             stage_id = first_stage[0]
 
             cur.execute(f"""
-                INSERT INTO {SCHEMA}.deals (client_id, brand, volume, amount, stage_id)
-                VALUES (%s, %s, %s, %s, %s) RETURNING id
-            """, (client["id"], brand, volume, amount, stage_id))
+                INSERT INTO {SCHEMA}.deals
+                    (client_id, batch_id, stage_id, origin_id, roast, packaging, weight_format, design, volume, amount, note)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+            """, (
+                client["id"], batch_id, stage_id, body.get("origin_id"), body.get("roast"), body.get("packaging"),
+                body.get("weight_format"), body.get("design"), body.get("volume"), body.get("amount"), body.get("note", ""),
+            ))
             deal_id = cur.fetchone()[0]
 
             cur.execute(f"""
                 INSERT INTO {SCHEMA}.deal_stage_log (deal_id, from_stage_id, to_stage_id, staff_id, staff_name)
                 VALUES (%s, NULL, %s, NULL, %s)
-            """, (deal_id, stage_id, f"Повтор партии от клиента ({client['name']})"))
+            """, (deal_id, stage_id, f"Заказ от клиента ({client['name']})"))
             conn.commit()
-            return ok({"ok": True, "deal_id": deal_id}, 201)
+            return ok({"ok": True, "deal_id": deal_id, "batch_id": batch_id}, 201)
+
+        # ── list-mockups ──────────────────────────────────────────
+        if action == "list-mockups":
+            client = get_client_by_token(cur, client_token)
+            if not client:
+                return err("Unauthorized", 401)
+            batch_id = headers.get("x-batch-id", "")
+            if not batch_id:
+                return err("X-Batch-Id required")
+            cur.execute(f"SELECT id FROM {SCHEMA}.product_batches WHERE id=%s AND client_id=%s", (batch_id, client["id"]))
+            if not cur.fetchone():
+                return err("Партия не найдена", 404)
+            cur.execute(f"""
+                SELECT id, file_url, file_name, uploaded_by, status, comment, created_at
+                FROM {SCHEMA}.batch_mockups WHERE batch_id=%s ORDER BY created_at DESC
+            """, (batch_id,))
+            mockups = [
+                {
+                    "id": r[0], "file_url": r[1], "file_name": r[2], "uploaded_by": r[3],
+                    "status": r[4], "comment": r[5], "created_at": str(r[6]),
+                }
+                for r in cur.fetchall()
+            ]
+            return ok({"mockups": mockups})
+
+        # ── upload-mockup ─────────────────────────────────────────
+        if action == "upload-mockup":
+            client = get_client_by_token(cur, client_token)
+            if not client:
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            batch_id = body.get("batch_id")
+            b64 = body.get("file_base64", "")
+            file_name = body.get("file_name", "mockup.pdf")
+            if not batch_id or not b64:
+                return err("batch_id and file_base64 required")
+            cur.execute(f"SELECT id FROM {SCHEMA}.product_batches WHERE id=%s AND client_id=%s", (batch_id, client["id"]))
+            if not cur.fetchone():
+                return err("Партия не найдена", 404)
+
+            data = base64.b64decode(b64)
+            ext = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else "pdf"
+            s3_key = f"mockups/{uuid.uuid4()}.{ext}"
+            content_types = {
+                "pdf": "application/pdf", "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+                "ai": "application/postscript", "psd": "image/vnd.adobe.photoshop",
+            }
+            get_s3().put_object(Bucket="files", Key=s3_key, Body=data, ContentType=content_types.get(ext, "application/octet-stream"))
+            file_url = f"{CDN_BASE}/{s3_key}"
+
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.batch_mockups (batch_id, file_url, file_name, uploaded_by, status)
+                VALUES (%s, %s, %s, 'client', 'pending') RETURNING id
+            """, (batch_id, file_url, file_name))
+            new_id = cur.fetchone()[0]
+            conn.commit()
+            return ok({"id": new_id, "file_url": file_url, "ok": True}, 201)
 
         return err(f"Unknown action: {action}", 400)
     finally:

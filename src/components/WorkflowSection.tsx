@@ -1,5 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
+
+const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
 
 // ── Визуальные вставки для каждого шага ─────────────────────
 
@@ -90,47 +92,64 @@ const Visual3 = () => (
 
 const VISUALS = [<Visual0 />, <Visual1 />, <Visual2 />, <Visual3 />];
 
-// ── Данные шагов ─────────────────────────────────────────────
+// ── Данные шагов (дефолт, пока не подгрузился API) ────────────
 
-const STEPS = [
+interface Step { number: string; icon: string; title: string; sub: string; desc: string; badge: string | null }
+interface WorkflowData { eyebrow: string; title_line1: string; title_line2: string; subtitle: string; steps: Step[] }
+
+const DEFAULT_STEPS: Step[] = [
   {
-    number: "01",
-    icon: "Calculator" as const,
+    number: "01", icon: "Calculator",
     title: "Заполняете калькулятор",
     sub: "Выбираете зерно, обжарку, упаковку, объём",
     desc: "Онлайн-конфигуратор за 3 минуты собирает ваш заказ. Никаких звонков — сразу видите стоимость.",
-    badge: null as string | null,
+    badge: null,
   },
   {
-    number: "02",
-    icon: "Bot" as const,
+    number: "02", icon: "Bot",
     title: "AI-ассистент уточняет",
     sub: "Диалог вместо длинной анкеты",
     desc: "После отправки — ИИ-ассистент напишет сам, уточнит нюансы и передаст готовый бриф менеджеру.",
-    badge: "AI" as string | null,
+    badge: "AI",
   },
   {
-    number: "03",
-    icon: "Mail" as const,
+    number: "03", icon: "Mail",
     title: "Получаете счёт на email",
     sub: "В течение 30 минут в рабочее время",
     desc: "Менеджер формирует финальное КП и высылает счёт. Вы подтверждаете — мы стартуем.",
-    badge: null as string | null,
+    badge: null,
   },
   {
-    number: "04",
-    icon: "Package" as const,
+    number: "04", icon: "Package",
     title: "Образцы / запуск партии",
     sub: "Проба или сразу в производство",
     desc: "Отправляем образцы на дегустацию или запускаем партию. Трек-номер появится в личном кабинете.",
-    badge: null as string | null,
+    badge: null,
   },
 ];
+
+const DEFAULT_WORKFLOW: WorkflowData = {
+  eyebrow: "КАК ЭТО РАБОТАЕТ · КОФЕ ПОД СТМ",
+  title_line1: "4 шага от заявки",
+  title_line2: "до вашей пачки",
+  subtitle: "Прозрачный процесс без неожиданностей. Вы видите статус на каждом этапе.",
+  steps: DEFAULT_STEPS,
+};
 
 // ── Компонент ─────────────────────────────────────────────────
 
 const WorkflowSection = () => {
   const [openStep, setOpenStep] = useState<number | null>(null);
+  const [data, setData] = useState<WorkflowData>(DEFAULT_WORKFLOW);
+
+  useEffect(() => {
+    fetch(ABOUT_URL, { headers: { "X-Action": "get-sections", "X-Section-Key": "workflow" } })
+      .then(r => r.json())
+      .then(d => { if (d.data?.steps?.length) setData(d.data); })
+      .catch(() => {});
+  }, []);
+
+  const STEPS = data.steps;
 
   return (
     <section id="workflow" className="py-24 bg-card">
@@ -139,13 +158,13 @@ const WorkflowSection = () => {
         {/* Заголовок */}
         <div className="flex flex-col md:flex-row items-start justify-between mb-14 scroll-reveal">
           <div>
-            <span className="text-[11px] font-mono text-primary tracking-widest">КАК ЭТО РАБОТАЕТ · КОФЕ ПОД СТМ</span>
+            <span className="text-[11px] font-mono text-primary tracking-widest">{data.eyebrow}</span>
             <h2 className="font-serif text-4xl md:text-5xl mt-3 font-bold leading-tight">
-              4 шага от заявки<br />до вашей пачки
+              {data.title_line1}<br />{data.title_line2}
             </h2>
           </div>
           <p className="text-sm text-muted-foreground max-w-xs hidden md:block mt-2 leading-relaxed">
-            Прозрачный процесс без неожиданностей. Вы видите статус на каждом этапе.
+            {data.subtitle}
           </p>
         </div>
 

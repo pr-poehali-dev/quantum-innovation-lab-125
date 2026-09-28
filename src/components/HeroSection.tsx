@@ -2,10 +2,40 @@ import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import { COFFEE_BRANDS, CYCLE_MS } from "@/config/coffeeBrands";
 
+const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
+
+interface HeroData {
+  title_line1: string; title_line2: string; title_line3: string;
+  subtitle: string;
+  stat1_val: string; stat1_label: string;
+  stat2_val: string; stat2_label: string;
+  stat3_val: string; stat3_label: string;
+  badge1_title: string; badge1_sub: string;
+  badge2_title: string; badge2_sub: string;
+}
+
+const DEFAULT_HERO: HeroData = {
+  title_line1: "Ваш бренд кофе —", title_line2: "от зерна", title_line3: "до пачки.",
+  subtitle: "Обжарка, упаковка и логистика под вашей торговой маркой. Для кофеен, ресторанов, отелей и вендинга.",
+  stat1_val: "500+", stat1_label: "КЛИЕНТОВ",
+  stat2_val: "14 дней", stat2_label: "ДО ПЕРВОЙ ПАРТИИ",
+  stat3_val: "от 50 кг", stat3_label: "МИН. ЗАКАЗ",
+  badge1_title: "Партия готова", badge1_sub: "ЗАКАЗ #2847 · 200 кг",
+  badge2_title: "Рост продаж", badge2_sub: "+38% после запуска бренда",
+};
+
 const HeroSection = () => {
   const [current, setCurrent] = useState(0);
   const [paused,  setPaused]  = useState(false);
+  const [hero,    setHero]    = useState<HeroData>(DEFAULT_HERO);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    fetch(ABOUT_URL, { headers: { "X-Action": "get-sections", "X-Section-Key": "hero" } })
+      .then(r => r.json())
+      .then(d => { if (d.data) setHero(d.data); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (paused) return;
@@ -29,27 +59,24 @@ const HeroSection = () => {
           {/* Левая колонка */}
           <div className="space-y-7 scroll-reveal-left">
             <h1 className="font-serif text-5xl md:text-6xl lg:text-[4.2rem] leading-[1.05] font-bold">
-              Ваш бренд кофе —<br />
-              <span className="text-primary">от зерна</span><br />
-              до пачки.
+              {hero.title_line1}<br />
+              <span className="text-primary">{hero.title_line2}</span><br />
+              {hero.title_line3}
             </h1>
             <p className="text-muted-foreground text-lg max-w-md leading-relaxed">
-              Обжарка, упаковка и логистика под вашей торговой маркой. Для кофеен, ресторанов, отелей и вендинга.
+              {hero.subtitle}
             </p>
             <div className="flex flex-wrap gap-3">
               <a href="#calculator"
                 className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-full text-sm font-semibold hover:bg-primary/90 transition-all hover:shadow-lg hover:shadow-primary/25 active:scale-95">
                 Рассчитать стоимость <Icon name="ArrowRight" size={16} />
               </a>
-              <button className="inline-flex items-center gap-2 border border-border px-6 py-3 rounded-full text-sm font-medium hover:bg-secondary transition-all hover:border-primary/30">
-                <Icon name="Package" size={16} /> Смотреть образцы
-              </button>
             </div>
             <div className="flex gap-8 pt-2 border-t border-border">
               {[
-                { val: "500+",     label: "КЛИЕНТОВ"         },
-                { val: "14 дней",  label: "ДО ПЕРВОЙ ПАРТИИ" },
-                { val: "от 50 кг", label: "МИН. ЗАКАЗ"       },
+                { val: hero.stat1_val, label: hero.stat1_label },
+                { val: hero.stat2_val, label: hero.stat2_label },
+                { val: hero.stat3_val, label: hero.stat3_label },
               ].map(s => (
                 <div key={s.label}>
                   <p className="font-serif text-2xl font-semibold">{s.val}</p>
@@ -66,18 +93,18 @@ const HeroSection = () => {
             <div className="absolute left-0 top-8 glass rounded-2xl px-4 py-3 shadow-lg z-20">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-xs font-semibold">Партия готова</span>
+                <span className="text-xs font-semibold">{hero.badge1_title}</span>
               </div>
-              <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">ЗАКАЗ #2847 · 200 кг</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5 font-mono">{hero.badge1_sub}</p>
             </div>
 
             {/* Badge — рост */}
             <div className="absolute left-0 bottom-8 glass rounded-2xl px-4 py-3 shadow-lg z-20">
               <div className="flex items-center gap-2 mb-1">
                 <Icon name="TrendingUp" size={14} className="text-primary" />
-                <span className="text-xs font-semibold">Рост продаж</span>
+                <span className="text-xs font-semibold">{hero.badge2_title}</span>
               </div>
-              <p className="text-[10px] text-muted-foreground font-mono">+38% после запуска бренда</p>
+              <p className="text-[10px] text-muted-foreground font-mono">{hero.badge2_sub}</p>
             </div>
 
             <style>{`

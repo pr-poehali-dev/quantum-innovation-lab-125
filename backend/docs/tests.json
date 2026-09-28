@@ -1,11 +1,27 @@
 {
   "tests": [
     {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
       "name": "GET documents list",
       "method": "GET",
       "path": "/",
+      "headers": { "X-Action": "list" },
       "expectedStatus": 200,
       "expectedBody": { "documents": [] },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "GET categories list",
+      "method": "GET",
+      "path": "/",
+      "headers": { "X-Action": "list-categories" },
+      "expectedStatus": 200,
+      "expectedBody": { "categories": [] },
       "bodyMatcher": "partial"
     }
   ]

@@ -6,6 +6,22 @@ import fallbackLogo from "@/assets/logo.png";
 const FALLBACK_LOGO = fallbackLogo;
 const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
 
+interface FooterData {
+  phone: string; email: string; telegram: string; description: string;
+  status_title: string; status_line1: string; status_line2: string; copyright: string;
+}
+
+const DEFAULT_FOOTER: FooterData = {
+  phone: "+7 904 247-43-02",
+  email: "gid150@mail.ru",
+  telegram: "https://t.me/kontraktkafe",
+  description: "Производство кофе под вашей торговой маркой. Полный цикл — от подбора зерна до доставки.",
+  status_title: "ЛИНИЯ АКТИВНА",
+  status_line1: "Принимаем заявки",
+  status_line2: "Срок — от 14 дней",
+  copyright: "© 2026 КонтрактКофе. Все права защищены.",
+};
+
 const navLinks = [
   { label: "О производстве", href: "#features"  },
   { label: "Кофе под СТМ",  href: "#workflow"   },
@@ -14,7 +30,6 @@ const navLinks = [
 ];
 
 const docLinks = [
-  { label: "Все документы",               href: "/documents"  },
   { label: "Политика конфиденциальности", href: "/documents"  },
   { label: "Условия сотрудничества",      href: "/documents"  },
   { label: "Сертификаты",                 href: "/documents"  },
@@ -23,13 +38,20 @@ const docLinks = [
 
 const Footer = () => {
   const [logoUrl, setLogoUrl] = useState(FALLBACK_LOGO);
+  const [footer, setFooter] = useState<FooterData>(DEFAULT_FOOTER);
 
   useEffect(() => {
     fetch(ABOUT_URL, { headers: { "X-Action": "get-content" } })
       .then(r => r.json())
       .then(d => { if (d.content?.logo_url) setLogoUrl(d.content.logo_url); })
       .catch(() => {});
+    fetch(ABOUT_URL, { headers: { "X-Action": "get-sections", "X-Section-Key": "footer" } })
+      .then(r => r.json())
+      .then(d => { if (d.data) setFooter(d.data); })
+      .catch(() => {});
   }, []);
+
+  const phoneHref = `tel:${footer.phone.replace(/[^+\d]/g, "")}`;
 
   return (
     <footer id="contacts" className="pt-16 pb-8 border-t border-border bg-foreground text-white">
@@ -49,21 +71,21 @@ const Footer = () => {
               />
             </Link>
             <p className="text-sm text-white/50 max-w-xs leading-relaxed mb-6">
-              Производство кофе под вашей торговой маркой. Полный цикл — от подбора зерна до доставки.
+              {footer.description}
             </p>
 
             {/* Контакты */}
             <div className="space-y-3">
-              <a href="tel:+79042474302" className="flex items-center gap-3 group">
+              <a href={phoneHref} className="flex items-center gap-3 group">
                 <div className="w-8 h-8 rounded-lg bg-white/8 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                   <Icon name="Phone" size={14} className="text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-white">+7 904 247-43-02</p>
+                  <p className="text-sm font-semibold text-white">{footer.phone}</p>
                   <p className="text-[11px] text-white/40 font-mono">ЗВОНКИ И TELEGRAM</p>
                 </div>
               </a>
-              <a href="https://t.me/kontraktkafe" target="_blank" rel="noopener noreferrer"
+              <a href={footer.telegram} target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-3 group">
                 <div className="w-8 h-8 rounded-lg bg-white/8 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                   <Icon name="Send" size={14} className="text-primary" />
@@ -73,12 +95,12 @@ const Footer = () => {
                   <p className="text-[11px] text-white/40 font-mono">БЫСТРЫЙ ОТВЕТ</p>
                 </div>
               </a>
-              <a href="mailto:gid150@mail.ru" className="flex items-center gap-3 group">
+              <a href={`mailto:${footer.email}`} className="flex items-center gap-3 group">
                 <div className="w-8 h-8 rounded-lg bg-white/8 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                   <Icon name="Mail" size={14} className="text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-white">gid150@mail.ru</p>
+                  <p className="text-sm font-semibold text-white">{footer.email}</p>
                   <p className="text-[11px] text-white/40 font-mono">EMAIL</p>
                 </div>
               </a>
@@ -108,7 +130,7 @@ const Footer = () => {
               </Link>
             </div>
             <ul className="space-y-2.5">
-              {docLinks.slice(1).map((link) => (
+              {docLinks.map((link) => (
                 <li key={link.label}>
                   <Link to={link.href} className="text-sm text-white/60 hover:text-white transition-colors">
                     {link.label}
@@ -124,10 +146,10 @@ const Footer = () => {
             <div className="bg-white/5 border border-white/10 rounded-xl p-4 font-mono text-xs space-y-2.5">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-white font-semibold">ЛИНИЯ АКТИВНА</span>
+                <span className="text-white font-semibold">{footer.status_title}</span>
               </div>
-              <p className="text-white/50">Принимаем заявки</p>
-              <p className="text-white/50">Срок — от 14 дней</p>
+              <p className="text-white/50">{footer.status_line1}</p>
+              <p className="text-white/50">{footer.status_line2}</p>
               <div className="pt-2 border-t border-white/10">
                 <a href="#calculator" className="text-primary hover:text-primary/80 transition-colors font-semibold">
                   Рассчитать стоимость →
@@ -138,7 +160,7 @@ const Footer = () => {
         </div>
 
         <div className="flex flex-col md:flex-row items-center justify-between pt-8 border-t border-white/10 gap-2">
-          <p className="text-xs text-white/30">© 2026 КонтрактКофе. Все права защищены.</p>
+          <p className="text-xs text-white/30">{footer.copyright}</p>
           <p className="text-xs text-white/30">Технологичное производство · Полный цикл · Россия</p>
         </div>
       </div>

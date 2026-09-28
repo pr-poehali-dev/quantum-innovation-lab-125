@@ -1,7 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 
-const ADVANTAGES = [
+const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
+
+interface Advantage { icon: string; title: string; short: string; detail: string; tag: string }
+interface Segment { name: string; icon: string }
+
+const DEFAULT_ADVANTAGES: Advantage[] = [
   {
     icon: "Layers",
     title: "Любые объёмы",
@@ -46,7 +51,7 @@ const ADVANTAGES = [
   },
 ];
 
-const SEGMENTS = [
+const DEFAULT_SEGMENTS: Segment[] = [
   { name: "Кофейни",   icon: "Coffee"         },
   { name: "Рестораны", icon: "UtensilsCrossed" },
   { name: "Отели",     icon: "Hotel"           },
@@ -57,6 +62,18 @@ const SEGMENTS = [
 
 const FeaturesSection = () => {
   const [active, setActive] = useState<number | null>(null);
+  const [advantages, setAdvantages] = useState<Advantage[]>(DEFAULT_ADVANTAGES);
+  const [segments, setSegments] = useState<Segment[]>(DEFAULT_SEGMENTS);
+
+  useEffect(() => {
+    fetch(ABOUT_URL, { headers: { "X-Action": "get-sections", "X-Section-Key": "features" } })
+      .then(r => r.json())
+      .then(d => {
+        if (d.data?.advantages?.length) setAdvantages(d.data.advantages);
+        if (d.data?.segments?.length) setSegments(d.data.segments);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <section id="features" className="py-24 bg-black/[0.02]">
@@ -74,7 +91,7 @@ const FeaturesSection = () => {
           <div className="mt-6 md:mt-0">
             <p className="text-[11px] font-mono text-black/40 mb-3 tracking-wider">РАБОТАЕМ С</p>
             <div className="flex flex-wrap gap-2">
-              {SEGMENTS.map(s => (
+              {segments.map(s => (
                 <div key={s.name}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-black/8 rounded-full text-xs text-black/60 shadow-sm">
                   <Icon name={s.icon} fallback="Circle" size={12} className="text-black/40" />
@@ -87,7 +104,7 @@ const FeaturesSection = () => {
 
         {/* Преимущества — accordion-список */}
         <div className="grid md:grid-cols-2 gap-3 scroll-reveal" data-delay="100">
-          {ADVANTAGES.map((adv, i) => {
+          {advantages.map((adv, i) => {
             const isOpen = active === i;
             return (
               <button key={adv.title}

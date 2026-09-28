@@ -13,6 +13,12 @@ X-Action значения:
   save-calc        — POST сохранить калькулятор (владелец и менеджер)
   get-rate         — GET курс доллара
   save-rate        — POST сохранить курс доллара (владелец и менеджер)
+  get-sections     — GET публичные данные секций лендинга (X-Section-Key: hero|workflow|features|footer, либо все сразу без заголовка)
+  save-section     — POST сохранить секцию лендинга (только владелец): X-Section-Key, body = JSON-данные секции
+  get-testimonials — GET публичный список активных отзывов
+  list-testimonials — GET все отзывы для админки (только владелец)
+  save-testimonial — POST создать/обновить отзыв (только владелец): id?, quote, author, role, sort_order, active
+  delete-testimonial — DELETE удалить отзыв (только владелец): X-Testimonial-Id
 
 Авторизация редактирования — X-Staff-Token (сессия сотрудника), не статичный ключ.
 """
@@ -27,7 +33,7 @@ from botocore.config import Config
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Staff-Token, X-Action, X-Photo-Id",
+    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Staff-Token, X-Action, X-Photo-Id, X-Section-Key, X-Testimonial-Id",
 }
 SCHEMA      = "t_p21475602_quantum_innovation_l"
 AWS_KEY     = os.environ.get("AWS_ACCESS_KEY_ID", "")
@@ -273,6 +279,98 @@ def handler(event: dict, context) -> dict:
             """, (str(float(rate)),))
             conn.commit()
             return ok({"ok": True, "rate": float(rate)})
+
+        # ── get-sections: публичные данные секций лендинга ────────
+        if action == "get-sections":
+            section_key = headers.get("x-section-key", "")
+            if section_key:
+                cur.execute(f"SELECT data FROM {SCHEMA}.site_sections WHERE section_key=%s", (section_key,))
+                row = cur.fetchone()
+                return ok({"data": row[0] if row else None})
+            cur.execute(f"SELECT section_key, data FROM {SCHEMA}.site_sections")
+            sections = {r[0]: r[1] for r in cur.fetchall()}
+            return ok({"sections": sections})
+
+        # ── save-section: сохранить секцию лендинга ───────────────
+        if action == "save-section":
+            if not check_role(cur, headers, ("owner",)):
+                return err("Unauthorized", 401)
+            section_key = headers.get("x-section-key", "")
+            if not section_key:
+                return err("X-Section-Key required")
+            body = json.loads(event.get("body") or "{}")
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.site_sections (section_key, data, updated_at)
+                VALUES (%s, %s, NOW())
+                ON CONFLICT (section_key) DO UPDATE SET data=EXCLUDED.data, updated_at=NOW()
+            """, (section_key, json.dumps(body, ensure_ascii=False)))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── get-testimonials: публичный список активных отзывов ───
+        if action == "get-testimonials":
+            cur.execute(f"""
+                SELECT id, quote, author, role, sort_order
+                FROM {SCHEMA}.testimonials WHERE active=TRUE ORDER BY sort_order, id
+            """)
+            testimonials = [
+                {"id": r[0], "quote": r[1], "author": r[2], "role": r[3], "sort_order": r[4]}
+                for r in cur.fetchall()
+            ]
+            return ok({"testimonials": testimonials})
+
+        # ── list-testimonials: все отзывы для админки ─────────────
+        if action == "list-testimonials":
+            if not check_role(cur, headers, ("owner",)):
+                return err("Unauthorized", 401)
+            cur.execute(f"""
+                SELECT id, quote, author, role, sort_order, active
+                FROM {SCHEMA}.testimonials ORDER BY sort_order, id
+            """)
+            testimonials = [
+                {"id": r[0], "quote": r[1], "author": r[2], "role": r[3], "sort_order": r[4], "active": r[5]}
+                for r in cur.fetchall()
+            ]
+            return ok({"testimonials": testimonials})
+
+        # ── save-testimonial: создать/обновить отзыв ──────────────
+        if action == "save-testimonial":
+            if not check_role(cur, headers, ("owner",)):
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            tid = body.get("id")
+            quote = (body.get("quote") or "").strip()
+            author = (body.get("author") or "").strip()
+            role = body.get("role", "")
+            sort_order = body.get("sort_order", 0)
+            active = body.get("active", True)
+            if not quote or not author:
+                return err("quote and author required")
+            if tid:
+                cur.execute(f"""
+                    UPDATE {SCHEMA}.testimonials
+                    SET quote=%s, author=%s, role=%s, sort_order=%s, active=%s
+                    WHERE id=%s
+                """, (quote, author, role, sort_order, active, tid))
+            else:
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.testimonials (quote, author, role, sort_order, active)
+                    VALUES (%s, %s, %s, %s, %s) RETURNING id
+                """, (quote, author, role, sort_order, active))
+                tid = cur.fetchone()[0]
+            conn.commit()
+            return ok({"ok": True, "id": tid}, 201 if not body.get("id") else 200)
+
+        # ── delete-testimonial: удалить отзыв ─────────────────────
+        if action == "delete-testimonial":
+            if not check_role(cur, headers, ("owner",)):
+                return err("Unauthorized", 401)
+            tid = int(headers.get("x-testimonial-id", "0"))
+            if not tid:
+                return err("X-Testimonial-Id required")
+            cur.execute(f"DELETE FROM {SCHEMA}.testimonials WHERE id=%s", (tid,))
+            conn.commit()
+            return ok({"ok": True})
 
         return err(f"Unknown action: {action}", 400)
 

@@ -16,22 +16,26 @@ interface Doc {
   is_visible: boolean;
 }
 
-const CATEGORIES = [
-  { val: "legal",        label: "Юридические"   },
-  { val: "certificates", label: "Сертификаты"   },
-  { val: "company",      label: "О компании"    },
-  { val: "other",        label: "Прочее"        },
-];
+interface Category {
+  id: number;
+  key: string;
+  label: string;
+  icon: string;
+  sort_order: number;
+}
+
+const ICON_OPTIONS = ["Folder", "Scale", "Award", "Building2", "File", "FileText", "ShieldCheck", "Truck", "Package"];
 
 const AdminDocuments = () => {
   const { token } = useStaffAuth();
   const [docs,       setDocs]       = useState<Doc[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [toast,      setToast]      = useState<{ msg: string; ok: boolean } | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [editId,     setEditId]     = useState<number | null>(null);
+  const [catsOpen,   setCatsOpen]   = useState(false);
 
-  // Форма добавления
+  // Форма добавления документа
   const [title,    setTitle]    = useState("");
   const [desc,     setDesc]     = useState("");
   const [category, setCategory] = useState("legal");
@@ -41,17 +45,34 @@ const AdminDocuments = () => {
   const [adding,   setAdding]   = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // Форма новой категории
+  const [newCatLabel, setNewCatLabel] = useState("");
+  const [newCatIcon,  setNewCatIcon]  = useState("Folder");
+  const [addingCat,   setAddingCat]   = useState(false);
+
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3000);
   };
 
+  const authHeaders = { "X-Staff-Token": token || "" };
+
   const load = async () => {
     setLoading(true);
     try {
-      const r = await fetch(`${DOCS_URL}/all`, { headers: { "X-Staff-Token": token || "" } });
-      const d = await r.json();
-      if (d.documents) setDocs(d.documents);
+      const [dr, cr] = await Promise.all([
+        fetch(DOCS_URL, { headers: { "X-Action": "list-all", ...authHeaders } }),
+        fetch(DOCS_URL, { headers: { "X-Action": "list-categories" } }),
+      ]);
+      const dd = await dr.json();
+      const cd = await cr.json();
+      if (dd.documents) setDocs(dd.documents);
+      if (cd.categories) {
+        setCategories(cd.categories);
+        if (cd.categories.length && !cd.categories.find((c: Category) => c.key === category)) {
+          setCategory(cd.categories[0].key);
+        }
+      }
     } catch { showToast("Ошибка загрузки", false); }
     finally { setLoading(false); }
   };
@@ -84,9 +105,9 @@ const AdminDocuments = () => {
         body.file_url  = fileUrl;
         body.file_name = fileName || "document.pdf";
       }
-      const r = await fetch(`${DOCS_URL}/upload`, {
+      const r = await fetch(DOCS_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Staff-Token": token || "" },
+        headers: { "Content-Type": "application/json", "X-Action": "upload", ...authHeaders },
         body: JSON.stringify(body),
       });
       if (r.ok) {
@@ -100,9 +121,9 @@ const AdminDocuments = () => {
   };
 
   const toggleVisible = async (doc: Doc) => {
-    await fetch(`${DOCS_URL}/${doc.id}`, {
+    await fetch(DOCS_URL, {
       method: "PUT",
-      headers: { "Content-Type": "application/json", "X-Staff-Token": token || "" },
+      headers: { "Content-Type": "application/json", "X-Action": "update", ...authHeaders },
       body: JSON.stringify({ ...doc, is_visible: !doc.is_visible }),
     });
     load();
@@ -112,11 +133,43 @@ const AdminDocuments = () => {
     if (!confirm("Удалить документ? Файл будет удалён из хранилища.")) return;
     setDeletingId(id);
     try {
-      await fetch(`${DOCS_URL}/${id}`, { method: "DELETE", headers: { "X-Staff-Token": token || "" } });
+      await fetch(DOCS_URL, { method: "DELETE", headers: { "X-Action": "delete", "X-Doc-Id": String(id), ...authHeaders } });
       showToast("Удалён");
       load();
     } catch { showToast("Ошибка", false); }
     finally { setDeletingId(null); }
+  };
+
+  const addCategory = async () => {
+    if (!newCatLabel.trim()) return;
+    setAddingCat(true);
+    try {
+      const r = await fetch(DOCS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Action": "create-category", ...authHeaders },
+        body: JSON.stringify({ key: newCatLabel.trim(), label: newCatLabel.trim(), icon: newCatIcon }),
+      });
+      const d = await r.json();
+      if (r.ok) {
+        showToast("Категория создана ✓");
+        setNewCatLabel(""); setNewCatIcon("Folder");
+        load();
+      } else showToast(d.error || "Ошибка", false);
+    } catch { showToast("Ошибка сети", false); }
+    finally { setAddingCat(false); }
+  };
+
+  const deleteCategory = async (cat: Category) => {
+    if (!confirm(`Удалить категорию «${cat.label}»?`)) return;
+    try {
+      const r = await fetch(DOCS_URL, {
+        method: "DELETE",
+        headers: { "X-Action": "delete-category", "X-Category-Id": String(cat.id), ...authHeaders },
+      });
+      const d = await r.json();
+      if (r.ok) { showToast("Категория удалена"); load(); }
+      else showToast(d.error || "Ошибка", false);
+    } catch { showToast("Ошибка сети", false); }
   };
 
   return (
@@ -150,6 +203,56 @@ const AdminDocuments = () => {
 
       <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
 
+        {/* ── Категории документов ── */}
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
+          <button onClick={() => setCatsOpen(o => !o)}
+            className="w-full px-6 py-4 flex items-center justify-between hover:bg-secondary/20 transition-colors">
+            <div className="flex items-center gap-2">
+              <Icon name="FolderTree" size={16} className="text-primary" />
+              <h2 className="font-semibold text-sm">Категории документов</h2>
+              <span className="text-[11px] font-mono text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
+                {categories.length}
+              </span>
+            </div>
+            <Icon name={catsOpen ? "ChevronUp" : "ChevronDown"} size={16} className="text-muted-foreground" />
+          </button>
+
+          {catsOpen && (
+            <div className="border-t border-border p-6 space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {categories.map(c => (
+                  <div key={c.id} className="flex items-center gap-1.5 bg-secondary/50 border border-border rounded-full pl-3 pr-1.5 py-1">
+                    <Icon name={c.icon} fallback="Folder" size={13} className="text-muted-foreground" />
+                    <span className="text-[13px] font-medium">{c.label}</span>
+                    <button onClick={() => deleteCategory(c)}
+                      className="w-5 h-5 rounded-full flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors">
+                      <Icon name="X" size={11} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-end gap-2 pt-2 border-t border-border">
+                <div className="flex-1">
+                  <label className="block text-[11px] font-mono text-muted-foreground mb-1.5">НОВАЯ КАТЕГОРИЯ</label>
+                  <input value={newCatLabel} onChange={e => setNewCatLabel(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && addCategory()}
+                    placeholder="Например: Инструкции"
+                    className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" />
+                </div>
+                <select value={newCatIcon} onChange={e => setNewCatIcon(e.target.value)}
+                  className="border border-border rounded-xl px-2 py-2 text-sm bg-background focus:outline-none">
+                  {ICON_OPTIONS.map(i => <option key={i} value={i}>{i}</option>)}
+                </select>
+                <button onClick={addCategory} disabled={addingCat || !newCatLabel.trim()}
+                  className="flex items-center gap-1.5 bg-primary text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-40 flex-shrink-0">
+                  <Icon name="Plus" size={14} /> Создать
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* ── Добавить документ ── */}
         <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <div className="px-6 py-4 border-b border-border flex items-center gap-2">
@@ -168,7 +271,7 @@ const AdminDocuments = () => {
                 <label className="block text-[11px] font-mono text-muted-foreground mb-1.5">КАТЕГОРИЯ</label>
                 <select value={category} onChange={e => setCategory(e.target.value)}
                   className="w-full border border-border rounded-xl px-4 py-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all">
-                  {CATEGORIES.map(c => <option key={c.val} value={c.val}>{c.label}</option>)}
+                  {categories.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
                 </select>
               </div>
             </div>
@@ -252,7 +355,7 @@ const AdminDocuments = () => {
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium truncate">{doc.title}</p>
                       <span className="text-[10px] font-mono text-muted-foreground bg-secondary px-1.5 py-0.5 rounded flex-shrink-0">
-                        {CATEGORIES.find(c => c.val === doc.category)?.label ?? doc.category}
+                        {categories.find(c => c.key === doc.category)?.label ?? doc.category}
                       </span>
                     </div>
                     {doc.description && (

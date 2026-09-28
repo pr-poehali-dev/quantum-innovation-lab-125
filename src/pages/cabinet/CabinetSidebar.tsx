@@ -51,7 +51,7 @@ const CabinetSidebar = ({ tab, setTab, client, ordersCount, open, onClose }: Cab
               <div className="space-y-0.5">
                 {group.items.map(item => {
                   const isActive = tab === item.id;
-                  const badgeValue = item.id === "docs" ? ordersCount : item.badge;
+                  const badgeValue = item.id === "batches" ? ordersCount : item.badge;
                   return (
                     <button
                       key={item.id}

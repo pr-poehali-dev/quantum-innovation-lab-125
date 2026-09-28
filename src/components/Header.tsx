@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useLeadModal } from "@/context/LeadModalContext";
+import { useClientAuth } from "@/context/ClientAuthContext";
 import fallbackLogo from "@/assets/logo.png";
 
 // Порядок совпадает с порядком блоков на странице
@@ -24,6 +25,11 @@ const Header = () => {
   const [phoneOpen,     setPhoneOpen]     = useState(false);
   const phoneRef = useRef<HTMLDivElement>(null);
   const { openModal } = useLeadModal();
+  const { client } = useClientAuth();
+
+  const clientInitials = client?.name
+    ? client.name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase()
+    : "";
 
   // Закрыть попап телефона при клике вне
   useEffect(() => {
@@ -170,11 +176,21 @@ const Header = () => {
               </div>
             </div>
 
-            <Link to="/cabinet"
-              className="hidden sm:flex items-center gap-1.5 text-[13px] font-medium text-black/55 hover:text-foreground border border-black/12 hover:border-black/25 px-3 py-1.5 rounded-full transition-all">
-              <Icon name="User" size={13} />
-              ЛК
-            </Link>
+            {client ? (
+              <Link to="/cabinet"
+                className="hidden sm:flex items-center gap-2 text-[13px] font-medium text-foreground border border-primary/30 bg-primary/8 hover:bg-primary/15 pl-1.5 pr-3 py-1 rounded-full transition-all">
+                <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[11px] font-bold flex-shrink-0">
+                  {clientInitials}
+                </span>
+                {client.name.split(" ")[0]}
+              </Link>
+            ) : (
+              <Link to="/cabinet"
+                className="hidden sm:flex items-center gap-1.5 text-[13px] font-medium text-black/55 hover:text-foreground border border-black/12 hover:border-black/25 px-3 py-1.5 rounded-full transition-all">
+                <Icon name="User" size={13} />
+                ЛК
+              </Link>
+            )}
 
             <button onClick={openModal}
               className="bg-primary text-white px-4 py-1.5 rounded-full text-[13px] font-semibold hover:bg-primary/90 transition-all active:scale-95 shadow-sm shadow-primary/20">
