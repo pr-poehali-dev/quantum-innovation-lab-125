@@ -31,7 +31,9 @@ CORS = {
     "Access-Control-Allow-Headers": "Content-Type, X-Action, X-Client-Token, X-Batch-Id",
 }
 SCHEMA = "t_p21475602_quantum_innovation_l"
-RESEND_KEY = os.environ.get("RESEND_API_KEY", "")
+UNISENDER_KEY = os.environ.get("UNISENDER_API_KEY", "")
+SENDER_EMAIL = "marketing1@aromateacoffee.ru"
+SENDER_NAME = "КонтрактКофе"
 AWS_KEY = os.environ.get("AWS_ACCESS_KEY_ID", "")
 AWS_SEC = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
 CDN_BASE = f"https://cdn.poehali.dev/projects/{AWS_KEY}/bucket"
@@ -76,24 +78,43 @@ def get_client_by_token(cur, token: str):
     return {"id": crow[0], "name": crow[1], "phone": crow[2], "email": crow[3], "city": crow[4], "company": crow[5]}
 
 
-def send_email(to_email: str, subject: str, html: str):
-    if not RESEND_KEY:
+def unisender_call(method: str, params: dict) -> dict:
+    params = {**params, "api_key": UNISENDER_KEY, "format": "json"}
+    data = urllib.parse.urlencode(params).encode("utf-8")
+    req = urllib.request.Request(f"https://api.unisender.com/ru/api/{method}", data=data, method="POST")
+    with urllib.request.urlopen(req, timeout=6) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
+def get_or_create_list_id(cur, conn) -> str:
+    cur.execute(f"SELECT value FROM {SCHEMA}.site_settings WHERE key='unisender_list_id'")
+    row = cur.fetchone()
+    if row:
+        return row[0]
+    result = unisender_call("createList", {"title": "КонтрактКофе — уведомления"})
+    list_id = str(result["result"]["id"])
+    cur.execute(f"""
+        INSERT INTO {SCHEMA}.site_settings (key, value, updated_at) VALUES ('unisender_list_id', %s, NOW())
+        ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
+    """, (list_id,))
+    conn.commit()
+    return list_id
+
+
+def send_email(cur, conn, to_email: str, subject: str, html: str):
+    if not UNISENDER_KEY:
         return
-    payload = json.dumps({
-        "from": "КонтрактКофе <noreply@kontraktkafe.ru>",
-        "to": [to_email],
-        "subject": subject,
-        "html": html,
-    }).encode("utf-8")
-    req = urllib.request.Request(
-        "https://api.resend.com/emails",
-        data=payload,
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {RESEND_KEY}"},
-        method="POST",
-    )
     try:
-        urllib.request.urlopen(req, timeout=6)
-    except urllib.error.URLError:
+        list_id = get_or_create_list_id(cur, conn)
+        unisender_call("sendEmail", {
+            "email": to_email,
+            "sender_name": SENDER_NAME,
+            "sender_email": SENDER_EMAIL,
+            "subject": subject,
+            "body": html,
+            "list_id": list_id,
+        })
+    except Exception:
         pass
 
 
@@ -130,7 +151,7 @@ def handler(event: dict, context) -> dict:
             """, (email, code, expires))
             conn.commit()
 
-            send_email(email, "Код входа в личный кабинет КонтрактКофе", f"""
+            send_email(cur, conn, email, "Код входа в личный кабинет КонтрактКофе", f"""
                 <p>Ваш код для входа в личный кабинет:</p>
                 <p style="font-size:28px;font-weight:bold;letter-spacing:4px">{code}</p>
                 <p style="color:#888;font-size:12px">Код действует 15 минут.</p>
