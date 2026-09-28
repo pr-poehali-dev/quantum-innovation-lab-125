@@ -35,12 +35,12 @@ const SECTIONS: Section[] = [
     roles: ["owner", "manager", "support"],
   },
   {
-    href: "/admin/documents",
-    icon: "FileText",
-    title: "Документы и сертификаты",
-    desc: "Загрузка PDF, управление категориями, видимость",
-    tag: "Файлы",
-    roles: ["owner", "manager"],
+    href: "/admin/pages",
+    icon: "FileStack",
+    title: "Страницы сайта",
+    desc: "Политика конфиденциальности, условия, реквизиты — редактируемые страницы в футере",
+    tag: "Контент",
+    roles: ["owner"],
   },
   {
     href: "/admin/rate",
@@ -80,6 +80,14 @@ const SECTIONS: Section[] = [
     title: "Редактор лендинга",
     desc: "Главный экран, этапы работы, преимущества, футер, отзывы",
     tag: "Контент",
+    roles: ["owner"],
+  },
+  {
+    href: "/admin/settings",
+    icon: "Settings",
+    title: "Настройки",
+    desc: "Email-отправитель для писем, поля логистики доставки",
+    tag: "Система",
     roles: ["owner"],
   },
 ];

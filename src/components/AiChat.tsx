@@ -1,8 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 
+const CHAT_URL = "https://functions.poehali.dev/f943216e-4ba2-4e31-9cff-fcfc562f339b";
+const GUEST_TOKEN_KEY = "kk_guest_token";
+const POLL_MS = 5000;
+
 interface Message {
-  role: "user" | "assistant";
+  id?: number;
+  sender_type: "guest" | "staff";
+  staff_name?: string | null;
   text: string;
 }
 
@@ -13,50 +19,74 @@ const SUGGESTIONS = [
   "Работаете ли с вендингом?",
 ];
 
-const BOT_ANSWERS: Record<string, string> = {
-  "минимальный заказ": "Минимальная партия — от 50 кг. Это идеально для тестирования рынка или запуска небольшой кофейни.",
-  "стоит своя упаковка": "Стоимость упаковки зависит от типа: крафт без принта — включено в базовую цену, с логотипом +25 ₽/кг, фольга с печатью +45 ₽/кг, премиум дизайн +80 ₽/кг.",
-  "первая партия": "Срок производства первой партии — от 14 дней для заказов до 200 кг. Для больших объёмов — 18–25 дней.",
-  "вендинг": "Да, мы специализируемся на кофе для вендинговых автоматов. Подбираем помол и обжарку под конкретную модель автомата.",
-  "default": "Хороший вопрос! Наши менеджеры ответят детально — нажмите «Получить предложение» или напишите на info@kontraktkafe.ru",
-};
-
-function getBotReply(text: string): string {
-  const lower = text.toLowerCase();
-  for (const [key, answer] of Object.entries(BOT_ANSWERS)) {
-    if (key !== "default" && lower.includes(key)) return answer;
-  }
-  return BOT_ANSWERS["default"];
-}
-
 const AiChat = () => {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", text: "Привет! Я помощник КонтрактКофе. Отвечу на вопросы о производстве, упаковке и условиях сотрудничества." },
+    { sender_type: "staff", staff_name: "КонтрактКофе", text: "Привет! Напишите вопрос — ответит менеджер. Обычно отвечаем в течение получаса в рабочее время." },
   ]);
   const [input, setInput] = useState("");
-  const [typing, setTyping] = useState(false);
+  const [guestToken, setGuestToken] = useState<string | null>(() => localStorage.getItem(GUEST_TOKEN_KEY));
+  const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const loadMessages = (token: string) => {
+    fetch(CHAT_URL, { headers: { "X-Action": "list", "X-Guest-Token": token } })
+      .then(r => r.json())
+      .then(d => {
+        if (d.messages?.length) {
+          setMessages([messages[0], ...d.messages.map((m: { sender_type: string; staff_name?: string; text: string; id: number }) => ({
+            id: m.id, sender_type: m.sender_type, staff_name: m.staff_name, text: m.text,
+          }))]);
+        }
+      })
+      .catch(() => {});
+  };
+
+  useEffect(() => {
+    if (!open || !guestToken) return;
+    loadMessages(guestToken);
+    const interval = setInterval(() => loadMessages(guestToken), POLL_MS);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, guestToken]);
 
   useEffect(() => {
     if (open) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, open]);
 
-  const send = (text: string) => {
-    if (!text.trim()) return;
-    const userMsg: Message = { role: "user", text };
-    setMessages(m => [...m, userMsg]);
+  const ensureGuestToken = async (): Promise<string> => {
+    if (guestToken) return guestToken;
+    const r = await fetch(CHAT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Action": "start-guest" },
+      body: JSON.stringify({}),
+    });
+    const d = await r.json();
+    localStorage.setItem(GUEST_TOKEN_KEY, d.token);
+    setGuestToken(d.token);
+    return d.token;
+  };
+
+  const send = async (text: string) => {
+    if (!text.trim() || sending) return;
+    setSending(true);
+    setMessages(m => [...m, { sender_type: "guest", text }]);
     setInput("");
-    setTyping(true);
-    setTimeout(() => {
-      setMessages(m => [...m, { role: "assistant", text: getBotReply(text) }]);
-      setTyping(false);
-    }, 900 + Math.random() * 400);
+    try {
+      const token = await ensureGuestToken();
+      await fetch(CHAT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Action": "send", "X-Guest-Token": token },
+        body: JSON.stringify({ text }),
+      });
+      loadMessages(token);
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
     <>
-      {/* Кнопка открытия */}
       <style>{`
         @keyframes dotPulse {
           0%, 89% { transform: scale(1); opacity: 1; }
@@ -108,7 +138,7 @@ const AiChat = () => {
               <p className="text-white text-sm font-semibold leading-tight">КонтрактКофе</p>
               <div className="flex items-center gap-1.5">
                 <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                <p className="text-white/70 text-[10px]">AI-помощник · онлайн</p>
+                <p className="text-white/70 text-[10px]">Чат с менеджером</p>
               </div>
             </div>
           </div>
@@ -116,15 +146,15 @@ const AiChat = () => {
           {/* Сообщения */}
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
             {messages.map((m, i) => (
-              <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                {m.role === "assistant" && (
+              <div key={m.id ?? i} className={`flex ${m.sender_type === "guest" ? "justify-end" : "justify-start"}`}>
+                {m.sender_type === "staff" && (
                   <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1 mr-2">
                     <Icon name="Coffee" size={11} className="text-primary" />
                   </div>
                 )}
                 <div
                   className={`max-w-[80%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                    m.role === "user"
+                    m.sender_type === "guest"
                       ? "bg-primary text-primary-foreground rounded-br-sm"
                       : "bg-secondary text-foreground rounded-bl-sm"
                   }`}
@@ -133,19 +163,6 @@ const AiChat = () => {
                 </div>
               </div>
             ))}
-            {typing && (
-              <div className="flex justify-start">
-                <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-1 mr-2">
-                  <Icon name="Coffee" size={11} className="text-primary" />
-                </div>
-                <div className="bg-secondary px-4 py-3 rounded-2xl rounded-bl-sm flex gap-1 items-center">
-                  {[0, 1, 2].map(i => (
-                    <div key={i} className="w-1.5 h-1.5 rounded-full bg-muted-foreground/50 animate-bounce"
-                      style={{ animationDelay: `${i * 150}ms` }} />
-                  ))}
-                </div>
-              </div>
-            )}
             <div ref={bottomRef} />
           </div>
 
@@ -173,7 +190,7 @@ const AiChat = () => {
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
               />
               <button onClick={() => send(input)}
-                disabled={!input.trim()}
+                disabled={!input.trim() || sending}
                 className="w-7 h-7 rounded-lg bg-primary text-white flex items-center justify-center disabled:opacity-30 transition-opacity hover:bg-primary/90">
                 <Icon name="Send" size={13} />
               </button>

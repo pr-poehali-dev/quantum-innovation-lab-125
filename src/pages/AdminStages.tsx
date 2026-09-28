@@ -10,6 +10,7 @@ interface Stage {
   name: string;
   sort_order: number;
   color: string;
+  progress_percent: number | null;
 }
 
 const COLORS = ["#64748b", "#0ea5e9", "#8b5cf6", "#f59e0b", "#22c55e", "#16a34a", "#ef4444", "#ec4899"];
@@ -164,6 +165,18 @@ const AdminStages = () => {
                   onBlur={() => saveStage(s.id)}
                   className="flex-1 px-3 py-1.5 border border-border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
                 />
+
+                <div className="flex items-center gap-1 flex-shrink-0" title="Процент готовности партии на этом этапе (показывается клиенту)">
+                  <input
+                    type="number" min={0} max={100}
+                    value={s.progress_percent ?? ""}
+                    placeholder="—"
+                    onChange={e => patchLocal(s.id, { progress_percent: e.target.value === "" ? null : Number(e.target.value) })}
+                    onBlur={() => saveStage(s.id)}
+                    className="w-14 px-2 py-1.5 border border-border rounded-lg text-sm text-center focus:outline-none focus:border-primary transition-colors font-mono"
+                  />
+                  <span className="text-[11px] text-muted-foreground">%</span>
+                </div>
 
                 <button onClick={() => deleteStage(s.id)}
                   className="w-8 h-8 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all flex-shrink-0">

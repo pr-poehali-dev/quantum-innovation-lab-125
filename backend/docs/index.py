@@ -1,20 +1,24 @@
 """
-API документов и их категорий. Роутинг через заголовок X-Action (URL-суффиксы на этой платформе ненадёжны).
+API приватных документов клиентов и их категорий (папок).
+Документы больше НЕ публикуются на лендинге — только менеджеры/владелец видят документы
+любого клиента, а сам клиент видит только свои документы в личном кабинете.
+Роутинг через заголовок X-Action (URL-суффиксы на этой платформе ненадёжны).
 
 X-Action значения:
-  list             — GET список видимых документов (публично)
-  list-all         — GET все документы для админки (владелец, менеджер)
-  upload           — POST загрузить файл base64 → S3 → создать запись (владелец, менеджер)
-  update           — PUT обновить метаданные документа: id, title, description, category, is_visible (владелец, менеджер)
+  list-for-client  — GET документы конкретного клиента (владелец, менеджер): X-Client-Id
+  list-mine        — GET собственные документы клиента (X-Client-Token)
+  upload           — POST загрузить файл base64 → S3 → создать запись для клиента (владелец, менеджер): client_id обязателен
+  update           — PUT обновить метаданные документа: id, title, description, category (владелец, менеджер)
   delete           — DELETE удалить документ + файл из S3: X-Doc-Id (владелец, менеджер)
   reorder          — PUT изменить порядок документов: order=[{id, sort_order}] (владелец, менеджер)
-  list-categories  — GET список категорий (публично)
+  list-categories  — GET список категорий-папок (владелец, менеджер, клиент)
   create-category  — POST создать категорию: key, label, icon (только владелец)
   update-category  — PUT переименовать/сменить иконку категории: id, label, icon (только владелец)
   delete-category  — DELETE удалить категорию: X-Category-Id, только если в ней нет документов (только владелец)
   reorder-categories — PUT изменить порядок категорий: order=[{id, sort_order}] (только владелец)
 
 Авторизация редактирования — X-Staff-Token (сессия сотрудника с ролью owner/manager).
+Авторизация просмотра клиентом — X-Client-Token (сессия клиента).
 """
 import json
 import os
@@ -26,7 +30,7 @@ import boto3
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Staff-Token, X-Action, X-Doc-Id, X-Category-Id",
+    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Staff-Token, X-Client-Token, X-Action, X-Doc-Id, X-Category-Id, X-Client-Id",
 }
 SCHEMA    = os.environ.get("MAIN_DB_SCHEMA", "t_p21475602_quantum_innovation_l")
 AWS_KEY   = os.environ.get("AWS_ACCESS_KEY_ID", "")
@@ -56,7 +60,7 @@ def err(msg, status=400):
 
 
 def get_role(cur, headers: dict):
-    token = headers.get("x-staff-token") or headers.get("X-Staff-Token") or ""
+    token = headers.get("x-staff-token") or ""
     if not token:
         return None
     cur.execute(f"""
@@ -76,55 +80,70 @@ def check_owner(cur, headers: dict) -> bool:
     return get_role(cur, headers) == "owner"
 
 
+def get_client_id_by_token(cur, token: str):
+    if not token:
+        return None
+    cur.execute(f"""
+        SELECT c.id FROM {SCHEMA}.client_sessions cs
+        JOIN {SCHEMA}.clients c ON lower(c.email) = lower(cs.email)
+        WHERE cs.token=%s AND cs.expires_at > NOW()
+    """, (token,))
+    row = cur.fetchone()
+    return row[0] if row else None
+
+
 def handler(event: dict, context) -> dict:
-    """Обработчик документов и категорий документов."""
+    """Обработчик приватных документов клиентов и категорий-папок."""
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
     headers = {k.lower(): v for k, v in (event.get("headers") or {}).items()}
-    action = headers.get("x-action", "list")
+    action = headers.get("x-action", "")
 
     conn = get_conn()
     cur = conn.cursor()
 
     try:
-        # ── list: публичный список видимых документов ────────────
-        if action == "list":
-            cur.execute(f"""
-                SELECT id, title, description, category, file_url, file_name, file_size_kb, sort_order
-                FROM {SCHEMA}.documents
-                WHERE is_visible = true
-                ORDER BY sort_order, id
-            """)
-            docs = [
-                {
-                    "id": r[0], "title": r[1], "description": r[2],
-                    "category": r[3], "file_url": r[4], "file_name": r[5],
-                    "file_size_kb": r[6], "sort_order": r[7],
-                }
-                for r in cur.fetchall()
-            ]
-            return ok({"documents": docs})
-
-        # ── list-all: все документы для админки ───────────────────
-        if action == "list-all":
+        # ── list-for-client: документы клиента (для сотрудника) ───
+        if action == "list-for-client":
             if not check_admin(cur, headers):
                 return err("Unauthorized", 401)
+            client_id = headers.get("x-client-id", "")
+            if not client_id:
+                return err("X-Client-Id required")
             cur.execute(f"""
-                SELECT id, title, description, category, file_url, file_name, file_size_kb, sort_order, is_visible
-                FROM {SCHEMA}.documents ORDER BY sort_order, id
-            """)
+                SELECT id, title, description, category, file_url, file_name, file_size_kb, sort_order, created_at
+                FROM {SCHEMA}.documents WHERE client_id=%s ORDER BY sort_order, id
+            """, (client_id,))
             docs = [
                 {
-                    "id": r[0], "title": r[1], "description": r[2],
-                    "category": r[3], "file_url": r[4], "file_name": r[5],
-                    "file_size_kb": r[6], "sort_order": r[7], "is_visible": r[8],
+                    "id": r[0], "title": r[1], "description": r[2], "category": r[3],
+                    "file_url": r[4], "file_name": r[5], "file_size_kb": r[6],
+                    "sort_order": r[7], "created_at": str(r[8]),
                 }
                 for r in cur.fetchall()
             ]
             return ok({"documents": docs})
 
-        # ── list-categories: список категорий (публично) ─────────
+        # ── list-mine: собственные документы клиента ──────────────
+        if action == "list-mine":
+            client_id = get_client_id_by_token(cur, headers.get("x-client-token", ""))
+            if not client_id:
+                return err("Unauthorized", 401)
+            cur.execute(f"""
+                SELECT id, title, description, category, file_url, file_name, file_size_kb, created_at
+                FROM {SCHEMA}.documents WHERE client_id=%s ORDER BY sort_order, id
+            """, (client_id,))
+            docs = [
+                {
+                    "id": r[0], "title": r[1], "description": r[2], "category": r[3],
+                    "file_url": r[4], "file_name": r[5], "file_size_kb": r[6], "created_at": str(r[7]),
+                }
+                for r in cur.fetchall()
+            ]
+            return ok({"documents": docs})
+
+        # ── list-categories: список категорий-папок ───────────────
         if action == "list-categories":
             cur.execute(f"""
                 SELECT id, key, label, icon, sort_order
@@ -201,11 +220,14 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"ok": True})
 
-        # ── upload: загрузить файл + создать запись ───────────────
+        # ── upload: загрузить файл для конкретного клиента ───────
         if action == "upload":
             if not check_admin(cur, headers):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
+            client_id = body.get("client_id")
+            if not client_id:
+                return err("client_id required")
 
             title       = body.get("title", "Документ")
             description = body.get("description", "")
@@ -233,11 +255,11 @@ def handler(event: dict, context) -> dict:
 
             cur.execute(f"""
                 INSERT INTO {SCHEMA}.documents
-                  (title, description, category, file_url, file_name, file_size_kb, sort_order)
+                  (title, description, category, file_url, file_name, file_size_kb, sort_order, client_id, is_visible)
                 VALUES (%s, %s, %s, %s, %s, %s,
-                  (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM {SCHEMA}.documents))
+                  (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM {SCHEMA}.documents WHERE client_id=%s), %s, FALSE)
                 RETURNING id
-            """, (title, description, category, file_url, file_name, file_size))
+            """, (title, description, category, file_url, file_name, file_size, client_id, client_id))
             new_id = cur.fetchone()[0]
             conn.commit()
             return ok({"id": new_id, "file_url": file_url, "ok": True}, 201)
@@ -263,10 +285,9 @@ def handler(event: dict, context) -> dict:
                 return err("id required")
             cur.execute(f"""
                 UPDATE {SCHEMA}.documents
-                SET title=%s, description=%s, category=%s, is_visible=%s, updated_at=NOW()
+                SET title=%s, description=%s, category=%s, updated_at=NOW()
                 WHERE id=%s
-            """, (body.get("title"), body.get("description"),
-                  body.get("category"), body.get("is_visible", True), doc_id))
+            """, (body.get("title"), body.get("description"), body.get("category"), doc_id))
             conn.commit()
             return ok({"ok": True})
 

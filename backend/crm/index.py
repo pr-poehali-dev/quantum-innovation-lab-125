@@ -1,24 +1,36 @@
 """
-CRM для закрытой админки: заявки, клиенты, сделки, этапы, история.
+CRM для закрытой админки: заявки, клиенты, сделки (партии), лоты, этапы, история, логистика.
 Требует валидный X-Staff-Token (сессия сотрудника) на все действия.
 Роутинг через заголовок X-Action.
+
+Модель данных:
+  deals (партия/заказ) — status: 'draft' (черновик, ещё собирается клиентом) | 'submitted' (отправлена на согласование, видна в канбане)
+  deal_lots (лоты) — позиции внутри партии: сорт, обжарка, упаковка, вес, цвет, объём, сумма
+  logistics_data (jsonb на deals) — данные доставки по настраиваемым полям (logistics_fields)
 
 X-Action значения:
   list-leads         — GET список новых заявок (leads)
   list-clients       — GET список клиентов с их сделками
-  get-client         — GET карточка клиента (X-Client-Id) со сделками, историей
+  get-client         — GET карточка клиента (X-Client-Id) со сделками, историей, документами
   create-client      — POST создать клиента
   update-client      — POST обновить данные клиента
   create-deal        — POST создать сделку (из заявки или вручную)
-  list-deals         — GET список всех сделок с данными клиента (для канбана)
-  update-deal-stage  — POST изменить этап сделки (+ запись в историю)
-  update-deal        — POST обновить бренд/объём/сумму сделки
+  list-deals         — GET список сделок со статусом submitted (для канбана), с лотами
+  update-deal-stage  — POST изменить этап сделки (+ запись в историю, + уведомление клиенту)
+  update-deal        — POST обновить бренд/объём/сумму/логистику сделки
+  submit-deal        — POST перевести сделку из draft в submitted (менеджер утверждает от лица клиента)
   assign-deal        — POST закрепить сотрудника за сделкой: deal_id, staff_id (или null — снять)
+  list-lots          — GET список лотов сделки: X-Deal-Id
+  save-lot           — POST создать/обновить лот
+  delete-lot         — POST удалить лот: id
   list-stages        — GET список этапов
   create-stage       — POST создать этап
-  update-stage       — POST переименовать/изменить порядок и цвет этапа
+  update-stage       — POST переименовать/изменить порядок, цвет, процент готовности этапа
   delete-stage       — POST скрыть этап (архивировать, если не используется в сделках)
   list-assignable    — GET список сотрудников, которым можно назначить сделку (не support)
+  list-logistics-fields   — GET список настраиваемых полей логистики
+  save-logistics-field    — POST создать/обновить поле логистики
+  delete-logistics-field  — POST удалить поле логистики: id
 """
 import json
 import os
@@ -27,7 +39,7 @@ import psycopg2
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Action, X-Staff-Token, X-Client-Id",
+    "Access-Control-Allow-Headers": "Content-Type, X-Action, X-Staff-Token, X-Client-Id, X-Deal-Id",
 }
 SCHEMA = "t_p21475602_quantum_innovation_l"
 
@@ -59,8 +71,27 @@ def get_staff(cur, token: str):
     return {"id": row[0], "email": row[1], "name": row[2], "is_owner": row[3], "role": row[4]}
 
 
+def fetch_lots(cur, deal_id):
+    cur.execute(f"""
+        SELECT l.id, l.lot_number, l.origin_id, co.label, l.roast, l.packaging, l.weight_format,
+               l.color, l.volume, l.amount, l.note
+        FROM {SCHEMA}.deal_lots l
+        LEFT JOIN {SCHEMA}.calc_origins_v2 co ON co.id = l.origin_id
+        WHERE l.deal_id=%s ORDER BY l.lot_number
+    """, (deal_id,))
+    return [
+        {
+            "id": r[0], "lot_number": r[1], "origin_id": r[2], "origin_label": r[3],
+            "roast": r[4], "packaging": r[5], "weight_format": r[6], "color": r[7],
+            "volume": float(r[8]) if r[8] is not None else None,
+            "amount": float(r[9]) if r[9] is not None else None, "note": r[10],
+        }
+        for r in cur.fetchall()
+    ]
+
+
 def handler(event: dict, context) -> dict:
-    """Обработчик CRM: заявки, клиенты, сделки, этапы."""
+    """Обработчик CRM: заявки, клиенты, сделки, лоты, этапы, логистика."""
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
@@ -102,7 +133,7 @@ def handler(event: dict, context) -> dict:
             ]
             return ok({"leads": leads})
 
-        # ── list-deals ────────────────────────────────────────────
+        # ── list-deals: только submitted — черновики клиента не мешают канбану ──
         if action == "list-deals":
             cur.execute(f"""
                 SELECT d.id, d.brand, d.volume, d.amount, d.stage_id, ds.name, ds.color, ds.sort_order,
@@ -112,8 +143,10 @@ def handler(event: dict, context) -> dict:
                 JOIN {SCHEMA}.deal_stages ds ON ds.id = d.stage_id
                 JOIN {SCHEMA}.clients c ON c.id = d.client_id
                 LEFT JOIN {SCHEMA}.staff_users st ON st.id = d.assigned_to
+                WHERE d.status = 'submitted'
                 ORDER BY d.updated_at DESC LIMIT 500
             """)
+            rows = cur.fetchall()
             deals = [
                 {
                     "id": r[0], "brand": r[1], "volume": float(r[2]) if r[2] else None,
@@ -123,8 +156,18 @@ def handler(event: dict, context) -> dict:
                     "assigned_to": r[10], "assigned_name": r[11],
                     "client_id": r[12], "client_name": r[13], "client_phone": r[14], "client_city": r[15],
                 }
-                for r in cur.fetchall()
+                for r in rows
             ]
+            for d in deals:
+                d["lots_count"] = None
+            if deals:
+                ids = tuple(d["id"] for d in deals)
+                cur.execute(f"""
+                    SELECT deal_id, COUNT(*) FROM {SCHEMA}.deal_lots WHERE deal_id IN %s GROUP BY deal_id
+                """, (ids,))
+                counts = {r[0]: r[1] for r in cur.fetchall()}
+                for d in deals:
+                    d["lots_count"] = counts.get(d["id"], 0)
             return ok({"deals": deals})
 
         # ── list-clients ──────────────────────────────────────────
@@ -134,7 +177,7 @@ def handler(event: dict, context) -> dict:
                        COUNT(d.id) AS deals_count,
                        COALESCE(SUM(d.amount), 0) AS total_amount
                 FROM {SCHEMA}.clients c
-                LEFT JOIN {SCHEMA}.deals d ON d.client_id = c.id
+                LEFT JOIN {SCHEMA}.deals d ON d.client_id = c.id AND d.status = 'submitted'
                 GROUP BY c.id ORDER BY c.created_at DESC LIMIT 300
             """)
             clients = [
@@ -164,7 +207,7 @@ def handler(event: dict, context) -> dict:
 
             cur.execute(f"""
                 SELECT d.id, d.brand, d.volume, d.amount, d.stage_id, s.name, s.color, d.created_at, d.updated_at,
-                       d.assigned_to, st.name
+                       d.assigned_to, st.name, d.status, d.logistics_data
                 FROM {SCHEMA}.deals d
                 JOIN {SCHEMA}.deal_stages s ON s.id = d.stage_id
                 LEFT JOIN {SCHEMA}.staff_users st ON st.id = d.assigned_to
@@ -189,9 +232,24 @@ def handler(event: dict, context) -> dict:
                     "stage_name": r[5], "stage_color": r[6],
                     "created_at": str(r[7]), "updated_at": str(r[8]), "history": history,
                     "assigned_to": r[9], "assigned_name": r[10],
+                    "status": r[11], "logistics_data": r[12] or {},
+                    "lots": fetch_lots(cur, deal_id),
                 })
 
-            return ok({"client": client, "deals": deals})
+            cur.execute(f"""
+                SELECT id, title, description, category, file_url, file_name, file_size_kb, sort_order, created_at
+                FROM {SCHEMA}.documents WHERE client_id=%s ORDER BY sort_order, id
+            """, (client_id,))
+            documents = [
+                {
+                    "id": r[0], "title": r[1], "description": r[2], "category": r[3],
+                    "file_url": r[4], "file_name": r[5], "file_size_kb": r[6],
+                    "sort_order": r[7], "created_at": str(r[8]),
+                }
+                for r in cur.fetchall()
+            ]
+
+            return ok({"client": client, "deals": deals, "documents": documents})
 
         # ── create-client ─────────────────────────────────────────
         if action == "create-client":
@@ -226,7 +284,6 @@ def handler(event: dict, context) -> dict:
             client_id = body.get("client_id")
             lead_id = body.get("lead_id")
 
-            # Если сделка создаётся из заявки — можно сразу создать клиента
             if not client_id and lead_id:
                 cur.execute(f"SELECT name, phone, email, city FROM {SCHEMA}.leads WHERE id=%s", (lead_id,))
                 lead_row = cur.fetchone()
@@ -246,8 +303,8 @@ def handler(event: dict, context) -> dict:
             stage_id = first_stage[0]
 
             cur.execute(f"""
-                INSERT INTO {SCHEMA}.deals (client_id, lead_id, brand, volume, amount, stage_id, created_by)
-                VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
+                INSERT INTO {SCHEMA}.deals (client_id, lead_id, brand, volume, amount, stage_id, created_by, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, 'submitted') RETURNING id
             """, (client_id, lead_id, body.get("brand"), body.get("volume"), body.get("amount"), stage_id, staff["id"]))
             deal_id = cur.fetchone()[0]
 
@@ -266,11 +323,11 @@ def handler(event: dict, context) -> dict:
             if not deal_id or not new_stage_id:
                 return err("deal_id and stage_id required")
 
-            cur.execute(f"SELECT stage_id FROM {SCHEMA}.deals WHERE id=%s", (deal_id,))
+            cur.execute(f"SELECT stage_id, client_id, brand FROM {SCHEMA}.deals WHERE id=%s", (deal_id,))
             row = cur.fetchone()
             if not row:
                 return err("Сделка не найдена", 404)
-            old_stage_id = row[0]
+            old_stage_id, client_id, brand = row
 
             cur.execute(f"""
                 UPDATE {SCHEMA}.deals SET stage_id=%s, updated_at=NOW() WHERE id=%s
@@ -279,6 +336,16 @@ def handler(event: dict, context) -> dict:
                 INSERT INTO {SCHEMA}.deal_stage_log (deal_id, from_stage_id, to_stage_id, staff_id, staff_name)
                 VALUES (%s, %s, %s, %s, %s)
             """, (deal_id, old_stage_id, new_stage_id, staff["id"], staff["name"]))
+
+            cur.execute(f"SELECT name FROM {SCHEMA}.deal_stages WHERE id=%s", (new_stage_id,))
+            stage_name_row = cur.fetchone()
+            stage_name = stage_name_row[0] if stage_name_row else ""
+            title = f"Партия «{brand}»" if brand else f"Партия №{deal_id}"
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.client_notifications (client_id, type, title, body, deal_id)
+                VALUES (%s, 'stage_change', %s, %s, %s)
+            """, (client_id, title, f"Новый этап: {stage_name}", deal_id))
+
             conn.commit()
             return ok({"ok": True})
 
@@ -289,8 +356,24 @@ def handler(event: dict, context) -> dict:
             if not deal_id:
                 return err("id required")
             cur.execute(f"""
-                UPDATE {SCHEMA}.deals SET brand=%s, volume=%s, amount=%s, updated_at=NOW() WHERE id=%s
-            """, (body.get("brand"), body.get("volume"), body.get("amount"), deal_id))
+                UPDATE {SCHEMA}.deals SET brand=%s, volume=%s, amount=%s,
+                    logistics_data=%s, updated_at=NOW()
+                WHERE id=%s
+            """, (
+                body.get("brand"), body.get("volume"), body.get("amount"),
+                json.dumps(body.get("logistics_data")) if body.get("logistics_data") is not None else "{}",
+                deal_id,
+            ))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── submit-deal: менеджер переводит черновик клиента в работу ──
+        if action == "submit-deal":
+            body = json.loads(event.get("body") or "{}")
+            deal_id = body.get("id")
+            if not deal_id:
+                return err("id required")
+            cur.execute(f"UPDATE {SCHEMA}.deals SET status='submitted', updated_at=NOW() WHERE id=%s", (deal_id,))
             conn.commit()
             return ok({"ok": True})
 
@@ -307,6 +390,58 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"ok": True})
 
+        # ── list-lots ─────────────────────────────────────────────
+        if action == "list-lots":
+            deal_id = headers.get("x-deal-id", "")
+            if not deal_id:
+                return err("X-Deal-Id required")
+            return ok({"lots": fetch_lots(cur, deal_id)})
+
+        # ── save-lot ──────────────────────────────────────────────
+        if action == "save-lot":
+            body = json.loads(event.get("body") or "{}")
+            lot_id = body.get("id")
+            deal_id = body.get("deal_id")
+            if not lot_id and not deal_id:
+                return err("deal_id required for new lot")
+            if lot_id:
+                cur.execute(f"""
+                    UPDATE {SCHEMA}.deal_lots
+                    SET origin_id=%s, roast=%s, packaging=%s, weight_format=%s, color=%s,
+                        volume=%s, amount=%s, note=%s, updated_at=NOW()
+                    WHERE id=%s
+                """, (
+                    body.get("origin_id"), body.get("roast"), body.get("packaging"), body.get("weight_format"),
+                    body.get("color"), body.get("volume"), body.get("amount"), body.get("note", ""), lot_id,
+                ))
+            else:
+                cur.execute(f"SELECT COALESCE(MAX(lot_number),0)+1 FROM {SCHEMA}.deal_lots WHERE deal_id=%s", (deal_id,))
+                lot_number = cur.fetchone()[0]
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.deal_lots
+                        (deal_id, lot_number, origin_id, roast, packaging, weight_format, color, volume, amount, note)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                """, (
+                    deal_id, lot_number, body.get("origin_id"), body.get("roast"), body.get("packaging"),
+                    body.get("weight_format"), body.get("color"), body.get("volume"), body.get("amount"), body.get("note", ""),
+                ))
+                lot_id = cur.fetchone()[0]
+            conn.commit()
+            return ok({"ok": True, "id": lot_id}, 201 if not body.get("id") else 200)
+
+        # ── delete-lot ────────────────────────────────────────────
+        if action == "delete-lot":
+            body = json.loads(event.get("body") or "{}")
+            lot_id = body.get("id")
+            if not lot_id:
+                return err("id required")
+            cur.execute(f"SELECT id FROM {SCHEMA}.deal_lots WHERE id=%s", (lot_id,))
+            if not cur.fetchone():
+                return err("Лот не найден", 404)
+            cur.execute(f"DELETE FROM {SCHEMA}.deal_lots WHERE id=%s", (lot_id,))
+            conn.commit()
+            return ok({"ok": True})
+
         # ── list-assignable ───────────────────────────────────────
         if action == "list-assignable":
             cur.execute(f"""
@@ -318,8 +453,8 @@ def handler(event: dict, context) -> dict:
 
         # ── list-stages ───────────────────────────────────────────
         if action == "list-stages":
-            cur.execute(f"SELECT id, name, sort_order, color FROM {SCHEMA}.deal_stages ORDER BY sort_order")
-            stages = [{"id": r[0], "name": r[1], "sort_order": r[2], "color": r[3]} for r in cur.fetchall()]
+            cur.execute(f"SELECT id, name, sort_order, color, progress_percent FROM {SCHEMA}.deal_stages ORDER BY sort_order")
+            stages = [{"id": r[0], "name": r[1], "sort_order": r[2], "color": r[3], "progress_percent": r[4]} for r in cur.fetchall()]
             return ok({"stages": stages})
 
         # ── create-stage ──────────────────────────────────────────
@@ -343,9 +478,10 @@ def handler(event: dict, context) -> dict:
             stage_id = body.get("id")
             if not stage_id:
                 return err("id required")
+            progress = body.get("progress_percent")
             cur.execute(f"""
-                UPDATE {SCHEMA}.deal_stages SET name=%s, sort_order=%s, color=%s WHERE id=%s
-            """, (body.get("name"), body.get("sort_order"), body.get("color"), stage_id))
+                UPDATE {SCHEMA}.deal_stages SET name=%s, sort_order=%s, color=%s, progress_percent=%s WHERE id=%s
+            """, (body.get("name"), body.get("sort_order"), body.get("color"), progress, stage_id))
             conn.commit()
             return ok({"ok": True})
 
@@ -360,6 +496,52 @@ def handler(event: dict, context) -> dict:
             if in_use > 0:
                 return err(f"Этап используется в {in_use} сделках — сначала перенесите их на другой этап")
             cur.execute(f"DELETE FROM {SCHEMA}.deal_stages WHERE id=%s", (stage_id,))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── list-logistics-fields ─────────────────────────────────
+        if action == "list-logistics-fields":
+            cur.execute(f"""
+                SELECT id, key, label, field_type, required, sort_order
+                FROM {SCHEMA}.logistics_fields ORDER BY sort_order, id
+            """)
+            fields = [
+                {"id": r[0], "key": r[1], "label": r[2], "field_type": r[3], "required": r[4], "sort_order": r[5]}
+                for r in cur.fetchall()
+            ]
+            return ok({"fields": fields})
+
+        # ── save-logistics-field ──────────────────────────────────
+        if action == "save-logistics-field":
+            body = json.loads(event.get("body") or "{}")
+            field_id = body.get("id")
+            key = (body.get("key") or "").strip().lower().replace(" ", "_")
+            label = (body.get("label") or "").strip()
+            if not key or not label:
+                return err("key and label required")
+            if field_id:
+                cur.execute(f"""
+                    UPDATE {SCHEMA}.logistics_fields
+                    SET key=%s, label=%s, field_type=%s, required=%s, sort_order=%s
+                    WHERE id=%s
+                """, (key, label, body.get("field_type", "text"), body.get("required", False), body.get("sort_order", 0), field_id))
+            else:
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.logistics_fields (key, label, field_type, required, sort_order)
+                    VALUES (%s, %s, %s, %s, (SELECT COALESCE(MAX(sort_order),0)+1 FROM {SCHEMA}.logistics_fields))
+                    RETURNING id
+                """, (key, label, body.get("field_type", "text"), body.get("required", False)))
+                field_id = cur.fetchone()[0]
+            conn.commit()
+            return ok({"ok": True, "id": field_id}, 201 if not body.get("id") else 200)
+
+        # ── delete-logistics-field ────────────────────────────────
+        if action == "delete-logistics-field":
+            body = json.loads(event.get("body") or "{}")
+            field_id = body.get("id")
+            if not field_id:
+                return err("id required")
+            cur.execute(f"DELETE FROM {SCHEMA}.logistics_fields WHERE id=%s", (field_id,))
             conn.commit()
             return ok({"ok": True})
 

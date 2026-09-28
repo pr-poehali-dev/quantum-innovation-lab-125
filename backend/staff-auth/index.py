@@ -35,8 +35,6 @@ CORS = {
 }
 SCHEMA = "t_p21475602_quantum_innovation_l"
 UNISENDER_KEY = os.environ.get("UNISENDER_API_KEY", "")
-SENDER_EMAIL = "marketing1@aromateacoffee.ru"
-SENDER_NAME = "КонтрактКофе"
 
 
 def get_conn():
@@ -78,15 +76,24 @@ def get_or_create_list_id(cur, conn) -> str:
     return list_id
 
 
+def get_sender(cur):
+    cur.execute(f"SELECT key, value FROM {SCHEMA}.site_settings WHERE key IN ('email_sender_name','email_sender_email')")
+    rows = dict(cur.fetchall())
+    return rows.get("email_sender_name", "КонтрактКофе"), rows.get("email_sender_email", "")
+
+
 def send_email(cur, conn, to_email: str, subject: str, html: str):
     if not UNISENDER_KEY:
         return
     try:
+        sender_name, sender_email = get_sender(cur)
+        if not sender_email:
+            return
         list_id = get_or_create_list_id(cur, conn)
         unisender_call("sendEmail", {
             "email": to_email,
-            "sender_name": SENDER_NAME,
-            "sender_email": SENDER_EMAIL,
+            "sender_name": sender_name,
+            "sender_email": sender_email,
             "subject": subject,
             "body": html,
             "list_id": list_id,

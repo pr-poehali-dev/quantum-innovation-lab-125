@@ -7,18 +7,19 @@ const POLL_MS = 5000;
 
 interface Message {
   id: number;
-  sender_type: "client" | "staff";
+  sender_type: "client" | "guest" | "staff";
   staff_name: string | null;
   text: string;
   created_at: string;
 }
 
 interface Props {
-  clientId: number;
+  clientId?: number;
+  guestId?: number;
   height?: number;
 }
 
-const StaffChatPanel = ({ clientId, height = 380 }: Props) => {
+const StaffChatPanel = ({ clientId, guestId, height = 380 }: Props) => {
   const { token } = useStaffAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
@@ -26,9 +27,11 @@ const StaffChatPanel = ({ clientId, height = 380 }: Props) => {
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const idHeader: Record<string, string> = clientId ? { "X-Client-Id": String(clientId) } : { "X-Guest-Id": String(guestId) };
+
   const load = () => {
     if (!token) return;
-    fetch(CHAT_URL, { headers: { "X-Action": "list", "X-Staff-Token": token, "X-Client-Id": String(clientId) } })
+    fetch(CHAT_URL, { headers: { "X-Action": "list", "X-Staff-Token": token, ...idHeader } })
       .then(r => r.json())
       .then(d => setMessages(d.messages || []))
       .catch(() => {})
@@ -40,7 +43,7 @@ const StaffChatPanel = ({ clientId, height = 380 }: Props) => {
     const interval = setInterval(load, POLL_MS);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, clientId]);
+  }, [token, clientId, guestId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -55,7 +58,7 @@ const StaffChatPanel = ({ clientId, height = 380 }: Props) => {
       await fetch(CHAT_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Action": "send", "X-Staff-Token": token },
-        body: JSON.stringify({ text, client_id: clientId }),
+        body: JSON.stringify({ text, client_id: clientId, guest_id: guestId }),
       });
       load();
     } finally {
@@ -103,7 +106,7 @@ const StaffChatPanel = ({ clientId, height = 380 }: Props) => {
           value={draft}
           onChange={e => setDraft(e.target.value)}
           onKeyDown={e => e.key === "Enter" && send()}
-          placeholder="Ответить клиенту…"
+          placeholder="Ответить…"
           className="flex-1 px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors"
         />
         <button onClick={send} disabled={sending || !draft.trim()}

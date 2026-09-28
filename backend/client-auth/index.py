@@ -2,15 +2,27 @@
 Вход клиента в личный кабинет по коду на email + управление партиями продукта.
 Роутинг через заголовок X-Action.
 
+Модель: Партия (product_batch, задаёт название клиент) → внутри Заказ (deal, статус draft/submitted)
+→ внутри Заказа Лоты (deal_lots — позиции: сорт, обжарка, упаковка, вес, цвет, объём).
+Пока deal.status='draft' — клиент может свободно редактировать/удалять лоты и логистику.
+После submit-deal заказ попадает в канбан менеджеров, лоты и логистику видно, но не редактируется клиентом.
+
 X-Action значения:
-  request-code   — POST отправить код на email клиента (если у него есть сделки)
-  verify-code    — POST проверить код → выдать токен сессии клиента
-  me             — GET текущий клиент, его партии (с заказами внутри) и этапы воронки
-  create-order   — POST создать заказ: если batch_id не передан — создаёт новую партию (batch_name обязателен),
-                    иначе добавляет повторный заказ в существующую партию.
-                    Параметры: batch_id?, batch_name?, origin_id, roast, packaging, weight_format, design, volume, amount, note
-  list-mockups   — GET список макетов дизайна партии: X-Batch-Id
-  upload-mockup  — POST клиент загружает макет (base64 → S3): batch_id, file_base64, file_name
+  request-code       — POST отправить код на email клиента (если у него есть сделки), код живёт 15 минут
+  verify-code        — POST проверить код → выдать токен сессии клиента
+  me                 — GET текущий клиент, его партии (с заказами и лотами внутри) и этапы воронки
+  create-batch       — POST создать новую партию: name
+  create-draft-deal  — POST создать новый заказ-черновик в партии: batch_id
+  save-lot           — POST создать/обновить лот заказа (только пока заказ в статусе draft):
+                        id?, deal_id, origin_id, roast, packaging, weight_format, color, volume, amount, note
+  delete-lot         — POST удалить лот (только пока заказ в статусе draft): id
+  update-logistics   — POST обновить данные логистики заказа: deal_id, logistics_data (объект)
+  submit-deal        — POST отправить заказ на согласование (нужен минимум 1 лот): deal_id
+  list-logistics-fields — GET список полей логистики для формы (публично, без авторизации)
+  list-mockups       — GET список макетов дизайна партии: X-Batch-Id
+  upload-mockup      — POST клиент загружает макет (base64 → S3): batch_id, file_base64, file_name
+  list-notifications — GET список уведомлений клиента (смена этапа, новые сообщения)
+  mark-notifications-read — POST отметить все уведомления прочитанными
 """
 import json
 import os
@@ -32,8 +44,6 @@ CORS = {
 }
 SCHEMA = "t_p21475602_quantum_innovation_l"
 UNISENDER_KEY = os.environ.get("UNISENDER_API_KEY", "")
-SENDER_EMAIL = "marketing1@aromateacoffee.ru"
-SENDER_NAME = "КонтрактКофе"
 AWS_KEY = os.environ.get("AWS_ACCESS_KEY_ID", "")
 AWS_SEC = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
 CDN_BASE = f"https://cdn.poehali.dev/projects/{AWS_KEY}/bucket"
@@ -78,6 +88,12 @@ def get_client_by_token(cur, token: str):
     return {"id": crow[0], "name": crow[1], "phone": crow[2], "email": crow[3], "city": crow[4], "company": crow[5]}
 
 
+def get_sender(cur):
+    cur.execute(f"SELECT key, value FROM {SCHEMA}.site_settings WHERE key IN ('email_sender_name','email_sender_email')")
+    rows = dict(cur.fetchall())
+    return rows.get("email_sender_name", "КонтрактКофе"), rows.get("email_sender_email", "")
+
+
 def unisender_call(method: str, params: dict) -> dict:
     params = {**params, "api_key": UNISENDER_KEY, "format": "json"}
     data = urllib.parse.urlencode(params).encode("utf-8")
@@ -105,17 +121,54 @@ def send_email(cur, conn, to_email: str, subject: str, html: str):
     if not UNISENDER_KEY:
         return
     try:
+        sender_name, sender_email = get_sender(cur)
+        if not sender_email:
+            return
         list_id = get_or_create_list_id(cur, conn)
         unisender_call("sendEmail", {
             "email": to_email,
-            "sender_name": SENDER_NAME,
-            "sender_email": SENDER_EMAIL,
+            "sender_name": sender_name,
+            "sender_email": sender_email,
             "subject": subject,
             "body": html,
             "list_id": list_id,
         })
     except Exception:
         pass
+
+
+def fetch_lots(cur, deal_id):
+    cur.execute(f"""
+        SELECT l.id, l.lot_number, l.origin_id, co.label, l.roast, l.packaging, l.weight_format,
+               l.color, l.volume, l.amount, l.note
+        FROM {SCHEMA}.deal_lots l
+        LEFT JOIN {SCHEMA}.calc_origins_v2 co ON co.id = l.origin_id
+        WHERE l.deal_id=%s ORDER BY l.lot_number
+    """, (deal_id,))
+    return [
+        {
+            "id": r[0], "lot_number": r[1], "origin_id": r[2], "origin_label": r[3],
+            "roast": r[4], "packaging": r[5], "weight_format": r[6], "color": r[7],
+            "volume": float(r[8]) if r[8] is not None else None,
+            "amount": float(r[9]) if r[9] is not None else None, "note": r[10],
+        }
+        for r in cur.fetchall()
+    ]
+
+
+EMAIL_STYLE_WRAP = """
+<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:480px;margin:0 auto;background:#f7f5f2;padding:32px 0">
+  <div style="background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06)">
+    <div style="background:#1a1a1a;padding:28px 32px;">
+      <p style="margin:0;color:#ffffff;font-size:18px;font-weight:700;letter-spacing:0.5px">КОНТРАКТ КОФЕ</p>
+    </div>
+    <div style="padding:32px">{content}</div>
+    <div style="padding:20px 32px;background:#f7f5f2;border-top:1px solid #eee">
+      <p style="margin:0;color:#999;font-size:12px">Производство кофе под вашей торговой маркой</p>
+    </div>
+  </div>
+</div>
+"""
 
 
 def handler(event: dict, context) -> dict:
@@ -138,10 +191,9 @@ def handler(event: dict, context) -> dict:
             if not email:
                 return err("email required")
 
-            cur.execute(f"SELECT id FROM {SCHEMA}.clients WHERE lower(email)=%s", (email,))
+            cur.execute(f"SELECT id, name FROM {SCHEMA}.clients WHERE lower(email)=%s", (email,))
             client_row = cur.fetchone()
             if not client_row:
-                # Не раскрываем, что клиента нет — единый ответ
                 return ok({"ok": True})
 
             code = str(random.randint(100000, 999999))
@@ -151,11 +203,15 @@ def handler(event: dict, context) -> dict:
             """, (email, code, expires))
             conn.commit()
 
-            send_email(cur, conn, email, "Код входа в личный кабинет КонтрактКофе", f"""
-                <p>Ваш код для входа в личный кабинет:</p>
-                <p style="font-size:28px;font-weight:bold;letter-spacing:4px">{code}</p>
-                <p style="color:#888;font-size:12px">Код действует 15 минут.</p>
-            """)
+            content = f"""
+                <p style="margin:0 0 16px;color:#333;font-size:15px">Здравствуйте, {client_row[1]}!</p>
+                <p style="margin:0 0 20px;color:#333;font-size:15px">Ваш код для входа в личный кабинет:</p>
+                <div style="background:#f7f5f2;border-radius:12px;padding:20px;text-align:center;margin-bottom:20px">
+                    <span style="font-size:32px;font-weight:800;letter-spacing:6px;color:#1a1a1a">{code}</span>
+                </div>
+                <p style="margin:0;color:#999;font-size:13px">Код действует 15 минут. После истечения запросите новый код на странице входа.</p>
+            """
+            send_email(cur, conn, email, "Код входа в личный кабинет КонтрактКофе", EMAIL_STYLE_WRAP.format(content=content))
             return ok({"ok": True})
 
         # ── verify-code ───────────────────────────────────────────
@@ -175,7 +231,7 @@ def handler(event: dict, context) -> dict:
                 """, (email, code))
                 row = cur.fetchone()
                 if not row:
-                    return err("Неверный или истёкший код", 401)
+                    return err("Неверный или истёкший код — запросите новый", 401)
 
                 cur.execute(f"UPDATE {SCHEMA}.client_login_codes SET used=TRUE WHERE id=%s", (row[0],))
 
@@ -202,89 +258,217 @@ def handler(event: dict, context) -> dict:
             for b in batch_rows:
                 batch_id = b[0]
                 cur.execute(f"""
-                    SELECT d.id, d.stage_id, s.name, s.color, s.sort_order, d.volume, d.amount, d.created_at,
-                           d.origin_id, co.label, d.roast, d.packaging, d.weight_format, d.design, d.note
+                    SELECT d.id, d.stage_id, s.name, s.color, s.progress_percent, d.volume, d.amount,
+                           d.created_at, d.status, d.logistics_data
                     FROM {SCHEMA}.deals d
-                    JOIN {SCHEMA}.deal_stages s ON s.id = d.stage_id
-                    LEFT JOIN {SCHEMA}.calc_origins co ON co.id = d.origin_id
+                    LEFT JOIN {SCHEMA}.deal_stages s ON s.id = d.stage_id
                     WHERE d.batch_id=%s ORDER BY d.created_at DESC
                 """, (batch_id,))
-                orders = [
-                    {
-                        "id": r[0], "stage_id": r[1], "stage_name": r[2], "stage_color": r[3], "stage_order": r[4],
+                deals = []
+                for r in cur.fetchall():
+                    deal_id = r[0]
+                    deals.append({
+                        "id": deal_id, "stage_id": r[1], "stage_name": r[2], "stage_color": r[3],
+                        "progress_percent": r[4],
                         "volume": float(r[5]) if r[5] else None, "amount": float(r[6]) if r[6] else None,
-                        "created_at": str(r[7]), "origin_id": r[8], "origin_label": r[9],
-                        "roast": r[10], "packaging": r[11], "weight_format": r[12], "design": r[13], "note": r[14],
-                    }
-                    for r in cur.fetchall()
-                ]
-                batches.append({"id": batch_id, "name": b[1], "created_at": str(b[2]), "orders": orders})
-
-            # Заказы без партии (созданы напрямую менеджером из заявки, ещё не привязаны)
-            cur.execute(f"""
-                SELECT d.id, d.brand, d.stage_id, s.name, s.color, s.sort_order, d.volume, d.amount, d.created_at
-                FROM {SCHEMA}.deals d
-                JOIN {SCHEMA}.deal_stages s ON s.id = d.stage_id
-                WHERE d.client_id=%s AND d.batch_id IS NULL ORDER BY d.created_at DESC
-            """, (client["id"],))
-            unassigned = [
-                {
-                    "id": r[0], "brand": r[1], "stage_id": r[2], "stage_name": r[3], "stage_color": r[4],
-                    "stage_order": r[5], "volume": float(r[6]) if r[6] else None,
-                    "amount": float(r[7]) if r[7] else None, "created_at": str(r[8]),
-                }
-                for r in cur.fetchall()
-            ]
+                        "created_at": str(r[7]), "status": r[8], "logistics_data": r[9] or {},
+                        "lots": fetch_lots(cur, deal_id),
+                    })
+                batches.append({"id": batch_id, "name": b[1], "created_at": str(b[2]), "deals": deals})
 
             cur.execute(f"SELECT id, name, sort_order, color FROM {SCHEMA}.deal_stages ORDER BY sort_order")
             all_stages = [{"id": r[0], "name": r[1], "sort_order": r[2], "color": r[3]} for r in cur.fetchall()]
 
-            return ok({"client": client, "batches": batches, "unassigned_orders": unassigned, "stages": all_stages})
+            cur.execute(f"""
+                SELECT COUNT(*) FROM {SCHEMA}.client_notifications WHERE client_id=%s AND is_read=FALSE
+            """, (client["id"],))
+            unread_count = cur.fetchone()[0]
 
-        # ── create-order ──────────────────────────────────────────
-        if action == "create-order":
+            return ok({"client": client, "batches": batches, "stages": all_stages, "unread_notifications": unread_count})
+
+        # ── create-batch ──────────────────────────────────────────
+        if action == "create-batch":
             client = get_client_by_token(cur, client_token)
             if not client:
                 return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            name = (body.get("name") or "").strip()
+            if not name:
+                return err("name required")
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.product_batches (client_id, name) VALUES (%s, %s) RETURNING id
+            """, (client["id"], name))
+            batch_id = cur.fetchone()[0]
+            conn.commit()
+            return ok({"ok": True, "batch_id": batch_id}, 201)
 
+        # ── create-draft-deal ─────────────────────────────────────
+        if action == "create-draft-deal":
+            client = get_client_by_token(cur, client_token)
+            if not client:
+                return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
             batch_id = body.get("batch_id")
-            batch_name = (body.get("batch_name") or "").strip()
-
             if not batch_id:
-                if not batch_name:
-                    return err("batch_name required for a new batch")
-                cur.execute(f"""
-                    INSERT INTO {SCHEMA}.product_batches (client_id, name) VALUES (%s, %s) RETURNING id
-                """, (client["id"], batch_name))
-                batch_id = cur.fetchone()[0]
-            else:
-                cur.execute(f"SELECT id FROM {SCHEMA}.product_batches WHERE id=%s AND client_id=%s", (batch_id, client["id"]))
-                if not cur.fetchone():
-                    return err("Партия не найдена", 404)
+                return err("batch_id required")
+            cur.execute(f"SELECT id FROM {SCHEMA}.product_batches WHERE id=%s AND client_id=%s", (batch_id, client["id"]))
+            if not cur.fetchone():
+                return err("Партия не найдена", 404)
 
             cur.execute(f"SELECT id FROM {SCHEMA}.deal_stages ORDER BY sort_order LIMIT 1")
             first_stage = cur.fetchone()
-            if not first_stage:
-                return err("Нет ни одного этапа сделки")
-            stage_id = first_stage[0]
+            stage_id = first_stage[0] if first_stage else None
 
             cur.execute(f"""
-                INSERT INTO {SCHEMA}.deals
-                    (client_id, batch_id, stage_id, origin_id, roast, packaging, weight_format, design, volume, amount, note)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
-            """, (
-                client["id"], batch_id, stage_id, body.get("origin_id"), body.get("roast"), body.get("packaging"),
-                body.get("weight_format"), body.get("design"), body.get("volume"), body.get("amount"), body.get("note", ""),
-            ))
+                INSERT INTO {SCHEMA}.deals (client_id, batch_id, stage_id, status)
+                VALUES (%s, %s, %s, 'draft') RETURNING id
+            """, (client["id"], batch_id, stage_id))
             deal_id = cur.fetchone()[0]
+            conn.commit()
+            return ok({"ok": True, "deal_id": deal_id}, 201)
 
+        # ── save-lot ──────────────────────────────────────────────
+        if action == "save-lot":
+            client = get_client_by_token(cur, client_token)
+            if not client:
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            lot_id = body.get("id")
+            deal_id = body.get("deal_id")
+
+            if lot_id:
+                cur.execute(f"""
+                    SELECT d.status FROM {SCHEMA}.deal_lots l
+                    JOIN {SCHEMA}.deals d ON d.id = l.deal_id
+                    WHERE l.id=%s AND d.client_id=%s
+                """, (lot_id, client["id"]))
+                row = cur.fetchone()
+                if not row:
+                    return err("Лот не найден", 404)
+                if row[0] != "draft":
+                    return err("Заказ уже отправлен на согласование — лоты менять нельзя")
+                cur.execute(f"""
+                    UPDATE {SCHEMA}.deal_lots
+                    SET origin_id=%s, roast=%s, packaging=%s, weight_format=%s, color=%s,
+                        volume=%s, amount=%s, note=%s, updated_at=NOW()
+                    WHERE id=%s
+                """, (
+                    body.get("origin_id"), body.get("roast"), body.get("packaging"), body.get("weight_format"),
+                    body.get("color"), body.get("volume"), body.get("amount"), body.get("note", ""), lot_id,
+                ))
+                conn.commit()
+                return ok({"ok": True, "id": lot_id})
+
+            if not deal_id:
+                return err("deal_id required")
+            cur.execute(f"SELECT status FROM {SCHEMA}.deals WHERE id=%s AND client_id=%s", (deal_id, client["id"]))
+            row = cur.fetchone()
+            if not row:
+                return err("Заказ не найден", 404)
+            if row[0] != "draft":
+                return err("Заказ уже отправлен на согласование — лоты менять нельзя")
+
+            cur.execute(f"SELECT COALESCE(MAX(lot_number),0)+1 FROM {SCHEMA}.deal_lots WHERE deal_id=%s", (deal_id,))
+            lot_number = cur.fetchone()[0]
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.deal_lots
+                    (deal_id, lot_number, origin_id, roast, packaging, weight_format, color, volume, amount, note)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+            """, (
+                deal_id, lot_number, body.get("origin_id"), body.get("roast"), body.get("packaging"),
+                body.get("weight_format"), body.get("color"), body.get("volume"), body.get("amount"), body.get("note", ""),
+            ))
+            lot_id = cur.fetchone()[0]
+            conn.commit()
+            return ok({"ok": True, "id": lot_id, "lot_number": lot_number}, 201)
+
+        # ── delete-lot ────────────────────────────────────────────
+        if action == "delete-lot":
+            client = get_client_by_token(cur, client_token)
+            if not client:
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            lot_id = body.get("id")
+            if not lot_id:
+                return err("id required")
+            cur.execute(f"""
+                SELECT d.status FROM {SCHEMA}.deal_lots l
+                JOIN {SCHEMA}.deals d ON d.id = l.deal_id
+                WHERE l.id=%s AND d.client_id=%s
+            """, (lot_id, client["id"]))
+            row = cur.fetchone()
+            if not row:
+                return err("Лот не найден", 404)
+            if row[0] != "draft":
+                return err("Заказ уже отправлен на согласование — лоты менять нельзя")
+            cur.execute(f"DELETE FROM {SCHEMA}.deal_lots WHERE id=%s", (lot_id,))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── update-logistics ──────────────────────────────────────
+        if action == "update-logistics":
+            client = get_client_by_token(cur, client_token)
+            if not client:
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            deal_id = body.get("deal_id")
+            if not deal_id:
+                return err("deal_id required")
+            cur.execute(f"SELECT id FROM {SCHEMA}.deals WHERE id=%s AND client_id=%s", (deal_id, client["id"]))
+            if not cur.fetchone():
+                return err("Заказ не найден", 404)
+            cur.execute(f"""
+                UPDATE {SCHEMA}.deals SET logistics_data=%s, updated_at=NOW() WHERE id=%s
+            """, (json.dumps(body.get("logistics_data") or {}), deal_id))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── submit-deal ───────────────────────────────────────────
+        if action == "submit-deal":
+            client = get_client_by_token(cur, client_token)
+            if not client:
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            deal_id = body.get("deal_id")
+            if not deal_id:
+                return err("deal_id required")
+            cur.execute(f"SELECT status, stage_id FROM {SCHEMA}.deals WHERE id=%s AND client_id=%s", (deal_id, client["id"]))
+            row = cur.fetchone()
+            if not row:
+                return err("Заказ не найден", 404)
+            if row[0] == "submitted":
+                return err("Заказ уже отправлен на согласование")
+            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.deal_lots WHERE deal_id=%s", (deal_id,))
+            if cur.fetchone()[0] == 0:
+                return err("Добавьте хотя бы один лот перед отправкой")
+
+            stage_id = row[1]
+            if not stage_id:
+                cur.execute(f"SELECT id FROM {SCHEMA}.deal_stages ORDER BY sort_order LIMIT 1")
+                first_stage = cur.fetchone()
+                stage_id = first_stage[0] if first_stage else None
+
+            cur.execute(f"""
+                UPDATE {SCHEMA}.deals SET status='submitted', stage_id=%s, updated_at=NOW() WHERE id=%s
+            """, (stage_id, deal_id))
             cur.execute(f"""
                 INSERT INTO {SCHEMA}.deal_stage_log (deal_id, from_stage_id, to_stage_id, staff_id, staff_name)
                 VALUES (%s, NULL, %s, NULL, %s)
-            """, (deal_id, stage_id, f"Заказ от клиента ({client['name']})"))
+            """, (deal_id, stage_id, f"Отправлено клиентом на согласование ({client['name']})"))
             conn.commit()
-            return ok({"ok": True, "deal_id": deal_id, "batch_id": batch_id}, 201)
+            return ok({"ok": True})
+
+        # ── list-logistics-fields ─────────────────────────────────
+        if action == "list-logistics-fields":
+            cur.execute(f"""
+                SELECT id, key, label, field_type, required, sort_order
+                FROM {SCHEMA}.logistics_fields ORDER BY sort_order, id
+            """)
+            fields = [
+                {"id": r[0], "key": r[1], "label": r[2], "field_type": r[3], "required": r[4], "sort_order": r[5]}
+                for r in cur.fetchall()
+            ]
+            return ok({"fields": fields})
 
         # ── list-mockups ──────────────────────────────────────────
         if action == "list-mockups":
@@ -342,6 +526,35 @@ def handler(event: dict, context) -> dict:
             new_id = cur.fetchone()[0]
             conn.commit()
             return ok({"id": new_id, "file_url": file_url, "ok": True}, 201)
+
+        # ── list-notifications ────────────────────────────────────
+        if action == "list-notifications":
+            client = get_client_by_token(cur, client_token)
+            if not client:
+                return err("Unauthorized", 401)
+            cur.execute(f"""
+                SELECT id, type, title, body, deal_id, is_read, created_at
+                FROM {SCHEMA}.client_notifications WHERE client_id=%s ORDER BY created_at DESC LIMIT 50
+            """, (client["id"],))
+            notifications = [
+                {
+                    "id": r[0], "type": r[1], "title": r[2], "body": r[3],
+                    "deal_id": r[4], "is_read": r[5], "created_at": str(r[6]),
+                }
+                for r in cur.fetchall()
+            ]
+            return ok({"notifications": notifications})
+
+        # ── mark-notifications-read ───────────────────────────────
+        if action == "mark-notifications-read":
+            client = get_client_by_token(cur, client_token)
+            if not client:
+                return err("Unauthorized", 401)
+            cur.execute(f"""
+                UPDATE {SCHEMA}.client_notifications SET is_read=TRUE WHERE client_id=%s AND is_read=FALSE
+            """, (client["id"],))
+            conn.commit()
+            return ok({"ok": True})
 
         return err(f"Unknown action: {action}", 400)
     finally:

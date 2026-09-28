@@ -17,11 +17,23 @@ const NAV_ITEMS = [
 const FALLBACK_LOGO = fallbackLogo;
 const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
 
+function formatRateDate(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+  if (isToday) return "сегодня";
+  if (isYesterday) return "вчера";
+  return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
+}
+
 const Header = () => {
   const [scrolled,      setScrolled]      = useState(false);
   const [activeSection, setActiveSection] = useState("");
   const [logoUrl,       setLogoUrl]       = useState(FALLBACK_LOGO);
   const [usdRate,       setUsdRate]       = useState<number | null>(null);
+  const [usdRateDate,   setUsdRateDate]   = useState<string | null>(null);
   const [phoneOpen,     setPhoneOpen]     = useState(false);
   const phoneRef = useRef<HTMLDivElement>(null);
   const { openModal } = useLeadModal();
@@ -49,7 +61,10 @@ const Header = () => {
       .catch(() => {});
     fetch(ABOUT_URL, { headers: { "X-Action": "get-rate" } })
       .then(r => r.json())
-      .then(d => { if (d.rate) setUsdRate(d.rate); })
+      .then(d => {
+        if (d.rate) setUsdRate(d.rate);
+        if (d.updated_at) setUsdRateDate(d.updated_at);
+      })
       .catch(() => {});
   }, []);
 
@@ -127,9 +142,15 @@ const Header = () => {
 
           {/* Курс доллара */}
           {usdRate !== null && (
-            <div className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full border border-black/10 bg-black/3 flex-shrink-0">
+            <div className="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full border border-black/10 bg-black/3 flex-shrink-0" title={usdRateDate ? `Обновлено ${formatRateDate(usdRateDate)}` : undefined}>
               <span className="text-[11px] font-mono text-black/35">USD</span>
               <span className="text-[12px] font-mono font-semibold text-black/70">{usdRate.toFixed(2)} ₽</span>
+              {usdRateDate && (
+                <span className="text-[10px] font-mono text-green-600 flex items-center gap-0.5 pl-1 border-l border-black/10">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                  {formatRateDate(usdRateDate)}
+                </span>
+              )}
             </div>
           )}
 
@@ -192,7 +213,7 @@ const Header = () => {
               </Link>
             )}
 
-            <button onClick={openModal}
+            <button onClick={() => openModal("header")}
               className="bg-primary text-white px-4 py-1.5 rounded-full text-[13px] font-semibold hover:bg-primary/90 transition-all active:scale-95 shadow-sm shadow-primary/20">
               Получить предложение
             </button>

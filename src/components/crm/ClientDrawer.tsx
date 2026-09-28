@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import { useStaffAuth } from "@/context/StaffAuthContext";
 import StaffChatPanel from "@/components/crm/StaffChatPanel";
 
 const CRM_URL = "https://functions.poehali.dev/0fbf69fe-e1ba-4899-a9c0-98d37524abe1";
+const DOCS_URL = "https://functions.poehali.dev/728446de-2a8e-45c1-a93a-a0040873e23b";
 
 interface StageHistory {
   stage_id: number;
@@ -51,6 +52,23 @@ interface Stage {
   color: string;
 }
 
+interface ClientDoc {
+  id: number;
+  title: string;
+  description: string;
+  category: string;
+  file_url: string;
+  file_name: string;
+  created_at: string;
+}
+
+interface Category {
+  id: number;
+  key: string;
+  label: string;
+  icon: string;
+}
+
 interface Props {
   clientId: number;
   onClose: () => void;
@@ -68,8 +86,24 @@ const ClientDrawer = ({ clientId, onClose, onChanged, showToast }: Props) => {
   const [expandedHistory, setExpandedHistory] = useState<number | null>(null);
   const [editingClient, setEditingClient] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", email: "", city: "", company: "" });
+  const [docs, setDocs] = useState<ClientDoc[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [docTitle, setDocTitle] = useState("");
+  const [docCategory, setDocCategory] = useState("other");
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const authHeaders = { "X-Staff-Token": token || "" };
+
+  const loadDocs = () => {
+    Promise.all([
+      fetch(DOCS_URL, { headers: { "X-Action": "list-for-client", "X-Client-Id": String(clientId), ...authHeaders } }).then(r => r.json()),
+      fetch(DOCS_URL, { headers: { "X-Action": "list-categories" } }).then(r => r.json()),
+    ]).then(([d, c]) => {
+      setDocs(d.documents || []);
+      setCategories(c.categories || []);
+    }).catch(() => {});
+  };
 
   const load = () => {
     setLoading(true);
@@ -90,7 +124,41 @@ const ClientDrawer = ({ clientId, onClose, onChanged, showToast }: Props) => {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { if (token) load(); }, [token, clientId]);
+  useEffect(() => { if (token) { load(); loadDocs(); } }, [token, clientId]);
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!docTitle) setDocTitle(file.name.replace(/\.[^.]+$/, "").replace(/[_-]/g, " "));
+    setUploadingDoc(true);
+    const reader = new FileReader();
+    reader.onload = async ev => {
+      const b64 = (ev.target?.result as string).split(",")[1];
+      try {
+        const r = await fetch(DOCS_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Action": "upload", ...authHeaders },
+          body: JSON.stringify({
+            client_id: clientId, title: docTitle || file.name, category: docCategory,
+            file_base64: b64, file_name: file.name,
+          }),
+        });
+        if (r.ok) { showToast("Документ загружен ✓"); setDocTitle(""); loadDocs(); }
+        else showToast("Ошибка загрузки", false);
+      } catch { showToast("Ошибка сети", false); }
+      finally { setUploadingDoc(false); if (fileRef.current) fileRef.current.value = ""; }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const deleteDoc = async (id: number) => {
+    if (!confirm("Удалить документ?")) return;
+    try {
+      await fetch(DOCS_URL, { method: "DELETE", headers: { "X-Action": "delete", "X-Doc-Id": String(id), ...authHeaders } });
+      loadDocs();
+      showToast("Документ удалён");
+    } catch { showToast("Ошибка сети", false); }
+  };
 
   const changeStage = async (dealId: number, stageId: number) => {
     try {
@@ -310,6 +378,60 @@ const ClientDrawer = ({ clientId, onClose, onChanged, showToast }: Props) => {
                     )}
                   </div>
                 ))}
+              </div>
+            </section>
+
+            {/* Документы клиента */}
+            <section>
+              <h3 className="font-serif text-base font-bold mb-3 flex items-center gap-2">
+                <Icon name="FolderOpen" size={16} className="text-primary" />
+                Документы ({docs.length})
+              </h3>
+              <div className="bg-card border border-border rounded-2xl overflow-hidden">
+                <div className="p-4 border-b border-border space-y-2">
+                  <div className="flex gap-2">
+                    <input value={docTitle} onChange={e => setDocTitle(e.target.value)}
+                      placeholder="Название документа"
+                      className="flex-1 px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:border-primary transition-colors" />
+                    <select value={docCategory} onChange={e => setDocCategory(e.target.value)}
+                      className="px-2 py-2 border border-border rounded-lg text-sm bg-background focus:outline-none">
+                      {categories.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
+                    </select>
+                  </div>
+                  <button onClick={() => fileRef.current?.click()} disabled={uploadingDoc}
+                    className="w-full flex items-center justify-center gap-2 border border-dashed border-border rounded-lg py-2 text-sm text-muted-foreground hover:border-primary/40 hover:text-primary transition-all disabled:opacity-60">
+                    {uploadingDoc ? <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <Icon name="Upload" size={14} />}
+                    {uploadingDoc ? "Загружаем…" : "Загрузить файл"}
+                  </button>
+                  <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onChange={onFileChange} className="hidden" />
+                </div>
+                {docs.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-6">Документов пока нет</p>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {docs.map(d => (
+                      <div key={d.id} className="flex items-center justify-between gap-2 px-4 py-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Icon name="FileText" size={14} className="text-muted-foreground flex-shrink-0" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{d.title}</p>
+                            <p className="text-[10px] text-muted-foreground">{categories.find(c => c.key === d.category)?.label || d.category}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <a href={d.file_url} target="_blank" rel="noopener noreferrer"
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/8 transition-colors">
+                            <Icon name="ExternalLink" size={13} />
+                          </a>
+                          <button onClick={() => deleteDoc(d.id)}
+                            className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/8 transition-colors">
+                            <Icon name="Trash2" size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
 

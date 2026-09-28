@@ -7,15 +7,6 @@
       "expectedStatus": 200
     },
     {
-      "name": "GET documents list",
-      "method": "GET",
-      "path": "/",
-      "headers": { "X-Action": "list" },
-      "expectedStatus": 200,
-      "expectedBody": { "documents": [] },
-      "bodyMatcher": "partial"
-    },
-    {
       "name": "GET categories list",
       "method": "GET",
       "path": "/",
@@ -23,6 +14,13 @@
       "expectedStatus": 200,
       "expectedBody": { "categories": [] },
       "bodyMatcher": "partial"
+    },
+    {
+      "name": "list-for-client без авторизации",
+      "method": "GET",
+      "path": "/",
+      "headers": { "X-Action": "list-for-client", "X-Client-Id": "1" },
+      "expectedStatus": 401
     }
   ]
 }

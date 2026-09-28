@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
+import type { LeadModalSource } from "@/context/LeadModalContext";
 import func2url from "../../backend/func2url.json";
 
 // ── Field вынесен наружу — иначе при каждом setState пересоздаётся и теряет фокус
@@ -41,17 +43,32 @@ const Field = ({ id, label, placeholder, type = "text", required, value, error, 
 interface LeadModalProps {
   open: boolean;
   onClose: () => void;
+  source?: LeadModalSource;
   brief?: Record<string, unknown>;
 }
 
 type Step = "form" | "loading" | "success" | "error";
 
-const LeadModal = ({ open, onClose, brief }: LeadModalProps) => {
+const HEADER_TEXTS = {
+  eyebrow: "ПОЛУЧИТЬ ПРЕДЛОЖЕНИЕ",
+  title: <>Рассчитаем стоимость<br />вашей партии</>,
+  subtitle: "Оставьте контакты — менеджер свяжется в течение 30 минут",
+};
+
+const CALCULATOR_TEXTS = {
+  eyebrow: "БРИФ ГОТОВ",
+  title: <>Отправим ваш расчёт<br />менеджеру</>,
+  subtitle: "Мы свяжемся с вами и подтвердим детали — либо оформите заказ самостоятельно в личном кабинете",
+};
+
+const LeadModal = ({ open, onClose, source = "header", brief }: LeadModalProps) => {
   const [step, setStep] = useState<Step>("form");
   const [form, setForm] = useState({ name: "", city: "", phone: "", email: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   if (!open) return null;
+
+  const texts = source === "calculator" ? CALCULATOR_TEXTS : HEADER_TEXTS;
 
   const setField = (id: keyof typeof form) => (val: string) => {
     setForm(f => ({ ...f, [id]: val }));
@@ -105,14 +122,22 @@ const LeadModal = ({ open, onClose, brief }: LeadModalProps) => {
                   className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/15 flex items-center justify-center hover:bg-white/25 transition-colors">
                   <Icon name="X" size={14} className="text-white" />
                 </button>
-                <p className="text-white/70 text-xs font-mono tracking-widest mb-1">ПОЛУЧИТЬ ПРЕДЛОЖЕНИЕ</p>
+                <p className="text-white/70 text-xs font-mono tracking-widest mb-1">{texts.eyebrow}</p>
                 <h2 className="font-serif text-2xl font-bold text-white leading-tight">
-                  Рассчитаем стоимость<br />вашей партии
+                  {texts.title}
                 </h2>
-                <p className="text-white/60 text-sm mt-2">Оставьте контакты — менеджер свяжется в течение 30 минут</p>
+                <p className="text-white/60 text-sm mt-2">{texts.subtitle}</p>
               </div>
 
               <div className="px-7 py-6 space-y-4">
+                {source === "calculator" && brief && (
+                  <div className="bg-secondary/50 rounded-xl px-4 py-3 text-[12px] text-muted-foreground space-y-1">
+                    {!!brief.origin && <div className="flex justify-between"><span>Зерно</span><span className="font-medium text-foreground">{String(brief.origin)}</span></div>}
+                    {brief.volume !== undefined && <div className="flex justify-between"><span>Объём</span><span className="font-medium text-foreground">{String(brief.volume)} кг</span></div>}
+                    {brief.total !== undefined && <div className="flex justify-between"><span>Итого</span><span className="font-medium text-foreground">{Number(brief.total).toLocaleString("ru-RU")} ₽</span></div>}
+                  </div>
+                )}
+
                 <Field id="name"  label="Имя"     placeholder="Иван Петров"        required
                   value={form.name}  error={errors.name}  disabled={loading} onChange={setField("name")} />
                 <Field id="phone" label="Телефон" placeholder="+7 (999) 000-00-00" required type="tel"
@@ -128,7 +153,7 @@ const LeadModal = ({ open, onClose, brief }: LeadModalProps) => {
                   className="w-full bg-primary text-primary-foreground py-3.5 rounded-xl font-semibold text-sm hover:bg-primary/90 transition-all hover:shadow-lg hover:shadow-primary/20 flex items-center justify-center gap-2 mt-2 disabled:opacity-70">
                   {loading
                     ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Отправляем...</>
-                    : <><Icon name="Send" size={15} /> Отправить заявку</>
+                    : <><Icon name="Send" size={15} /> Отправить менеджеру</>
                   }
                 </button>
 
@@ -138,19 +163,35 @@ const LeadModal = ({ open, onClose, brief }: LeadModalProps) => {
                   <div className="flex-1 h-px bg-border" />
                 </div>
 
-                <a href="#calculator" onClick={handleClose}
-                  className="w-full flex items-center justify-between p-4 rounded-2xl border border-border hover:border-primary/40 hover:bg-primary/3 transition-all group">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-primary/8 flex items-center justify-center">
-                      <Icon name="Calculator" size={16} className="text-primary" />
+                {source === "calculator" ? (
+                  <Link to="/cabinet" onClick={handleClose}
+                    className="w-full flex items-center justify-between p-4 rounded-2xl border border-border hover:border-primary/40 hover:bg-primary/3 transition-all group">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-primary/8 flex items-center justify-center">
+                        <Icon name="LogIn" size={16} className="text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">Войти в ЛК и оформить самому</p>
+                        <p className="text-[11px] text-muted-foreground">Соберите заказ без менеджера</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-semibold">Заполнить бриф самому</p>
-                      <p className="text-[11px] text-muted-foreground">Рассчитайте цену за 3 минуты</p>
+                    <Icon name="ArrowRight" size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                  </Link>
+                ) : (
+                  <a href="#calculator" onClick={handleClose}
+                    className="w-full flex items-center justify-between p-4 rounded-2xl border border-border hover:border-primary/40 hover:bg-primary/3 transition-all group">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-primary/8 flex items-center justify-center">
+                        <Icon name="Calculator" size={16} className="text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">Рассчитать стоимость самостоятельно</p>
+                        <p className="text-[11px] text-muted-foreground">Заполните бриф за 3 минуты</p>
+                      </div>
                     </div>
-                  </div>
-                  <Icon name="ArrowRight" size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                </a>
+                    <Icon name="ArrowRight" size={16} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                  </a>
+                )}
 
                 <p className="text-[10px] text-muted-foreground text-center">
                   Нажимая «Отправить», вы соглашаетесь с политикой конфиденциальности
@@ -166,13 +207,13 @@ const LeadModal = ({ open, onClose, brief }: LeadModalProps) => {
               </div>
               <h2 className="font-serif text-2xl font-bold mb-2">Заявка отправлена!</h2>
               <p className="text-muted-foreground text-sm max-w-xs leading-relaxed mb-6">
-                Менеджер свяжется с вами в течение 30 минут. Пока ждёте — заполните производственный бриф.
+                Менеджер свяжется с вами в течение 30 минут. Хотите оформить заказ сами — переходите в личный кабинет.
               </p>
               <div className="flex flex-col gap-3 w-full">
-                <a href="#calculator" onClick={handleClose}
+                <Link to="/cabinet" onClick={handleClose}
                   className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-semibold text-sm hover:bg-primary/90 transition-all flex items-center justify-center gap-2">
-                  <Icon name="Calculator" size={15} /> Заполнить бриф
-                </a>
+                  <Icon name="LogIn" size={15} /> Войти в личный кабинет
+                </Link>
                 <button onClick={handleClose}
                   className="w-full py-3 rounded-xl text-sm text-muted-foreground hover:text-foreground transition-colors">
                   Закрыть

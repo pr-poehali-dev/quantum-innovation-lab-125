@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import { SIDEBAR_GROUPS, type Tab } from "./cabinet.types";
 import type { ClientProfile } from "@/context/ClientAuthContext";
@@ -9,15 +10,28 @@ interface CabinetSidebarProps {
   ordersCount: number;
   open: boolean;
   onClose: () => void;
+  onLogout: () => void;
+  hasLiveDeal: boolean;
 }
 
-const CabinetSidebar = ({ tab, setTab, client, ordersCount, open, onClose }: CabinetSidebarProps) => {
+const CabinetSidebar = ({ tab, setTab, client, ordersCount, open, onClose, onLogout, hasLiveDeal }: CabinetSidebarProps) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
   const initials = (client?.name || "К К")
     .split(" ")
     .map(w => w[0])
     .slice(0, 2)
     .join("")
     .toUpperCase();
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   return (
     <>
@@ -29,16 +43,26 @@ const CabinetSidebar = ({ tab, setTab, client, ordersCount, open, onClose }: Cab
           transition-transform duration-200 md:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="px-5 py-5 border-b border-border flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-primary rounded-md flex items-center justify-center flex-shrink-0">
+          <div className={`relative w-8 h-8 rounded-md flex items-center justify-center flex-shrink-0 transition-colors ${hasLiveDeal ? "bg-primary" : "bg-muted-foreground/30"}`}
+            title={hasLiveDeal ? "У вас есть партия в работе" : "У вас пока нет партии в работе"}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M3 7h8v3.5A3 3 0 0 1 8 13.5 3 3 0 0 1 3 10.5Z" fill="white" opacity="0.95"/>
               <path d="M11 8.5h1a1.5 1.5 0 0 1 0 3h-1" stroke="white" strokeWidth="1.2" strokeLinecap="round" fill="none"/>
               <path d="M5 5C5 4.2 5.8 3.8 5.8 3S5 1.8 5 1M7.5 5C7.5 4.2 8.3 3.8 8.3 3S7.5 1.8 7.5 1M10 5C10 4.2 10.8 3.8 10.8 3S10 1.8 10 1" stroke="white" strokeWidth="1" strokeLinecap="round" fill="none" opacity="0.8"/>
             </svg>
+            {hasLiveDeal && (
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-green-500 border-2 border-card animate-pulse" />
+            )}
           </div>
           <div className="min-w-0">
             <p className="font-serif text-sm font-bold leading-tight truncate">КонтрактКофе</p>
-            <p className="text-[11px] text-muted-foreground leading-tight">Личный кабинет</p>
+            <p className="text-[11px] text-muted-foreground leading-tight flex items-center gap-1">
+              {hasLiveDeal ? (
+                <span className="text-green-600 font-medium">Партия в работе</span>
+              ) : (
+                "Личный кабинет"
+              )}
+            </p>
           </div>
         </div>
 
@@ -84,14 +108,28 @@ const CabinetSidebar = ({ tab, setTab, client, ordersCount, open, onClose }: Cab
           ))}
         </nav>
 
-        <div className="px-3 py-4 border-t border-border flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
-            {initials}
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium truncate">{client?.name || "Клиент"}</p>
-            <p className="text-[11px] text-muted-foreground truncate">{client?.company || client?.email || ""}</p>
-          </div>
+        {/* Профиль с выходом по клику */}
+        <div ref={menuRef} className="relative px-3 py-4 border-t border-border">
+          <button onClick={() => setMenuOpen(o => !o)}
+            className="w-full flex items-center gap-2.5 hover:bg-secondary/50 rounded-lg p-1.5 -m-1.5 transition-colors">
+            <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">
+              {initials}
+            </div>
+            <div className="min-w-0 flex-1 text-left">
+              <p className="text-sm font-medium truncate">{client?.name || "Клиент"}</p>
+              <p className="text-[11px] text-muted-foreground truncate">{client?.company || client?.email || ""}</p>
+            </div>
+            <Icon name={menuOpen ? "ChevronDown" : "ChevronUp"} size={14} className="text-muted-foreground flex-shrink-0" />
+          </button>
+
+          {menuOpen && (
+            <div className="absolute bottom-full left-3 right-3 mb-1 bg-card border border-border rounded-xl shadow-lg overflow-hidden">
+              <button onClick={onLogout}
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-destructive hover:bg-destructive/8 transition-colors">
+                <Icon name="LogOut" size={15} /> Выйти
+              </button>
+            </div>
+          )}
         </div>
       </aside>
     </>

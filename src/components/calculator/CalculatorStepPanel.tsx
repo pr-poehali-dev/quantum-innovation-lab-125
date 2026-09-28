@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
-import { STEPS, ROASTS, PACKAGINGS, DESIGNS, OptionCardProps } from "./calculator.types";
+import { STEPS, ROASTS, WEIGHT_FORMATS, BAG_COLORS, PACKAGING_TYPE_LABEL, OptionCardProps } from "./calculator.types";
 import CalculatorAiHint from "./CalculatorAiHint";
 import type { CalcOrigin } from "@/components/PriceCalculator";
 
 // ── Анимированная карточка ────────────────────────────────────
 
-const OptionCard = ({ label, desc, icon, flag, extra, selected, soon, onClick }: OptionCardProps) => (
+const OptionCard = ({ label, desc, icon, flag, selected, soon, onClick }: OptionCardProps) => (
   <button
     onClick={onClick}
     disabled={soon}
@@ -18,9 +19,6 @@ const OptionCard = ({ label, desc, icon, flag, extra, selected, soon, onClick }:
         : "border-border hover:border-primary/50 hover:bg-secondary/60 hover:scale-[1.01]"
     }`}
   >
-    {soon && (
-      <span className="absolute top-2 right-2 text-[9px] font-mono bg-accent/10 text-accent border border-accent/20 rounded-full px-1.5 py-0.5">V2</span>
-    )}
     <div className="flex items-start gap-3">
       {flag && <span className="text-2xl leading-none mt-0.5">{flag}</span>}
       {icon && !flag && (
@@ -31,9 +29,6 @@ const OptionCard = ({ label, desc, icon, flag, extra, selected, soon, onClick }:
       <div className="flex-1 min-w-0">
         <p className={`text-sm font-semibold leading-tight transition-colors ${selected ? "text-primary" : ""}`}>{label}</p>
         {desc && <p className="text-[11px] text-muted-foreground mt-0.5">{desc}</p>}
-        {extra !== undefined && extra > 0 && (
-          <p className="text-[10px] font-mono text-muted-foreground/70 mt-1">+{extra} ₽/кг</p>
-        )}
       </div>
     </div>
     {selected && (
@@ -73,16 +68,18 @@ interface CalculatorStepPanelProps {
   step: number;
   origin: number;
   roast: number;
-  pkg: number;
-  design: number;
+  weightFormat: "1kg" | "250g";
+  bagColor: "black" | "white" | "custom";
   volume: number;
+  minVolume: number;
+  volumeStep: number;
   canNext: boolean;
   isLast: boolean;
   setStep: React.Dispatch<React.SetStateAction<number>>;
   setOrigin: (v: number) => void;
   setRoast: (v: number) => void;
-  setPkg: (v: number) => void;
-  setDesign: (v: number) => void;
+  setWeightFormat: (v: "1kg" | "250g") => void;
+  setBagColor: (v: "black" | "white" | "custom") => void;
   setVolume: (v: number) => void;
   goNext: () => void;
   onSubmit: () => void;
@@ -92,9 +89,9 @@ interface CalculatorStepPanelProps {
 // ── Компонент ─────────────────────────────────────────────────
 
 const CalculatorStepPanel = ({
-  step, origin, roast, pkg, design, volume,
+  step, origin, roast, weightFormat, bagColor, volume, minVolume, volumeStep,
   canNext, isLast,
-  setStep, setOrigin, setRoast, setPkg, setDesign, setVolume,
+  setStep, setOrigin, setRoast, setWeightFormat, setBagColor, setVolume,
   goNext, onSubmit, dynamicOrigins,
 }: CalculatorStepPanelProps) => {
   return (
@@ -131,12 +128,10 @@ const CalculatorStepPanel = ({
                   }`}>
                     {s.label}
                   </span>
-                  {/* Пульс на активном */}
                   {active && (
                     <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-primary/20 animate-ping" />
                   )}
                 </button>
-                {/* Соединительная линия */}
                 {i < STEPS.length - 1 && (
                   <div className="flex-1 h-0.5 mx-1 rounded-full overflow-hidden bg-border">
                     <div
@@ -163,14 +158,13 @@ const CalculatorStepPanel = ({
               {[
                 "Выберите зелёное зерно",
                 "Степень обжарки",
-                "Тип упаковки",
-                "Дизайн упаковки",
+                "Упаковка",
                 "Объём партии",
               ][step]}
             </h3>
           </div>
           <div className="text-3xl opacity-40">
-            {["🌿", "🔥", "📦", "🎨", "⚖️"][step]}
+            {["🌿", "🔥", "📦", "⚖️"][step]}
           </div>
         </div>
 
@@ -182,7 +176,7 @@ const CalculatorStepPanel = ({
             {step === 0 && (
               <div className="grid grid-cols-2 gap-3">
                 {(dynamicOrigins ?? []).map((o, i) => (
-                  <OptionCard key={o.id} label={o.label} desc={o.desc} selected={origin === i}
+                  <OptionCard key={o.id} label={o.label} selected={origin === i}
                     onClick={() => { setOrigin(i); }} />
                 ))}
               </div>
@@ -208,58 +202,77 @@ const CalculatorStepPanel = ({
                   {ROASTS.map((r, i) => (
                     <button key={r.label} onClick={() => setRoast(i)}
                       className={`p-3.5 rounded-2xl border text-center transition-all duration-200 ${
-                        roast === i
-                          ? "border-primary bg-primary/8 shadow-sm"
-                          : "border-border hover:border-primary/40 hover:scale-[1.01]"
+                        roast === i ? "border-primary bg-primary/8" : "border-border hover:border-primary/30"
                       }`}>
                       <p className={`text-sm font-semibold ${roast === i ? "text-primary" : ""}`}>{r.label}</p>
                       <p className="text-[11px] text-muted-foreground mt-1">{r.desc}</p>
-                      {r.extra > 0 && <p className="text-[10px] font-mono text-muted-foreground/70 mt-1">+{r.extra} ₽/кг</p>}
                     </button>
                   ))}
                 </div>
+                <p className="text-[11px] text-muted-foreground mt-4 flex items-center gap-1.5">
+                  <Icon name="Info" size={12} /> Выбор обжарки не влияет на стоимость
+                </p>
               </div>
             )}
 
-            {/* 2 — Упаковка */}
+            {/* 2 — Упаковка: вес + цвет пакета */}
             {step === 2 && (
-              <div className="grid grid-cols-2 gap-3">
-                {PACKAGINGS.map((p, i) => (
-                  <OptionCard key={p.label} label={p.label} desc={p.desc} extra={p.extra}
-                    selected={pkg === i} onClick={() => setPkg(i)} />
-                ))}
+              <div className="space-y-5">
+                <div>
+                  <p className="text-[11px] font-mono text-muted-foreground mb-2 tracking-wider">ФАСОВКА</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {WEIGHT_FORMATS.map(w => (
+                      <OptionCard key={w.value} label={w.label} desc={w.desc}
+                        selected={weightFormat === w.value} onClick={() => setWeightFormat(w.value)} />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-[11px] font-mono text-muted-foreground mb-2 tracking-wider">ЦВЕТ ПАКЕТА</p>
+                  <div className="grid grid-cols-3 gap-3">
+                    {BAG_COLORS.map(c => (
+                      <OptionCard key={c.value} label={c.label} desc={c.desc}
+                        selected={bagColor === c.value} onClick={() => setBagColor(c.value)} />
+                    ))}
+                  </div>
+                </div>
+                <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 bg-secondary/40 rounded-xl px-3 py-2.5">
+                  <Icon name="Package" size={13} className="flex-shrink-0" /> Тип упаковки: {PACKAGING_TYPE_LABEL}. Цена одинакова для всех цветов.
+                </p>
               </div>
             )}
 
-            {/* 3 — Дизайн */}
+            {/* 3 — Объём */}
             {step === 3 && (
-              <div className="space-y-3">
-                {DESIGNS.map((d, i) => (
-                  <OptionCard key={d.label} label={d.label} icon={d.icon} desc={d.desc}
-                    extra={d.extra} soon={d.soon} selected={design === i}
-                    onClick={() => !d.soon && setDesign(i)} />
-                ))}
-              </div>
-            )}
-
-            {/* 4 — Объём */}
-            {step === 4 && (
               <div>
                 <div className="flex justify-between items-baseline mb-3">
                   <span className="text-sm text-muted-foreground">Количество</span>
-                  <span className="font-serif text-3xl font-bold text-primary">{volume} кг</span>
+                  <span className="font-serif text-3xl font-bold text-primary">{volume.toLocaleString("ru-RU")} кг</span>
                 </div>
-                <input type="range" min={50} max={1000} step={50} value={volume}
+                <input type="range" min={minVolume} max={5000} step={volumeStep} value={volume}
                   onChange={e => setVolume(Number(e.target.value))}
                   className="w-full h-2 bg-secondary rounded-full appearance-none cursor-pointer mb-1 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:shadow-md" />
-                <div className="flex justify-between text-[10px] font-mono text-muted-foreground mb-6">
-                  <span>50 кг</span><span>1 000 кг</span>
+                <div className="flex justify-between text-[10px] font-mono text-muted-foreground mb-4">
+                  <span>{minVolume.toLocaleString("ru-RU")} кг</span><span>5 000 кг</span>
+                </div>
+                <div className="flex items-center gap-2 mb-6">
+                  <button onClick={() => setVolume(Math.max(minVolume, volume - volumeStep))}
+                    className="w-9 h-9 rounded-xl border border-border flex items-center justify-center hover:bg-secondary/60 hover:border-primary/40 transition-all flex-shrink-0">
+                    <Icon name="Minus" size={14} />
+                  </button>
+                  <input type="number" min={minVolume} step={volumeStep} value={volume}
+                    onChange={e => setVolume(Math.max(minVolume, Number(e.target.value) || minVolume))}
+                    className="flex-1 text-center px-3 py-2 border border-border rounded-xl text-sm font-mono focus:outline-none focus:border-primary transition-colors" />
+                  <button onClick={() => setVolume(volume + volumeStep)}
+                    className="w-9 h-9 rounded-xl border border-border flex items-center justify-center hover:bg-secondary/60 hover:border-primary/40 transition-all flex-shrink-0">
+                    <Icon name="Plus" size={14} />
+                  </button>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { vol: 100, label: "Старт",   desc: "Тест рынка" },
-                    { vol: 300, label: "Бизнес",  desc: "Скидка 5%"  },
-                    { vol: 600, label: "Партнёр", desc: "Скидка 10%" },
+                    { vol: minVolume,      label: "Старт",   desc: "Минимальный заказ" },
+                    { vol: 1000, label: "Бизнес",  desc: "Скидка 5%"  },
+                    { vol: 2000, label: "Партнёр", desc: "Скидка 10%" },
                   ].map(q => (
                     <button key={q.vol} onClick={() => setVolume(q.vol)}
                       className={`p-3 rounded-2xl border text-center transition-all duration-200 ${
@@ -268,7 +281,7 @@ const CalculatorStepPanel = ({
                           : "border-border hover:border-primary/30 hover:scale-[1.01]"
                       }`}>
                       <p className="font-semibold text-sm">{q.label}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{q.vol} кг · {q.desc}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{q.vol.toLocaleString("ru-RU")} кг · {q.desc}</p>
                     </button>
                   ))}
                 </div>
@@ -295,9 +308,15 @@ const CalculatorStepPanel = ({
               Далее <Icon name="ArrowRight" size={14} />
             </button>
           ) : (
-            <button onClick={onSubmit} className="flex items-center gap-1.5 px-6 py-2 rounded-full text-sm bg-accent text-accent-foreground font-bold hover:bg-accent/90 transition-all shadow-md shadow-accent/20">
-              <Icon name="Send" size={14} /> Отправить бриф
-            </button>
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              <Link to="/cabinet"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm border border-primary/30 text-primary font-semibold hover:bg-primary/5 transition-all">
+                <Icon name="LogIn" size={14} /> Войти в ЛК и оформить самому
+              </Link>
+              <button onClick={onSubmit} className="flex items-center gap-1.5 px-6 py-2 rounded-full text-sm bg-accent text-accent-foreground font-bold hover:bg-accent/90 transition-all shadow-md shadow-accent/20">
+                <Icon name="Send" size={14} /> Отправить менеджеру
+              </button>
+            </div>
           )}
         </div>
       </div>

@@ -29,16 +29,12 @@ const navLinks = [
   { label: "Контакты",      href: "#contacts"   },
 ];
 
-const docLinks = [
-  { label: "Политика конфиденциальности", href: "/documents"  },
-  { label: "Условия сотрудничества",      href: "/documents"  },
-  { label: "Сертификаты",                 href: "/documents"  },
-  { label: "Реквизиты",                   href: "/documents"  },
-];
+interface SitePageLink { slug: string; title: string }
 
 const Footer = () => {
   const [logoUrl, setLogoUrl] = useState(FALLBACK_LOGO);
   const [footer, setFooter] = useState<FooterData>(DEFAULT_FOOTER);
+  const [pages, setPages] = useState<SitePageLink[]>([]);
 
   useEffect(() => {
     fetch(ABOUT_URL, { headers: { "X-Action": "get-content" } })
@@ -48,6 +44,10 @@ const Footer = () => {
     fetch(ABOUT_URL, { headers: { "X-Action": "get-sections", "X-Section-Key": "footer" } })
       .then(r => r.json())
       .then(d => { if (d.data) setFooter(d.data); })
+      .catch(() => {});
+    fetch(ABOUT_URL, { headers: { "X-Action": "get-site-pages" } })
+      .then(r => r.json())
+      .then(d => { if (d.pages) setPages(d.pages.filter((p: { show_in_footer: boolean }) => p.show_in_footer)); })
       .catch(() => {});
   }, []);
 
@@ -122,23 +122,20 @@ const Footer = () => {
           </div>
 
           {/* Legal */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-[11px] font-mono font-semibold text-white/40 tracking-wider">ДОКУМЕНТЫ</h4>
-              <Link to="/documents" className="text-[10px] font-mono text-primary hover:text-primary/80 transition-colors">
-                все →
-              </Link>
+          {pages.length > 0 && (
+            <div>
+              <h4 className="text-[11px] font-mono font-semibold text-white/40 mb-4 tracking-wider">ДОКУМЕНТЫ</h4>
+              <ul className="space-y-2.5">
+                {pages.map((p) => (
+                  <li key={p.slug}>
+                    <Link to={`/page/${p.slug}`} className="text-sm text-white/60 hover:text-white transition-colors">
+                      {p.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <ul className="space-y-2.5">
-              {docLinks.map((link) => (
-                <li key={link.label}>
-                  <Link to={link.href} className="text-sm text-white/60 hover:text-white transition-colors">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+          )}
 
           {/* Status */}
           <div>

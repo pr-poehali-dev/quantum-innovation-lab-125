@@ -9,6 +9,7 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
+import Icon from "@/components/ui/icon";
 import { useStaffAuth } from "@/context/StaffAuthContext";
 
 const CRM_URL = "https://functions.poehali.dev/0fbf69fe-e1ba-4899-a9c0-98d37524abe1";
@@ -59,6 +60,7 @@ const KanbanBoard = ({ onOpenClient, showToast, refreshSignal }: Props) => {
   const [moving, setMoving] = useState(false);
   const [dragOverStage, setDragOverStage] = useState<number | null>(null);
   const draggedDealId = useRef<number | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const authHeaders = { "X-Staff-Token": token || "" };
 
@@ -77,6 +79,10 @@ const KanbanBoard = ({ onOpenClient, showToast, refreshSignal }: Props) => {
   useEffect(() => { if (token) load(); }, [token, refreshSignal]);
 
   const formatMoney = (n: number | null) => n ? `${n.toLocaleString("ru-RU")} ₽` : "—";
+
+  const scrollBy = (dx: number) => {
+    scrollRef.current?.scrollBy({ left: dx, behavior: "smooth" });
+  };
 
   const handleDrop = (stage: Stage) => {
     setDragOverStage(null);
@@ -122,19 +128,36 @@ const KanbanBoard = ({ onOpenClient, showToast, refreshSignal }: Props) => {
 
   return (
     <>
-      <div className="flex gap-4 overflow-x-auto pb-4 -mx-1 px-1">
+      {/* Панель перемотки сверху — не даёт канбану "уезжать" при длинных списках */}
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[11px] text-muted-foreground hidden sm:block">
+          Перетаскивайте карточки между этапами или листайте колонки стрелками
+        </p>
+        <div className="flex items-center gap-1.5 ml-auto">
+          <button onClick={() => scrollBy(-320)}
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-border hover:bg-secondary/60 hover:border-primary/40 transition-all">
+            <Icon name="ChevronLeft" size={16} />
+          </button>
+          <button onClick={() => scrollBy(320)}
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-border hover:bg-secondary/60 hover:border-primary/40 transition-all">
+            <Icon name="ChevronRight" size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div ref={scrollRef} className="flex gap-4 overflow-x-auto pb-4 -mx-1 px-1 scroll-smooth">
         {stages.map(stage => {
           const stageDeals = deals.filter(d => d.stage_id === stage.id);
           const isDragOver = dragOverStage === stage.id;
           return (
             <div
               key={stage.id}
-              className={`flex-shrink-0 w-72 rounded-2xl transition-colors ${isDragOver ? "bg-primary/5" : ""}`}
+              className={`flex-shrink-0 w-72 rounded-2xl transition-colors flex flex-col ${isDragOver ? "bg-primary/5" : ""}`}
               onDragOver={e => { e.preventDefault(); setDragOverStage(stage.id); }}
               onDragLeave={() => setDragOverStage(prev => (prev === stage.id ? null : prev))}
               onDrop={e => { e.preventDefault(); handleDrop(stage); }}
             >
-              <div className="flex items-center gap-2 px-2 mb-3">
+              <div className="flex items-center gap-2 px-2 mb-3 flex-shrink-0">
                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: stage.color }} />
                 <span className="text-sm font-semibold">{stage.name}</span>
                 <span className="text-[11px] font-mono text-muted-foreground bg-secondary rounded-full px-1.5 py-0.5">
@@ -142,7 +165,10 @@ const KanbanBoard = ({ onOpenClient, showToast, refreshSignal }: Props) => {
                 </span>
               </div>
 
-              <div className={`space-y-2 min-h-[80px] rounded-xl transition-all ${isDragOver ? "ring-2 ring-primary/30 ring-inset" : ""}`}>
+              <div
+                className={`space-y-2 min-h-[80px] rounded-xl transition-all overflow-y-auto pr-0.5 ${isDragOver ? "ring-2 ring-primary/30 ring-inset" : ""}`}
+                style={{ maxHeight: "calc(100vh - 320px)" }}
+              >
                 {stageDeals.map(deal => (
                   <div
                     key={deal.id}

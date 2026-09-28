@@ -9,10 +9,20 @@ X-Action значения:
   upload-photo     — POST загрузить фото (только владелец)
   add-photo-url    — POST добавить фото по URL (только владелец)
   delete-photo     — DELETE удалить фото (только владелец)
-  get-calc         — GET публичные данные калькулятора
-  save-calc        — POST сохранить калькулятор (владелец и менеджер)
-  get-rate         — GET курс доллара
+  get-calc         — GET публичные данные калькулятора v2 (сорта, параметры, курс+дата, мин.объём, шаг)
+  save-calc        — POST сохранить калькулятор v2 (владелец и менеджер)
+  get-rate         — GET курс доллара (+ дата обновления)
   save-rate        — POST сохранить курс доллара (владелец и менеджер)
+  get-email-settings  — GET настройки email-отправителя (владелец и менеджер)
+  save-email-settings — POST сохранить email-отправителя: sender_name, sender_email (только владелец)
+  get-site-pages      — GET публичный список опубликованных страниц с файлами (без авторизации)
+  get-site-page       — GET одна страница по X-Page-Slug (публично)
+  list-site-pages     — GET все страницы для админки (только владелец)
+  save-site-page      — POST создать/обновить страницу (только владелец)
+  delete-site-page    — DELETE удалить страницу: X-Page-Id (только владелец)
+  reorder-site-pages  — POST порядок страниц: order=[{id, sort_order}] (только владелец)
+  upload-page-file    — POST прикрепить файл к странице (base64 → S3): page_id, file_base64, file_name (только владелец)
+  delete-page-file    — DELETE открепить файл: X-File-Id (только владелец)
   get-sections     — GET публичные данные секций лендинга (X-Section-Key: hero|workflow|features|footer, либо все сразу без заголовка)
   save-section     — POST сохранить секцию лендинга (только владелец): X-Section-Key, body = JSON-данные секции
   get-testimonials — GET публичный список активных отзывов
@@ -33,7 +43,7 @@ from botocore.config import Config
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Staff-Token, X-Action, X-Photo-Id, X-Section-Key, X-Testimonial-Id",
+    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Staff-Token, X-Action, X-Photo-Id, X-Section-Key, X-Testimonial-Id, X-Page-Slug, X-Page-Id, X-File-Id",
 }
 SCHEMA      = "t_p21475602_quantum_innovation_l"
 AWS_KEY     = os.environ.get("AWS_ACCESS_KEY_ID", "")
@@ -201,62 +211,79 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"ok": True})
 
-        # ── get-calc: публичные данные калькулятора ───────────────
+        # ── get-calc: публичные данные калькулятора v2 ────────────
         if action == "get-calc":
             cur.execute(f"""
-                SELECT id, label, desc_text, price_usd, sort_order
-                FROM {SCHEMA}.calc_origins WHERE active=TRUE ORDER BY sort_order, id
+                SELECT id, label, price_usd_per_kg, sort_order
+                FROM {SCHEMA}.calc_origins_v2 WHERE active=TRUE ORDER BY sort_order, id
             """)
             origins = [
-                {"id": r[0], "label": r[1], "desc": r[2], "price_usd": float(r[3]), "sort_order": r[4]}
+                {"id": r[0], "label": r[1], "price_usd_per_kg": float(r[2]), "sort_order": r[3]}
                 for r in cur.fetchall()
             ]
-            cur.execute(f"SELECT key, value, label FROM {SCHEMA}.calc_params ORDER BY key")
+            cur.execute(f"SELECT key, value, label FROM {SCHEMA}.calc_params_v2 ORDER BY key")
             params = {r[0]: {"value": float(r[1]), "label": r[2]} for r in cur.fetchall()}
-            cur.execute(f"SELECT value FROM {SCHEMA}.site_settings WHERE key='usd_rate'")
+            cur.execute(f"SELECT value, updated_at FROM {SCHEMA}.site_settings WHERE key='usd_rate'")
             rate_row = cur.fetchone()
             usd_rate = float(rate_row[0]) if rate_row else 85.0
-            return ok({"origins": origins, "params": params, "usd_rate": usd_rate})
+            rate_updated_at = str(rate_row[1]) if rate_row and rate_row[1] else None
+            cur.execute(f"SELECT value FROM {SCHEMA}.site_settings WHERE key='calc_min_volume'")
+            min_row = cur.fetchone()
+            min_volume = int(float(min_row[0])) if min_row else 500
+            cur.execute(f"SELECT value FROM {SCHEMA}.site_settings WHERE key='calc_volume_step'")
+            step_row = cur.fetchone()
+            volume_step = int(float(step_row[0])) if step_row else 5
+            return ok({
+                "origins": origins, "params": params, "usd_rate": usd_rate, "usd_rate_updated_at": rate_updated_at,
+                "min_volume": min_volume, "volume_step": volume_step,
+            })
 
-        # ── save-calc: сохранить данные калькулятора ──────────────
+        # ── save-calc: сохранить данные калькулятора v2 ───────────
         if action == "save-calc":
             if not check_role(cur, headers, ("owner", "manager")):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
 
-            # Обновить сорта зерна
             if "origins" in body:
                 for o in body["origins"]:
                     oid = o.get("id")
                     if oid:
                         cur.execute(f"""
-                            UPDATE {SCHEMA}.calc_origins
-                            SET label=%s, desc_text=%s, price_usd=%s, sort_order=%s
+                            UPDATE {SCHEMA}.calc_origins_v2
+                            SET label=%s, price_usd_per_kg=%s, sort_order=%s
                             WHERE id=%s
-                        """, (o["label"], o.get("desc",""), float(o["price_usd"]), o.get("sort_order", 0), oid))
+                        """, (o["label"], float(o["price_usd_per_kg"]), o.get("sort_order", 0), oid))
                     else:
                         cur.execute(f"""
-                            INSERT INTO {SCHEMA}.calc_origins (label, desc_text, price_usd, sort_order)
-                            VALUES (%s, %s, %s, (SELECT COALESCE(MAX(sort_order),0)+1 FROM {SCHEMA}.calc_origins))
+                            INSERT INTO {SCHEMA}.calc_origins_v2 (label, price_usd_per_kg, sort_order)
+                            VALUES (%s, %s, (SELECT COALESCE(MAX(sort_order),0)+1 FROM {SCHEMA}.calc_origins_v2))
                             RETURNING id
-                        """, (o["label"], o.get("desc",""), float(o["price_usd"])))
+                        """, (o["label"], float(o["price_usd_per_kg"])))
 
-            # Удалить сорта, которых нет в присланном списке (по id)
             if "delete_origin_ids" in body:
                 for did in body["delete_origin_ids"]:
-                    cur.execute(f"UPDATE {SCHEMA}.calc_origins SET active=FALSE WHERE id=%s", (did,))
+                    cur.execute(f"UPDATE {SCHEMA}.calc_origins_v2 SET active=FALSE WHERE id=%s", (did,))
 
-            # Обновить параметры
             if "params" in body:
                 for key, val in body["params"].items():
-                    cur.execute(f"""
-                        UPDATE {SCHEMA}.calc_params SET value=%s WHERE key=%s
-                    """, (float(val), key))
+                    cur.execute(f"UPDATE {SCHEMA}.calc_params_v2 SET value=%s WHERE key=%s", (float(val), key))
+
+            if "min_volume" in body:
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.site_settings (key, value, updated_at) VALUES ('calc_min_volume', %s, NOW())
+                    ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
+                """, (str(int(body["min_volume"])),))
+
+            if "volume_step" in body:
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.site_settings (key, value, updated_at) VALUES ('calc_volume_step', %s, NOW())
+                    ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
+                """, (str(int(body["volume_step"])),))
 
             conn.commit()
             return ok({"ok": True})
 
-        # ── get-rate: получить курс доллара ──────────────────────
+        # ── get-rate: получить курс доллара + дату обновления ─────
         if action == "get-rate":
             cur.execute(f"SELECT value, updated_at FROM {SCHEMA}.site_settings WHERE key='usd_rate'")
             row = cur.fetchone()
@@ -369,6 +396,204 @@ def handler(event: dict, context) -> dict:
             if not tid:
                 return err("X-Testimonial-Id required")
             cur.execute(f"DELETE FROM {SCHEMA}.testimonials WHERE id=%s", (tid,))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── get-email-settings: настройки отправителя писем ───────
+        if action == "get-email-settings":
+            if not check_role(cur, headers, ("owner", "manager")):
+                return err("Unauthorized", 401)
+            cur.execute(f"""
+                SELECT key, value FROM {SCHEMA}.site_settings
+                WHERE key IN ('email_sender_name', 'email_sender_email')
+            """)
+            rows = dict(cur.fetchall())
+            return ok({
+                "sender_name": rows.get("email_sender_name", ""),
+                "sender_email": rows.get("email_sender_email", ""),
+            })
+
+        # ── save-email-settings: сохранить отправителя писем ──────
+        if action == "save-email-settings":
+            if not check_role(cur, headers, ("owner",)):
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            sender_name = (body.get("sender_name") or "").strip()
+            sender_email = (body.get("sender_email") or "").strip()
+            if not sender_name or not sender_email:
+                return err("sender_name and sender_email required")
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.site_settings (key, value, updated_at) VALUES ('email_sender_name', %s, NOW())
+                ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
+            """, (sender_name,))
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.site_settings (key, value, updated_at) VALUES ('email_sender_email', %s, NOW())
+                ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
+            """, (sender_email,))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── get-site-pages: публичный список опубликованных страниц ─
+        if action == "get-site-pages":
+            cur.execute(f"""
+                SELECT id, slug, title, icon, sort_order, show_in_footer
+                FROM {SCHEMA}.site_pages WHERE is_published=TRUE ORDER BY sort_order, id
+            """)
+            pages = [
+                {"id": r[0], "slug": r[1], "title": r[2], "icon": r[3], "sort_order": r[4], "show_in_footer": r[5]}
+                for r in cur.fetchall()
+            ]
+            return ok({"pages": pages})
+
+        # ── get-site-page: одна страница по slug (публично) ───────
+        if action == "get-site-page":
+            slug = headers.get("x-page-slug", "")
+            if not slug:
+                return err("X-Page-Slug required")
+            cur.execute(f"""
+                SELECT id, slug, title, content, icon FROM {SCHEMA}.site_pages
+                WHERE slug=%s AND is_published=TRUE
+            """, (slug,))
+            row = cur.fetchone()
+            if not row:
+                return err("Страница не найдена", 404)
+            page = {"id": row[0], "slug": row[1], "title": row[2], "content": row[3], "icon": row[4]}
+            cur.execute(f"""
+                SELECT id, file_url, file_name FROM {SCHEMA}.site_page_files
+                WHERE page_id=%s ORDER BY sort_order, id
+            """, (page["id"],))
+            page["files"] = [{"id": r[0], "file_url": r[1], "file_name": r[2]} for r in cur.fetchall()]
+            return ok({"page": page})
+
+        # ── list-site-pages: все страницы для админки ─────────────
+        if action == "list-site-pages":
+            if not check_role(cur, headers, ("owner",)):
+                return err("Unauthorized", 401)
+            cur.execute(f"""
+                SELECT id, slug, title, content, icon, sort_order, show_in_footer, is_published
+                FROM {SCHEMA}.site_pages ORDER BY sort_order, id
+            """)
+            pages = []
+            for r in cur.fetchall():
+                page = {
+                    "id": r[0], "slug": r[1], "title": r[2], "content": r[3], "icon": r[4],
+                    "sort_order": r[5], "show_in_footer": r[6], "is_published": r[7],
+                }
+                cur.execute(f"""
+                    SELECT id, file_url, file_name FROM {SCHEMA}.site_page_files
+                    WHERE page_id=%s ORDER BY sort_order, id
+                """, (page["id"],))
+                page["files"] = [{"id": fr[0], "file_url": fr[1], "file_name": fr[2]} for fr in cur.fetchall()]
+                pages.append(page)
+            return ok({"pages": pages})
+
+        # ── save-site-page: создать/обновить страницу ─────────────
+        if action == "save-site-page":
+            if not check_role(cur, headers, ("owner",)):
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            page_id = body.get("id")
+            slug = (body.get("slug") or "").strip().lower().replace(" ", "-")
+            title = (body.get("title") or "").strip()
+            if not slug or not title:
+                return err("slug and title required")
+            if page_id:
+                cur.execute(f"""
+                    UPDATE {SCHEMA}.site_pages
+                    SET slug=%s, title=%s, content=%s, icon=%s, show_in_footer=%s, is_published=%s, updated_at=NOW()
+                    WHERE id=%s
+                """, (
+                    slug, title, body.get("content", ""), body.get("icon", "FileText"),
+                    body.get("show_in_footer", True), body.get("is_published", True), page_id,
+                ))
+            else:
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.site_pages (slug, title, content, icon, show_in_footer, is_published, sort_order)
+                    VALUES (%s, %s, %s, %s, %s, %s, (SELECT COALESCE(MAX(sort_order),0)+1 FROM {SCHEMA}.site_pages))
+                    RETURNING id
+                """, (
+                    slug, title, body.get("content", ""), body.get("icon", "FileText"),
+                    body.get("show_in_footer", True), body.get("is_published", True),
+                ))
+                page_id = cur.fetchone()[0]
+            conn.commit()
+            return ok({"ok": True, "id": page_id}, 201 if not body.get("id") else 200)
+
+        # ── delete-site-page: удалить страницу ────────────────────
+        if action == "delete-site-page":
+            if not check_role(cur, headers, ("owner",)):
+                return err("Unauthorized", 401)
+            page_id = int(headers.get("x-page-id", "0"))
+            if not page_id:
+                return err("X-Page-Id required")
+            cur.execute(f"SELECT file_url FROM {SCHEMA}.site_page_files WHERE page_id=%s", (page_id,))
+            for (file_url,) in cur.fetchall():
+                if CDN_BASE in file_url:
+                    s3_key = file_url.replace(f"{CDN_BASE}/", "").split("?")[0]
+                    try:
+                        get_s3().delete_object(Bucket="files", Key=s3_key)
+                    except Exception:
+                        pass
+            cur.execute(f"DELETE FROM {SCHEMA}.site_page_files WHERE page_id=%s", (page_id,))
+            cur.execute(f"DELETE FROM {SCHEMA}.site_pages WHERE id=%s", (page_id,))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── reorder-site-pages ─────────────────────────────────────
+        if action == "reorder-site-pages":
+            if not check_role(cur, headers, ("owner",)):
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            for item in body.get("order", []):
+                cur.execute(f"UPDATE {SCHEMA}.site_pages SET sort_order=%s WHERE id=%s", (item["sort_order"], item["id"]))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── upload-page-file: прикрепить файл к странице ──────────
+        if action == "upload-page-file":
+            if not check_role(cur, headers, ("owner",)):
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            page_id = body.get("page_id")
+            b64 = body.get("file_base64", "")
+            file_name = body.get("file_name", "file.pdf")
+            if not page_id or not b64:
+                return err("page_id and file_base64 required")
+            data = base64.b64decode(b64)
+            ext = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else "pdf"
+            s3_key = f"pages/{uuid.uuid4()}.{ext}"
+            content_types = {
+                "pdf": "application/pdf", "doc": "application/msword",
+                "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+            }
+            get_s3().put_object(Bucket="files", Key=s3_key, Body=data, ContentType=content_types.get(ext, "application/octet-stream"))
+            file_url = f"{CDN_BASE}/{s3_key}"
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.site_page_files (page_id, file_url, file_name, sort_order)
+                VALUES (%s, %s, %s, (SELECT COALESCE(MAX(sort_order),0)+1 FROM {SCHEMA}.site_page_files WHERE page_id=%s))
+                RETURNING id
+            """, (page_id, file_url, file_name, page_id))
+            new_id = cur.fetchone()[0]
+            conn.commit()
+            return ok({"id": new_id, "file_url": file_url, "ok": True}, 201)
+
+        # ── delete-page-file: открепить файл от страницы ──────────
+        if action == "delete-page-file":
+            if not check_role(cur, headers, ("owner",)):
+                return err("Unauthorized", 401)
+            file_id = int(headers.get("x-file-id", "0"))
+            if not file_id:
+                return err("X-File-Id required")
+            cur.execute(f"SELECT file_url FROM {SCHEMA}.site_page_files WHERE id=%s", (file_id,))
+            row = cur.fetchone()
+            if row and CDN_BASE in row[0]:
+                s3_key = row[0].replace(f"{CDN_BASE}/", "").split("?")[0]
+                try:
+                    get_s3().delete_object(Bucket="files", Key=s3_key)
+                except Exception:
+                    pass
+            cur.execute(f"DELETE FROM {SCHEMA}.site_page_files WHERE id=%s", (file_id,))
             conn.commit()
             return ok({"ok": True})
 

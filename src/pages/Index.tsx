@@ -15,7 +15,7 @@ import { useScrollReveal, useReadProgress } from "@/hooks/useScrollReveal";
 const Index = () => {
   useScrollReveal();
   useReadProgress();
-  const { open, closeModal } = useLeadModal();
+  const { open, source, brief, closeModal } = useLeadModal();
 
   return (
     <main className="min-h-screen bg-background">
@@ -29,7 +29,7 @@ const Index = () => {
       <CTASection />
       <Footer />
       <AiChat />
-      <LeadModal open={open} onClose={closeModal} />
+      <LeadModal open={open} onClose={closeModal} source={source} brief={brief ?? undefined} />
     </main>
   );
 };
