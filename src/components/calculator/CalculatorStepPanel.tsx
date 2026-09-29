@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { STEPS, ROASTS, WEIGHT_FORMATS, BAG_COLORS, PACKAGING_TYPE_LABEL, OptionCardProps } from "./calculator.types";
-import CalculatorAiHint from "./CalculatorAiHint";
 import type { CalcOrigin } from "@/components/PriceCalculator";
 
 // ── Анимированная карточка ────────────────────────────────────
@@ -268,30 +267,10 @@ const CalculatorStepPanel = ({
                     <Icon name="Plus" size={14} />
                   </button>
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { vol: minVolume,      label: "Старт",   desc: "Минимальный заказ" },
-                    { vol: 1000, label: "Бизнес",  desc: "Скидка 5%"  },
-                    { vol: 2000, label: "Партнёр", desc: "Скидка 10%" },
-                  ].map(q => (
-                    <button key={q.vol} onClick={() => setVolume(q.vol)}
-                      className={`p-3 rounded-2xl border text-center transition-all duration-200 ${
-                        volume === q.vol
-                          ? "border-primary bg-primary/8 text-primary"
-                          : "border-border hover:border-primary/30 hover:scale-[1.01]"
-                      }`}>
-                      <p className="font-semibold text-sm">{q.label}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{q.vol.toLocaleString("ru-RU")} кг · {q.desc}</p>
-                    </button>
-                  ))}
-                </div>
               </div>
             )}
 
           </StepContent>
-
-          {/* AI-подсказки */}
-          <CalculatorAiHint step={step} />
 
         </div>
 

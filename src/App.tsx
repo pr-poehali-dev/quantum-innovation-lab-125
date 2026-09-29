@@ -46,15 +46,15 @@ const App = () => (
               <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin/join" element={<AdminJoin />} />
               <Route path="/admin" element={<StaffGuard><Admin /></StaffGuard>} />
-              <Route path="/admin/about" element={<RoleGuard allowedRoles={["owner"]}><AboutAdmin /></RoleGuard>} />
-              <Route path="/admin/landing" element={<RoleGuard allowedRoles={["owner"]}><AdminLanding /></RoleGuard>} />
-              <Route path="/admin/pages" element={<RoleGuard allowedRoles={["owner"]}><AdminPages /></RoleGuard>} />
-              <Route path="/admin/rate" element={<RoleGuard allowedRoles={["owner", "manager"]}><AdminRate /></RoleGuard>} />
-              <Route path="/admin/calc" element={<RoleGuard allowedRoles={["owner", "manager"]}><AdminCalc /></RoleGuard>} />
-              <Route path="/admin/crm" element={<RoleGuard allowedRoles={["owner", "manager", "support"]}><AdminCRM /></RoleGuard>} />
-              <Route path="/admin/stages" element={<RoleGuard allowedRoles={["owner", "manager"]}><AdminStages /></RoleGuard>} />
+              <Route path="/admin/about" element={<RoleGuard allowedRoles={["owner", "super_admin"]}><AboutAdmin /></RoleGuard>} />
+              <Route path="/admin/landing" element={<RoleGuard allowedRoles={["owner", "super_admin"]}><AdminLanding /></RoleGuard>} />
+              <Route path="/admin/pages" element={<RoleGuard allowedRoles={["owner", "super_admin"]}><AdminPages /></RoleGuard>} />
+              <Route path="/admin/rate" element={<RoleGuard allowedRoles={["owner", "super_admin", "manager"]}><AdminRate /></RoleGuard>} />
+              <Route path="/admin/calc" element={<RoleGuard allowedRoles={["owner", "super_admin", "manager"]}><AdminCalc /></RoleGuard>} />
+              <Route path="/admin/crm" element={<RoleGuard allowedRoles={["owner", "super_admin", "manager", "support"]}><AdminCRM /></RoleGuard>} />
+              <Route path="/admin/stages" element={<RoleGuard allowedRoles={["owner", "super_admin", "manager"]}><AdminStages /></RoleGuard>} />
               <Route path="/admin/staff" element={<RoleGuard allowedRoles={["owner"]}><AdminStaff /></RoleGuard>} />
-              <Route path="/admin/settings" element={<RoleGuard allowedRoles={["owner"]}><AdminSettings /></RoleGuard>} />
+              <Route path="/admin/settings" element={<RoleGuard allowedRoles={["owner", "super_admin"]}><AdminSettings /></RoleGuard>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

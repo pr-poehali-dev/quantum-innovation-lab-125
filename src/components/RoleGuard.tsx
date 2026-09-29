@@ -4,7 +4,7 @@ import Icon from "@/components/ui/icon";
 import { useStaffAuth } from "@/context/StaffAuthContext";
 import StaffGuard from "@/components/StaffGuard";
 
-type Role = "owner" | "manager" | "support";
+type Role = "owner" | "super_admin" | "manager" | "support";
 
 const DeniedScreen = () => (
   <div className="min-h-screen flex flex-col items-center justify-center bg-background text-center px-6">

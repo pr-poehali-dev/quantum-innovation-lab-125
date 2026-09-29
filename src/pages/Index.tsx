@@ -3,7 +3,6 @@ import HeroSection from "@/components/HeroSection";
 import WorkflowSection from "@/components/WorkflowSection";
 import FeaturesSection from "@/components/FeaturesSection";
 import AboutSection from "@/components/AboutSection";
-import TestimonialsSection from "@/components/TestimonialsSection";
 import CTASection from "@/components/CTASection";
 import PriceCalculator from "@/components/PriceCalculator";
 import Footer from "@/components/Footer";
@@ -21,11 +20,10 @@ const Index = () => {
     <main className="min-h-screen bg-background">
       <Header />
       <HeroSection />
-      <WorkflowSection />
-      <FeaturesSection />
-      <AboutSection />
       <PriceCalculator />
-      <TestimonialsSection />
+      <WorkflowSection />
+      <AboutSection />
+      <FeaturesSection />
       <CTASection />
       <Footer />
       <AiChat />

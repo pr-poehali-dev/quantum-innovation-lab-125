@@ -7,11 +7,10 @@ import fallbackLogo from "@/assets/logo.png";
 
 // Порядок совпадает с порядком блоков на странице
 const NAV_ITEMS = [
-  { label: "Кофе под СТМ",  href: "#workflow",      section: "workflow"      },
-  { label: "О производстве", href: "#features",     section: "features"      },
-  { label: "Калькулятор",   href: "#calculator",    section: "calculator"    },
-  { label: "Клиенты",       href: "#testimonials",  section: "testimonials"  },
-  { label: "Контакты",      href: "#contacts",      section: "contacts"      },
+  { label: "Калькулятор",    href: "#calculator", section: "calculator" },
+  { label: "Кофе под СТМ",   href: "#workflow",    section: "workflow"   },
+  { label: "О производстве", href: "#features",    section: "features"   },
+  { label: "Контакты",       href: "#contacts",    section: "contacts"   },
 ];
 
 const FALLBACK_LOGO = fallbackLogo;
@@ -35,6 +34,7 @@ const Header = () => {
   const [usdRate,       setUsdRate]       = useState<number | null>(null);
   const [usdRateDate,   setUsdRateDate]   = useState<string | null>(null);
   const [phoneOpen,     setPhoneOpen]     = useState(false);
+  const [mobileOpen,    setMobileOpen]    = useState(false);
   const phoneRef = useRef<HTMLDivElement>(null);
   const { openModal } = useLeadModal();
   const { client } = useClientAuth();
@@ -214,11 +214,65 @@ const Header = () => {
             )}
 
             <button onClick={() => openModal("header")}
-              className="bg-primary text-white px-4 py-1.5 rounded-full text-[13px] font-semibold hover:bg-primary/90 transition-all active:scale-95 shadow-sm shadow-primary/20">
+              className="bg-primary text-white px-3 sm:px-4 py-1.5 rounded-full text-[12px] sm:text-[13px] font-semibold hover:bg-primary/90 transition-all active:scale-95 shadow-sm shadow-primary/20 whitespace-nowrap">
               Получить предложение
+            </button>
+
+            {/* Гамбургер — только на мобильных/планшетах */}
+            <button
+              onClick={() => setMobileOpen(o => !o)}
+              className="lg:hidden w-8 h-8 flex items-center justify-center rounded-full hover:bg-primary/8 text-black/50 hover:text-primary transition-all flex-shrink-0"
+              aria-label="Меню"
+            >
+              <Icon name={mobileOpen ? "X" : "Menu"} size={19} />
             </button>
           </div>
         </div>
+
+        {/* Мобильное меню */}
+        {mobileOpen && (
+          <div className="lg:hidden border-t border-black/8 bg-white px-6 py-4 space-y-3 animate-in slide-in-from-top duration-200">
+            <nav className="flex flex-col gap-1">
+              {NAV_ITEMS.map(item => (
+                <a key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
+                  className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                    activeSection === item.section ? "bg-primary/8 text-primary" : "text-black/70 hover:bg-secondary/60"
+                  }`}>
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+
+            {usdRate !== null && (
+              <div className="flex items-center gap-1.5 px-3 py-2">
+                <span className="text-[11px] font-mono text-black/35">USD</span>
+                <span className="text-[13px] font-mono font-semibold text-black/70">{usdRate.toFixed(2)} ₽</span>
+                {usdRateDate && (
+                  <span className="text-[11px] font-mono text-green-600 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> обновлено {formatRateDate(usdRateDate)}
+                  </span>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center gap-2 pt-2 border-t border-black/8">
+              <a href="tel:+79042474302" onClick={() => setMobileOpen(false)}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-black/10 text-sm font-medium text-foreground hover:bg-secondary/50 transition-colors">
+                <Icon name="Phone" size={14} className="text-primary" /> Позвонить
+              </a>
+              <a href="https://t.me/kontraktkafe" target="_blank" rel="noopener noreferrer" onClick={() => setMobileOpen(false)}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-black/10 text-sm font-medium text-foreground hover:bg-secondary/50 transition-colors">
+                <Icon name="Send" size={14} className="text-primary" /> Telegram
+              </a>
+            </div>
+
+            <Link to="/cabinet" onClick={() => setMobileOpen(false)}
+              className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-primary/8 border border-primary/20 text-sm font-medium text-primary">
+              <Icon name="User" size={14} />
+              {client ? `Личный кабинет — ${client.name.split(" ")[0]}` : "Войти в личный кабинет"}
+            </Link>
+          </div>
+        )}
       </header>
     </>
   );

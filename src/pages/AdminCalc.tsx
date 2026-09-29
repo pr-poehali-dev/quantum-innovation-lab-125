@@ -18,6 +18,8 @@ interface Params {
   [key: string]: { value: number; label: string };
 }
 
+interface LeadTimeTier { max_volume: number | null; days: number }
+
 const PARAM_ORDER = [
   "pkg_1kg", "transport_1kg", "production_1kg", "roasting_1kg", "weight_loss",
   "pkg_250g", "transport_250g", "production_250g", "roasting_250g",
@@ -28,6 +30,11 @@ const AdminCalc = () => {
   const [origins,      setOrigins]      = useState<Origin[]>([]);
   const [params,       setParams]       = useState<Params>({});
   const [usdRate,      setUsdRate]      = useState<number>(85);
+  const [minVolume,    setMinVolume]    = useState<number>(500);
+  const [volumeStep,   setVolumeStep]   = useState<number>(5);
+  const [leadTimeTiers, setLeadTimeTiers] = useState<LeadTimeTier[]>([
+    { max_volume: 1000, days: 14 }, { max_volume: 2000, days: 18 }, { max_volume: null, days: 25 },
+  ]);
   const [deleteIds,    setDeleteIds]    = useState<number[]>([]);
   const [loading,      setLoading]      = useState(true);
   const [saving,       setSaving]       = useState(false);
@@ -45,6 +52,9 @@ const AdminCalc = () => {
         setOrigins(d.origins || []);
         setParams(d.params || {});
         setUsdRate(d.usd_rate || 85);
+        setMinVolume(d.min_volume || 500);
+        setVolumeStep(d.volume_step || 5);
+        if (d.lead_time_tiers) setLeadTimeTiers(d.lead_time_tiers);
       })
       .catch(() => showToast("Ошибка загрузки", false))
       .finally(() => setLoading(false));
@@ -81,6 +91,9 @@ const AdminCalc = () => {
           origins: origins.map((o, i) => ({ ...o, sort_order: i + 1 })),
           delete_origin_ids: deleteIds,
           params: paramsToSave,
+          min_volume: minVolume,
+          volume_step: volumeStep,
+          lead_time_tiers: leadTimeTiers,
         }),
       });
       if (r.ok) {
@@ -311,6 +324,67 @@ const AdminCalc = () => {
                     ))}
                   </div>
                 </div>
+              </div>
+            </section>
+
+            {/* Объём заказа */}
+            <section>
+              <h2 className="font-serif text-xl font-bold mb-1">Объём заказа</h2>
+              <p className="text-sm text-muted-foreground mb-4">Минимальный заказ и шаг изменения объёма в калькуляторе и личном кабинете</p>
+              <div className="bg-card border border-border rounded-xl p-5 flex flex-wrap gap-6">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-muted-foreground">Минимальный объём</label>
+                  <input type="number" min={1} value={minVolume}
+                    onChange={e => setMinVolume(parseInt(e.target.value) || 0)}
+                    className="w-24 px-2 py-1.5 border border-border rounded-lg text-sm font-mono text-right focus:outline-none focus:border-primary transition-colors" />
+                  <span className="text-sm text-muted-foreground">кг</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-muted-foreground">Шаг изменения</label>
+                  <input type="number" min={1} value={volumeStep}
+                    onChange={e => setVolumeStep(parseInt(e.target.value) || 1)}
+                    className="w-24 px-2 py-1.5 border border-border rounded-lg text-sm font-mono text-right focus:outline-none focus:border-primary transition-colors" />
+                  <span className="text-sm text-muted-foreground">кг</span>
+                </div>
+              </div>
+            </section>
+
+            {/* Сроки производства */}
+            <section>
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="font-serif text-xl font-bold">Сроки производства</h2>
+                <button
+                  onClick={() => setLeadTimeTiers(prev => [...prev.slice(0, -1), { max_volume: (prev[prev.length - 2]?.max_volume ?? 0) + 500, days: prev[prev.length - 1]?.days ?? 20 }, prev[prev.length - 1]])}
+                  className="flex items-center gap-1.5 text-sm font-medium text-primary border border-primary/30 hover:bg-primary/5 px-3 py-1.5 rounded-full transition-all"
+                >
+                  <Icon name="Plus" size={14} /> Добавить порог
+                </button>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">Срок изготовления партии в днях в зависимости от объёма заказа</p>
+              <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+                {leadTimeTiers.map((tier, idx) => (
+                  <div key={idx} className="flex items-center gap-3">
+                    <span className="text-sm text-muted-foreground w-16 flex-shrink-0">до</span>
+                    {tier.max_volume === null ? (
+                      <span className="w-28 px-2 py-1.5 text-sm font-mono text-muted-foreground">и больше</span>
+                    ) : (
+                      <input type="number" min={1} value={tier.max_volume}
+                        onChange={e => setLeadTimeTiers(prev => prev.map((t, i) => i === idx ? { ...t, max_volume: parseInt(e.target.value) || 0 } : t))}
+                        className="w-28 px-2 py-1.5 border border-border rounded-lg text-sm font-mono text-right focus:outline-none focus:border-primary transition-colors" />
+                    )}
+                    <span className="text-sm text-muted-foreground flex-shrink-0">кг →</span>
+                    <input type="number" min={1} value={tier.days}
+                      onChange={e => setLeadTimeTiers(prev => prev.map((t, i) => i === idx ? { ...t, days: parseInt(e.target.value) || 0 } : t))}
+                      className="w-20 px-2 py-1.5 border border-border rounded-lg text-sm font-mono text-right focus:outline-none focus:border-primary transition-colors" />
+                    <span className="text-sm text-muted-foreground flex-shrink-0">дней</span>
+                    {leadTimeTiers.length > 1 && (
+                      <button onClick={() => setLeadTimeTiers(prev => prev.filter((_, i) => i !== idx))}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all ml-auto">
+                        <Icon name="Trash2" size={13} />
+                      </button>
+                    )}
+                  </div>
+                ))}
               </div>
             </section>
 

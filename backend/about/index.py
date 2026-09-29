@@ -9,7 +9,7 @@ X-Action значения:
   upload-photo     — POST загрузить фото (только владелец)
   add-photo-url    — POST добавить фото по URL (только владелец)
   delete-photo     — DELETE удалить фото (только владелец)
-  get-calc         — GET публичные данные калькулятора v2 (сорта, параметры, курс+дата, мин.объём, шаг)
+  get-calc         — GET публичные данные калькулятора v2 (сорта, параметры, курс+дата, мин.объём, шаг, сроки производства)
   save-calc        — POST сохранить калькулятор v2 (владелец и менеджер)
   get-rate         — GET курс доллара (+ дата обновления)
   save-rate        — POST сохранить курс доллара (владелец и менеджер)
@@ -124,7 +124,7 @@ def handler(event: dict, context) -> dict:
 
         # ── save-texts: обновить тексты ──────────────────────────
         if action == "save-texts":
-            if not check_role(cur, headers, ("owner",)):
+            if not check_role(cur, headers, ("owner", "super_admin")):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
             cur.execute(f"""
@@ -137,7 +137,7 @@ def handler(event: dict, context) -> dict:
 
         # ── upload-logo: принять base64, залить в S3, сохранить URL ─
         if action == "upload-logo":
-            if not check_role(cur, headers, ("owner",)):
+            if not check_role(cur, headers, ("owner", "super_admin")):
                 return err("Unauthorized", 401)
             body    = json.loads(event.get("body") or "{}")
             b64     = body.get("file_base64", "")
@@ -157,7 +157,7 @@ def handler(event: dict, context) -> dict:
 
         # ── upload-photo: принять base64, залить в S3, сохранить запись ─
         if action == "upload-photo":
-            if not check_role(cur, headers, ("owner",)):
+            if not check_role(cur, headers, ("owner", "super_admin")):
                 return err("Unauthorized", 401)
             body  = json.loads(event.get("body") or "{}")
             b64   = body.get("file_base64", "")
@@ -178,7 +178,7 @@ def handler(event: dict, context) -> dict:
 
         # ── add-photo-url: добавить фото по внешнему URL ─────────
         if action == "add-photo-url":
-            if not check_role(cur, headers, ("owner",)):
+            if not check_role(cur, headers, ("owner", "super_admin")):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
             cur.execute(f"""
@@ -192,7 +192,7 @@ def handler(event: dict, context) -> dict:
 
         # ── delete-photo: удалить фото ────────────────────────────
         if action == "delete-photo":
-            if not check_role(cur, headers, ("owner",)):
+            if not check_role(cur, headers, ("owner", "super_admin")):
                 return err("Unauthorized", 401)
             photo_id = int(headers.get("x-photo-id", "0"))
             if not photo_id:
@@ -233,14 +233,19 @@ def handler(event: dict, context) -> dict:
             cur.execute(f"SELECT value FROM {SCHEMA}.site_settings WHERE key='calc_volume_step'")
             step_row = cur.fetchone()
             volume_step = int(float(step_row[0])) if step_row else 5
+            cur.execute(f"SELECT value FROM {SCHEMA}.site_settings WHERE key='calc_lead_time_tiers'")
+            lt_row = cur.fetchone()
+            lead_time_tiers = json.loads(lt_row[0]) if lt_row else [
+                {"max_volume": 1000, "days": 14}, {"max_volume": 2000, "days": 18}, {"max_volume": None, "days": 25},
+            ]
             return ok({
                 "origins": origins, "params": params, "usd_rate": usd_rate, "usd_rate_updated_at": rate_updated_at,
-                "min_volume": min_volume, "volume_step": volume_step,
+                "min_volume": min_volume, "volume_step": volume_step, "lead_time_tiers": lead_time_tiers,
             })
 
         # ── save-calc: сохранить данные калькулятора v2 ───────────
         if action == "save-calc":
-            if not check_role(cur, headers, ("owner", "manager")):
+            if not check_role(cur, headers, ("owner", "super_admin", "manager")):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
 
@@ -280,6 +285,12 @@ def handler(event: dict, context) -> dict:
                     ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
                 """, (str(int(body["volume_step"])),))
 
+            if "lead_time_tiers" in body:
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.site_settings (key, value, updated_at) VALUES ('calc_lead_time_tiers', %s, NOW())
+                    ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
+                """, (json.dumps(body["lead_time_tiers"]),))
+
             conn.commit()
             return ok({"ok": True})
 
@@ -293,7 +304,7 @@ def handler(event: dict, context) -> dict:
 
         # ── save-rate: сохранить курс доллара ─────────────────────
         if action == "save-rate":
-            if not check_role(cur, headers, ("owner", "manager")):
+            if not check_role(cur, headers, ("owner", "super_admin", "manager")):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
             rate = body.get("rate")
@@ -320,7 +331,7 @@ def handler(event: dict, context) -> dict:
 
         # ── save-section: сохранить секцию лендинга ───────────────
         if action == "save-section":
-            if not check_role(cur, headers, ("owner",)):
+            if not check_role(cur, headers, ("owner", "super_admin")):
                 return err("Unauthorized", 401)
             section_key = headers.get("x-section-key", "")
             if not section_key:
@@ -348,7 +359,7 @@ def handler(event: dict, context) -> dict:
 
         # ── list-testimonials: все отзывы для админки ─────────────
         if action == "list-testimonials":
-            if not check_role(cur, headers, ("owner",)):
+            if not check_role(cur, headers, ("owner", "super_admin")):
                 return err("Unauthorized", 401)
             cur.execute(f"""
                 SELECT id, quote, author, role, sort_order, active
@@ -362,7 +373,7 @@ def handler(event: dict, context) -> dict:
 
         # ── save-testimonial: создать/обновить отзыв ──────────────
         if action == "save-testimonial":
-            if not check_role(cur, headers, ("owner",)):
+            if not check_role(cur, headers, ("owner", "super_admin")):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
             tid = body.get("id")
@@ -390,7 +401,7 @@ def handler(event: dict, context) -> dict:
 
         # ── delete-testimonial: удалить отзыв ─────────────────────
         if action == "delete-testimonial":
-            if not check_role(cur, headers, ("owner",)):
+            if not check_role(cur, headers, ("owner", "super_admin")):
                 return err("Unauthorized", 401)
             tid = int(headers.get("x-testimonial-id", "0"))
             if not tid:
@@ -401,7 +412,7 @@ def handler(event: dict, context) -> dict:
 
         # ── get-email-settings: настройки отправителя писем ───────
         if action == "get-email-settings":
-            if not check_role(cur, headers, ("owner", "manager")):
+            if not check_role(cur, headers, ("owner", "super_admin", "manager")):
                 return err("Unauthorized", 401)
             cur.execute(f"""
                 SELECT key, value FROM {SCHEMA}.site_settings
@@ -415,7 +426,7 @@ def handler(event: dict, context) -> dict:
 
         # ── save-email-settings: сохранить отправителя писем ──────
         if action == "save-email-settings":
-            if not check_role(cur, headers, ("owner",)):
+            if not check_role(cur, headers, ("owner", "super_admin")):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
             sender_name = (body.get("sender_name") or "").strip()
@@ -467,7 +478,7 @@ def handler(event: dict, context) -> dict:
 
         # ── list-site-pages: все страницы для админки ─────────────
         if action == "list-site-pages":
-            if not check_role(cur, headers, ("owner",)):
+            if not check_role(cur, headers, ("owner", "super_admin")):
                 return err("Unauthorized", 401)
             cur.execute(f"""
                 SELECT id, slug, title, content, icon, sort_order, show_in_footer, is_published
@@ -489,7 +500,7 @@ def handler(event: dict, context) -> dict:
 
         # ── save-site-page: создать/обновить страницу ─────────────
         if action == "save-site-page":
-            if not check_role(cur, headers, ("owner",)):
+            if not check_role(cur, headers, ("owner", "super_admin")):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
             page_id = body.get("id")
@@ -521,7 +532,7 @@ def handler(event: dict, context) -> dict:
 
         # ── delete-site-page: удалить страницу ────────────────────
         if action == "delete-site-page":
-            if not check_role(cur, headers, ("owner",)):
+            if not check_role(cur, headers, ("owner", "super_admin")):
                 return err("Unauthorized", 401)
             page_id = int(headers.get("x-page-id", "0"))
             if not page_id:
@@ -541,7 +552,7 @@ def handler(event: dict, context) -> dict:
 
         # ── reorder-site-pages ─────────────────────────────────────
         if action == "reorder-site-pages":
-            if not check_role(cur, headers, ("owner",)):
+            if not check_role(cur, headers, ("owner", "super_admin")):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
             for item in body.get("order", []):
@@ -551,7 +562,7 @@ def handler(event: dict, context) -> dict:
 
         # ── upload-page-file: прикрепить файл к странице ──────────
         if action == "upload-page-file":
-            if not check_role(cur, headers, ("owner",)):
+            if not check_role(cur, headers, ("owner", "super_admin")):
                 return err("Unauthorized", 401)
             body = json.loads(event.get("body") or "{}")
             page_id = body.get("page_id")
@@ -580,7 +591,7 @@ def handler(event: dict, context) -> dict:
 
         # ── delete-page-file: открепить файл от страницы ──────────
         if action == "delete-page-file":
-            if not check_role(cur, headers, ("owner",)):
+            if not check_role(cur, headers, ("owner", "super_admin")):
                 return err("Unauthorized", 401)
             file_id = int(headers.get("x-file-id", "0"))
             if not file_id:

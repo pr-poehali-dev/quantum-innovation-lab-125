@@ -5,7 +5,7 @@ import { useStaffAuth } from "@/context/StaffAuthContext";
 
 const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
 
-type Tab = "hero" | "workflow" | "features" | "footer" | "testimonials";
+type Tab = "hero" | "workflow" | "features" | "cta" | "footer" | "testimonials";
 
 interface HeroData {
   title_line1: string; title_line2: string; title_line3: string;
@@ -30,11 +30,13 @@ interface FooterData {
 }
 
 interface Testimonial { id: number; quote: string; author: string; role: string; sort_order: number; active: boolean }
+interface CtaData { eyebrow: string; title_line1: string; title_line2: string; subtitle: string }
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "hero", label: "Главный экран", icon: "Layout" },
   { id: "workflow", label: "Кофе под СТМ", icon: "GitBranch" },
   { id: "features", label: "Преимущества", icon: "Sparkles" },
+  { id: "cta", label: "Запустите бренд", icon: "Megaphone" },
   { id: "footer", label: "Футер", icon: "PanelBottom" },
   { id: "testimonials", label: "Отзывы", icon: "MessageSquareQuote" },
 ];
@@ -50,6 +52,7 @@ const AdminLanding = () => {
   const [workflow, setWorkflow] = useState<WorkflowData | null>(null);
   const [features, setFeatures] = useState<FeaturesData | null>(null);
   const [footer, setFooter] = useState<FooterData | null>(null);
+  const [cta, setCta] = useState<CtaData | null>(null);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
 
   const authHeaders = { "X-Staff-Token": token || "" };
@@ -70,6 +73,7 @@ const AdminLanding = () => {
       if (sectionsRes.sections?.workflow) setWorkflow(sectionsRes.sections.workflow);
       if (sectionsRes.sections?.features) setFeatures(sectionsRes.sections.features);
       if (sectionsRes.sections?.footer) setFooter(sectionsRes.sections.footer);
+      if (sectionsRes.sections?.cta) setCta(sectionsRes.sections.cta);
       if (testRes.testimonials) setTestimonials(testRes.testimonials);
     } catch { showToast("Ошибка загрузки", false); }
     finally { setLoading(false); }
@@ -281,6 +285,27 @@ const AdminLanding = () => {
                 </div>
 
                 <button onClick={() => saveSection("features", features)} disabled={saving}
+                  className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-40">
+                  <Icon name={saving ? "Loader" : "Save"} size={14} className={saving ? "animate-spin" : ""} /> Сохранить
+                </button>
+              </div>
+            )}
+
+            {/* ── CTA (Запустите свой бренд) ── */}
+            {tab === "cta" && cta && (
+              <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+                <div><label className={labelCls}>НАДПИСЬ НАД ЗАГОЛОВКОМ</label>
+                  <input className={inputCls} value={cta.eyebrow} onChange={e => setCta({ ...cta, eyebrow: e.target.value })} /></div>
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div><label className={labelCls}>ЗАГОЛОВОК СТРОКА 1</label>
+                    <input className={inputCls} value={cta.title_line1} onChange={e => setCta({ ...cta, title_line1: e.target.value })} /></div>
+                  <div><label className={labelCls}>ЗАГОЛОВОК СТРОКА 2</label>
+                    <input className={inputCls} value={cta.title_line2} onChange={e => setCta({ ...cta, title_line2: e.target.value })} /></div>
+                </div>
+                <div><label className={labelCls}>ПОДЗАГОЛОВОК</label>
+                  <textarea className={inputCls} rows={2} value={cta.subtitle} onChange={e => setCta({ ...cta, subtitle: e.target.value })} /></div>
+
+                <button onClick={() => saveSection("cta", cta)} disabled={saving}
                   className="flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-40">
                   <Icon name={saving ? "Loader" : "Save"} size={14} className={saving ? "animate-spin" : ""} /> Сохранить
                 </button>

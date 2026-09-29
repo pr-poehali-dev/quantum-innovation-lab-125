@@ -15,8 +15,9 @@ X-Action значения:
   preview-login    — POST владелец получает временный токен с ролью manager|support (быстрый просмотр
                       рабочего пространства менеджера, без выхода из своей сессии): role
 
-Роли: owner (владелец, полный доступ), manager (менеджер, ведёт сделки),
-support (поддержка 24/7 — первичная обработка новых обращений в чате).
+Роли: owner (владелец, полный доступ, включая управление сотрудниками),
+super_admin (все права владельца, КРОМЕ приглашения/удаления/смены ролей сотрудников — это только owner),
+manager (менеджер, ведёт сделки), support (поддержка 24/7 — первичная обработка новых обращений в чате).
 """
 import json
 import os
@@ -138,7 +139,7 @@ def handler(event: dict, context) -> dict:
             body = json.loads(event.get("body") or "{}")
             email = (body.get("email") or "").strip().lower()
             role = body.get("role") or "manager"
-            if role not in ("manager", "support"):
+            if role not in ("manager", "support", "super_admin"):
                 role = "manager"
             if not email:
                 return err("email required")
@@ -277,7 +278,7 @@ def handler(event: dict, context) -> dict:
             staff = get_staff_by_token(cur, staff_token)
             if not staff:
                 return err("Unauthorized", 401)
-            if staff["role"] != "owner":
+            if staff["role"] not in ("owner", "super_admin"):
                 return err("Только владелец видит список сотрудников", 403)
             cur.execute(f"""
                 SELECT id, email, name, is_owner, active, created_at, role, last_login_at
@@ -303,8 +304,8 @@ def handler(event: dict, context) -> dict:
             body = json.loads(event.get("body") or "{}")
             target_id = body.get("staff_id")
             new_role = body.get("role")
-            if new_role not in ("manager", "support"):
-                return err("Роль должна быть manager или support")
+            if new_role not in ("manager", "support", "super_admin"):
+                return err("Роль должна быть manager, support или super_admin")
             if target_id == staff["id"]:
                 return err("Нельзя изменить свою собственную роль")
             cur.execute(f"""

@@ -73,11 +73,11 @@ def get_role(cur, headers: dict):
 
 
 def check_admin(cur, headers: dict) -> bool:
-    return get_role(cur, headers) in ("owner", "manager")
+    return get_role(cur, headers) in ("owner", "super_admin", "manager")
 
 
 def check_owner(cur, headers: dict) -> bool:
-    return get_role(cur, headers) == "owner"
+    return get_role(cur, headers) in ("owner", "super_admin")
 
 
 def get_client_id_by_token(cur, token: str):

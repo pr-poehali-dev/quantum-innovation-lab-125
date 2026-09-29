@@ -6,6 +6,7 @@ import LotForm from "./LotForm";
 
 interface Props {
   deal: BatchDeal;
+  goProfile: () => void;
 }
 
 const formatMoney = (n: number | null) => n ? `${n.toLocaleString("ru-RU")} ₽` : "—";
@@ -13,7 +14,7 @@ const formatDate = (iso: string) => new Date(iso).toLocaleDateString("ru-RU", { 
 const colorLabel = (v: string | null) => BAG_COLORS.find(c => c.value === v)?.label ?? v ?? "—";
 const weightLabel = (v: string | null) => v === "250g" ? "250 г" : v === "1kg" ? "1 кг" : v ?? "—";
 
-const CabinetDealDetail = ({ deal }: Props) => {
+const CabinetDealDetail = ({ deal, goProfile }: Props) => {
   const { deleteLot, updateLogistics, submitDeal, fetchLogisticsFields } = useClientAuth();
   const [addingLot, setAddingLot] = useState(false);
   const [editingLotId, setEditingLotId] = useState<number | null>(null);
@@ -61,8 +62,11 @@ const CabinetDealDetail = ({ deal }: Props) => {
     setSubmitError("");
     const res = await submitDeal(deal.id);
     setSubmitting(false);
-    if (!res.ok) setSubmitError(res.error || "Не удалось отправить на согласование");
+    if (res.ok) showToast("Заказ отправлен на согласование ✓");
+    else setSubmitError(res.error || "Не удалось отправить на согласование");
   };
+
+  const phoneMissing = submitError.includes("телефон");
 
   if (addingLot || editingLotId) {
     return (
@@ -93,7 +97,7 @@ const CabinetDealDetail = ({ deal }: Props) => {
       <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="font-serif text-2xl font-bold">Заказ №{deal.id}</h2>
+            <h2 className="font-serif text-2xl font-bold">Заказ</h2>
             {isDraft ? (
               <span className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-secondary text-muted-foreground">Черновик</span>
             ) : (
@@ -214,7 +218,17 @@ const CabinetDealDetail = ({ deal }: Props) => {
               <p className="text-[13px] text-muted-foreground mb-3">
                 После отправки менеджер увидит заказ и свяжется с вами. Изменить лоты будет уже нельзя.
               </p>
-              {submitError && <p className="text-sm text-destructive mb-3">{submitError}</p>}
+              {submitError && (
+                <div className="mb-3 bg-destructive/8 border border-destructive/20 rounded-xl p-3">
+                  <p className="text-sm text-destructive">{submitError}</p>
+                  {phoneMissing && (
+                    <button onClick={goProfile}
+                      className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 transition-colors">
+                      <Icon name="UserCog" size={14} /> Заполнить телефон в личных данных
+                    </button>
+                  )}
+                </div>
+              )}
               <button onClick={handleSubmit} disabled={submitting || deal.lots.length === 0}
                 className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-primary/90 transition-all disabled:opacity-50">
                 {submitting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Icon name="Send" size={15} />}

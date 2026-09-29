@@ -10,6 +10,7 @@ import CabinetDealDetail from "./cabinet/CabinetDealDetail";
 import CabinetDocs from "./cabinet/CabinetDocs";
 import CabinetMockups from "./cabinet/CabinetMockups";
 import CabinetChat from "./cabinet/CabinetChat";
+import CabinetProfile from "./cabinet/CabinetProfile";
 import ClientLoginGate from "@/components/cabinet/ClientLoginGate";
 import { useClientAuth } from "@/context/ClientAuthContext";
 
@@ -19,9 +20,10 @@ const TITLES: Record<Tab, string> = {
   docs: "Документы",
   mockups: "Дизайн-макеты",
   chat: "Чат с менеджером",
+  profile: "Личные данные",
 };
 
-const VALID_TABS: Tab[] = ["dashboard", "batches", "docs", "mockups", "chat"];
+const VALID_TABS: Tab[] = ["dashboard", "batches", "docs", "mockups", "chat", "profile"];
 
 const CabinetContent = () => {
   const [searchParams] = useSearchParams();
@@ -68,7 +70,7 @@ const CabinetContent = () => {
     crumbs.push({ label: "Мои партии", onClick: currentBatch ? () => setOpenBatchId(null) : undefined });
     if (currentBatch) {
       crumbs.push({ label: currentBatch.name, onClick: currentDeal ? () => setOpenDealId(null) : undefined });
-      if (currentDeal) crumbs.push({ label: `Заказ №${currentDeal.id}` });
+      if (currentDeal) crumbs.push({ label: "Заказ" });
     }
   } else {
     crumbs.push({ label: TITLES[tab] });
@@ -142,9 +144,12 @@ const CabinetContent = () => {
                   </div>
                 )}
               </div>
-              <Link to="/" className="hidden sm:flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-                <Icon name="ArrowLeft" size={14} /> На сайт
+              <Link to="/" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <Icon name="ArrowLeft" size={14} /> <span className="hidden sm:inline">На сайт</span>
               </Link>
+              <button onClick={logout} className="md:hidden p-1.5 text-muted-foreground hover:text-destructive transition-colors" title="Выйти">
+                <Icon name="LogOut" size={17} />
+              </button>
             </div>
           </div>
         </header>
@@ -155,10 +160,11 @@ const CabinetContent = () => {
           {tab === "batches" && currentBatch && !currentDeal && (
             <CabinetBatchDetail batch={currentBatch} onOpenDeal={(dealId) => setOpenDealId(dealId)} />
           )}
-          {tab === "batches" && currentDeal && <CabinetDealDetail deal={currentDeal} />}
+          {tab === "batches" && currentDeal && <CabinetDealDetail deal={currentDeal} goProfile={() => goTab("profile")} />}
           {tab === "docs" && <CabinetDocs />}
           {tab === "mockups" && <CabinetMockups />}
           {tab === "chat" && <CabinetChat />}
+          {tab === "profile" && <CabinetProfile />}
         </div>
       </div>
     </div>

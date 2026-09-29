@@ -23,6 +23,7 @@ X-Action значения:
   upload-mockup      — POST клиент загружает макет (base64 → S3): batch_id, file_base64, file_name
   list-notifications — GET список уведомлений клиента (смена этапа, новые сообщения)
   mark-notifications-read — POST отметить все уведомления прочитанными
+  update-profile     — POST обновить личные данные клиента: name?, phone?, city?, company? (email — логин, не меняется)
 """
 import json
 import os
@@ -259,9 +260,10 @@ def handler(event: dict, context) -> dict:
                 batch_id = b[0]
                 cur.execute(f"""
                     SELECT d.id, d.stage_id, s.name, s.color, s.progress_percent, d.volume, d.amount,
-                           d.created_at, d.status, d.logistics_data
+                           d.created_at, d.status, d.logistics_data, d.assigned_to, st.name
                     FROM {SCHEMA}.deals d
                     LEFT JOIN {SCHEMA}.deal_stages s ON s.id = d.stage_id
+                    LEFT JOIN {SCHEMA}.staff_users st ON st.id = d.assigned_to
                     WHERE d.batch_id=%s ORDER BY d.created_at DESC
                 """, (batch_id,))
                 deals = []
@@ -272,6 +274,7 @@ def handler(event: dict, context) -> dict:
                         "progress_percent": r[4],
                         "volume": float(r[5]) if r[5] else None, "amount": float(r[6]) if r[6] else None,
                         "created_at": str(r[7]), "status": r[8], "logistics_data": r[9] or {},
+                        "assigned_to": r[10], "assigned_name": r[11],
                         "lots": fetch_lots(cur, deal_id),
                     })
                 batches.append({"id": batch_id, "name": b[1], "created_at": str(b[2]), "deals": deals})
@@ -432,6 +435,8 @@ def handler(event: dict, context) -> dict:
             deal_id = body.get("deal_id")
             if not deal_id:
                 return err("deal_id required")
+            if not client.get("phone"):
+                return err("Укажите номер телефона для связи в разделе «Личные данные», прежде чем отправлять заказ на согласование", 422)
             cur.execute(f"SELECT status, stage_id FROM {SCHEMA}.deals WHERE id=%s AND client_id=%s", (deal_id, client["id"]))
             row = cur.fetchone()
             if not row:
@@ -553,6 +558,21 @@ def handler(event: dict, context) -> dict:
             cur.execute(f"""
                 UPDATE {SCHEMA}.client_notifications SET is_read=TRUE WHERE client_id=%s AND is_read=FALSE
             """, (client["id"],))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── update-profile: клиент обновляет свои личные данные ────
+        if action == "update-profile":
+            client = get_client_by_token(cur, client_token)
+            if not client:
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            cur.execute(f"""
+                UPDATE {SCHEMA}.clients SET
+                    name=COALESCE(%s, name), phone=COALESCE(%s, phone),
+                    city=COALESCE(%s, city), company=COALESCE(%s, company)
+                WHERE id=%s
+            """, (body.get("name"), body.get("phone"), body.get("city"), body.get("company"), client["id"]))
             conn.commit()
             return ok({"ok": True})
 

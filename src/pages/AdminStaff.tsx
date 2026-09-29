@@ -5,7 +5,7 @@ import { useStaffAuth } from "@/context/StaffAuthContext";
 
 const STAFF_AUTH_URL = "https://functions.poehali.dev/133aa768-2894-4ea6-bc35-3672a24c751d";
 
-type Role = "owner" | "manager" | "support";
+type Role = "owner" | "super_admin" | "manager" | "support";
 
 interface StaffRow {
   id: number;
@@ -33,6 +33,7 @@ const formatLastSeen = (iso: string | null) => {
 
 const ROLE_LABELS: Record<Role, string> = {
   owner: "Владелец",
+  super_admin: "Супер-админ",
   manager: "Менеджер",
   support: "Поддержка",
 };
@@ -42,7 +43,7 @@ const AdminStaff = () => {
   const [staffList, setStaffList] = useState<StaffRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<"manager" | "support">("manager");
+  const [inviteRole, setInviteRole] = useState<"manager" | "support" | "super_admin">("manager");
   const [inviting, setInviting] = useState(false);
   const [inviteLink, setInviteLink] = useState("");
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
@@ -93,7 +94,7 @@ const AdminStaff = () => {
     showToast("Ссылка скопирована ✓");
   };
 
-  const changeRole = async (staffId: number, role: "manager" | "support") => {
+  const changeRole = async (staffId: number, role: "manager" | "support" | "super_admin") => {
     setStaffList(prev => prev.map(s => s.id === staffId ? { ...s, role } : s));
     try {
       const r = await fetch(STAFF_AUTH_URL, {
@@ -165,11 +166,12 @@ const AdminStaff = () => {
             />
             <select
               value={inviteRole}
-              onChange={e => setInviteRole(e.target.value as "manager" | "support")}
+              onChange={e => setInviteRole(e.target.value as "manager" | "support" | "super_admin")}
               className="px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:border-primary transition-colors bg-white"
             >
               <option value="manager">Менеджер</option>
               <option value="support">Поддержка</option>
+              <option value="super_admin">Супер-админ</option>
             </select>
             <button
               onClick={invite}
@@ -234,11 +236,12 @@ const AdminStaff = () => {
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <select
                         value={s.role}
-                        onChange={e => changeRole(s.id, e.target.value as "manager" | "support")}
+                        onChange={e => changeRole(s.id, e.target.value as "manager" | "support" | "super_admin")}
                         className="text-[12px] border border-border rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:border-primary transition-colors"
                       >
                         <option value="manager">Менеджер</option>
                         <option value="support">Поддержка</option>
+                        <option value="super_admin">Супер-админ</option>
                       </select>
                       <button onClick={() => toggleActive(s)}
                         className={`text-[11px] font-medium px-2.5 py-1.5 rounded-lg border transition-colors ${

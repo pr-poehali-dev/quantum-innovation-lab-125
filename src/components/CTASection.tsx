@@ -1,6 +1,32 @@
+import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 
+const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
+
+export interface CtaData {
+  eyebrow: string;
+  title_line1: string;
+  title_line2: string;
+  subtitle: string;
+}
+
+const DEFAULT_CTA: CtaData = {
+  eyebrow: "ГОТОВЫ К СТАРТУ?",
+  title_line1: "Запустите свой бренд кофе",
+  title_line2: "уже через 14 дней.",
+  subtitle: "Присоединяйтесь к 500+ компаниям, которые продают кофе под своей маркой.",
+};
+
 const CTASection = () => {
+  const [cta, setCta] = useState<CtaData>(DEFAULT_CTA);
+
+  useEffect(() => {
+    fetch(ABOUT_URL, { headers: { "X-Action": "get-sections", "X-Section-Key": "cta" } })
+      .then(r => r.json())
+      .then(d => { if (d.data) setCta(d.data); })
+      .catch(() => {});
+  }, []);
+
   return (
     <section className="py-24">
       <div className="max-w-7xl mx-auto px-6">
@@ -28,25 +54,22 @@ const CTASection = () => {
 
           {/* Main content */}
           <div className="text-center max-w-2xl mx-auto relative z-10">
-            <span className="inline-block text-xs font-mono text-white/60 tracking-wider mb-4">ГОТОВЫ К СТАРТУ?</span>
+            <span className="inline-block text-xs font-mono text-white/60 tracking-wider mb-4">{cta.eyebrow}</span>
             <h2 className="font-serif text-4xl md:text-5xl font-bold text-white mb-4 leading-tight">
-              Запустите свой бренд кофе
+              {cta.title_line1}
               <br />
-              уже через 14 дней.
+              {cta.title_line2}
             </h2>
             <p className="text-white/70 mb-8 text-base">
-              Присоединяйтесь к 500+ компаниям, которые продают кофе под своей маркой. Получите бесплатный образец и расчёт стоимости.
+              {cta.subtitle}
             </p>
             <div className="flex flex-wrap gap-3 justify-center">
-              <button className="inline-flex items-center gap-2 bg-white text-primary px-7 py-3.5 rounded-full text-sm font-semibold hover:bg-white/90 transition-all hover:shadow-xl active:scale-95">
-                Получить образец бесплатно
-                <Icon name="ArrowRight" size={16} />
-              </button>
               <a
                 href="#calculator"
-                className="inline-flex items-center gap-2 border border-white/30 text-white px-7 py-3.5 rounded-full text-sm font-medium hover:bg-white/10 transition-all"
+                className="inline-flex items-center gap-2 bg-white text-primary px-7 py-3.5 rounded-full text-sm font-semibold hover:bg-white/90 transition-all hover:shadow-xl active:scale-95"
               >
                 Рассчитать стоимость
+                <Icon name="ArrowRight" size={16} />
               </a>
             </div>
           </div>

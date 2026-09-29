@@ -34,9 +34,15 @@ const AiChat = () => {
       .then(r => r.json())
       .then(d => {
         if (d.messages?.length) {
-          setMessages([messages[0], ...d.messages.map((m: { sender_type: string; staff_name?: string; text: string; id: number }) => ({
-            id: m.id, sender_type: m.sender_type, staff_name: m.staff_name, text: m.text,
-          }))]);
+          setMessages(prev => {
+            const incoming = d.messages.map((m: { sender_type: string; staff_name?: string; text: string; id: number }) => ({
+              id: m.id, sender_type: m.sender_type, staff_name: m.staff_name, text: m.text,
+            }));
+            const lastPrev = prev[prev.length - 1];
+            const lastNext = incoming[incoming.length - 1];
+            if (prev.length === incoming.length + 1 && lastPrev?.id === lastNext?.id) return prev;
+            return [prev[0], ...incoming];
+          });
         }
       })
       .catch(() => {});

@@ -28,6 +28,8 @@ export interface BatchDeal {
   created_at: string;
   status: "draft" | "submitted";
   logistics_data: Record<string, string>;
+  assigned_to: number | null;
+  assigned_name: string | null;
   lots: DealLot[];
 }
 
@@ -101,6 +103,7 @@ interface ClientAuthContextType {
   deleteLot: (id: number) => Promise<{ ok: boolean; error?: string }>;
   updateLogistics: (dealId: number, data: Record<string, string>) => Promise<{ ok: boolean; error?: string }>;
   submitDeal: (dealId: number) => Promise<{ ok: boolean; error?: string }>;
+  updateProfile: (data: { name?: string; phone?: string; city?: string; company?: string }) => Promise<{ ok: boolean; error?: string }>;
   fetchLogisticsFields: () => Promise<LogisticsField[]>;
   fetchNotifications: () => Promise<ClientNotification[]>;
   markNotificationsRead: () => Promise<void>;
@@ -123,6 +126,7 @@ const ClientAuthContext = createContext<ClientAuthContextType>({
   deleteLot: async () => ({ ok: false }),
   updateLogistics: async () => ({ ok: false }),
   submitDeal: async () => ({ ok: false }),
+  updateProfile: async () => ({ ok: false }),
   fetchLogisticsFields: async () => [],
   fetchNotifications: async () => [],
   markNotificationsRead: async () => {},
@@ -304,6 +308,23 @@ export const ClientAuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const updateProfile = async (data: { name?: string; phone?: string; city?: string; company?: string }) => {
+    if (!token) return { ok: false, error: "Не авторизован" };
+    try {
+      const r = await fetch(CLIENT_AUTH_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Action": "update-profile", "X-Client-Token": token },
+        body: JSON.stringify(data),
+      });
+      const d = await r.json();
+      if (!r.ok) return { ok: false, error: d.error || "Не удалось сохранить данные" };
+      fetchMe(token);
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Ошибка сети" };
+    }
+  };
+
   const fetchLogisticsFields = async (): Promise<LogisticsField[]> => {
     try {
       const r = await fetch(CLIENT_AUTH_URL, { headers: { "X-Action": "list-logistics-fields" } });
@@ -349,7 +370,7 @@ export const ClientAuthProvider = ({ children }: { children: ReactNode }) => {
     <ClientAuthContext.Provider value={{
       client, batches, stages, loading, token, unreadNotifications,
       requestCode, verifyCode, createBatch, createDraftDeal, saveLot, deleteLot,
-      updateLogistics, submitDeal, fetchLogisticsFields, fetchNotifications, markNotificationsRead,
+      updateLogistics, submitDeal, updateProfile, fetchLogisticsFields, fetchNotifications, markNotificationsRead,
       logout, refresh,
     }}>
       {children}

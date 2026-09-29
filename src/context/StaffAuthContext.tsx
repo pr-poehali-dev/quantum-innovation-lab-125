@@ -9,7 +9,7 @@ export interface Staff {
   email: string;
   name: string;
   is_owner: boolean;
-  role?: "owner" | "manager" | "support";
+  role?: "owner" | "super_admin" | "manager" | "support";
   is_preview?: boolean;
 }
 

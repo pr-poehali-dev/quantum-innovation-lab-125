@@ -1,4 +1,4 @@
-export type Tab = "dashboard" | "batches" | "docs" | "mockups" | "chat";
+export type Tab = "dashboard" | "batches" | "docs" | "mockups" | "chat" | "profile";
 
 export interface SidebarItem {
   id: Tab;
@@ -31,6 +31,12 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
     title: "Коммуникации",
     items: [
       { id: "chat", label: "Чат с менеджером", icon: "MessageCircle" },
+    ],
+  },
+  {
+    title: "Профиль",
+    items: [
+      { id: "profile", label: "Личные данные", icon: "UserCog" },
     ],
   },
 ];

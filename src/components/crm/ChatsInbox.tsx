@@ -46,8 +46,10 @@ const ChatsInbox = ({ onOpenClient }: Props) => {
       fetch(CHAT_URL, { headers: { "X-Action": "list-conversations", "X-Staff-Token": token } }).then(r => r.json()),
       fetch(CHAT_URL, { headers: { "X-Action": "list-guest-conversations", "X-Staff-Token": token } }).then(r => r.json()),
     ]).then(([c, g]) => {
-      setClientConvos(c.conversations || []);
-      setGuestConvos(g.conversations || []);
+      const nextClients: ClientConversation[] = c.conversations || [];
+      const nextGuests: GuestConversation[] = g.conversations || [];
+      setClientConvos(prev => JSON.stringify(prev) === JSON.stringify(nextClients) ? prev : nextClients);
+      setGuestConvos(prev => JSON.stringify(prev) === JSON.stringify(nextGuests) ? prev : nextGuests);
     }).catch(() => {}).finally(() => setLoading(false));
   };
 

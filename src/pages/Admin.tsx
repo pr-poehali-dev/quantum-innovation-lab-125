@@ -14,7 +14,7 @@ const CHAT_URL = "https://functions.poehali.dev/f943216e-4ba2-4e31-9cff-fcfc562f
 const TEST_CLIENT_EMAIL = "test-client@kontraktkafe.ru";
 const TEST_CLIENT_CODE = "000000";
 
-type Role = "owner" | "manager" | "support";
+type Role = "owner" | "super_admin" | "manager" | "support";
 
 interface Section {
   href: string;
@@ -32,7 +32,7 @@ const SECTIONS: Section[] = [
     title: "Клиенты, сделки и чаты",
     desc: "Канбан сделок, новые заявки, переписка с клиентами — единое рабочее пространство",
     tag: "CRM",
-    roles: ["owner", "manager", "support"],
+    roles: ["owner", "super_admin", "manager", "support"],
   },
   {
     href: "/admin/pages",
@@ -40,7 +40,7 @@ const SECTIONS: Section[] = [
     title: "Страницы сайта",
     desc: "Политика конфиденциальности, условия, реквизиты — редактируемые страницы в футере",
     tag: "Контент",
-    roles: ["owner"],
+    roles: ["owner", "super_admin"],
   },
   {
     href: "/admin/rate",
@@ -48,7 +48,7 @@ const SECTIONS: Section[] = [
     title: "Курс доллара",
     desc: "Обновляйте раз в неделю — курс влияет на стоимость кофе",
     tag: "Шапка",
-    roles: ["owner", "manager"],
+    roles: ["owner", "super_admin", "manager"],
   },
   {
     href: "/admin/calc",
@@ -56,7 +56,7 @@ const SECTIONS: Section[] = [
     title: "Калькулятор кофе",
     desc: "Сорта, цены зерна, логистика — данные для расчёта",
     tag: "Калькулятор",
-    roles: ["owner", "manager"],
+    roles: ["owner", "super_admin", "manager"],
   },
   {
     href: "/admin/staff",
@@ -72,7 +72,7 @@ const SECTIONS: Section[] = [
     title: "Блок «О компании»",
     desc: "Фотографии производства, тексты, статистика",
     tag: "Контент",
-    roles: ["owner"],
+    roles: ["owner", "super_admin"],
   },
   {
     href: "/admin/landing",
@@ -80,7 +80,7 @@ const SECTIONS: Section[] = [
     title: "Редактор лендинга",
     desc: "Главный экран, этапы работы, преимущества, футер, отзывы",
     tag: "Контент",
-    roles: ["owner"],
+    roles: ["owner", "super_admin"],
   },
   {
     href: "/admin/settings",
@@ -88,11 +88,11 @@ const SECTIONS: Section[] = [
     title: "Настройки",
     desc: "Email-отправитель для писем, поля логистики доставки",
     tag: "Система",
-    roles: ["owner"],
+    roles: ["owner", "super_admin"],
   },
 ];
 
-const ROLE_LABELS: Record<Role, string> = { owner: "Владелец", manager: "Менеджер", support: "Поддержка" };
+const ROLE_LABELS: Record<Role, string> = { owner: "Владелец", super_admin: "Супер-админ", manager: "Менеджер", support: "Поддержка" };
 
 const Admin = () => {
   const { staff, token, logout, startPreview } = useStaffAuth();

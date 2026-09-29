@@ -46,6 +46,7 @@ const CabinetBatchDetail = ({ batch, onOpenDeal }: Props) => {
         <div className="space-y-3">
           {batch.deals.map((deal, i) => {
             const isLatest = i === 0;
+            const orderNumber = batch.deals.length - i;
             const totalAmount = deal.lots.reduce((s, l) => s + (l.amount || 0), 0);
             const totalVolume = deal.lots.reduce((s, l) => s + (l.volume || 0), 0);
             return (
@@ -58,7 +59,7 @@ const CabinetBatchDetail = ({ batch, onOpenDeal }: Props) => {
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-bold">Заказ №{deal.id}</p>
+                        <p className="text-sm font-bold">Заказ {orderNumber}</p>
                         {isLatest && (
                           <span className="text-[9px] font-mono bg-primary/15 text-primary rounded-full px-1.5 py-0.5">ПОСЛЕДНИЙ</span>
                         )}

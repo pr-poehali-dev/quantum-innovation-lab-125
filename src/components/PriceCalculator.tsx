@@ -32,6 +32,21 @@ const DEFAULT_USD = 85;
 const DEFAULT_MIN_VOLUME = 500;
 const DEFAULT_VOLUME_STEP = 5;
 
+interface LeadTimeTier { max_volume: number | null; days: number }
+
+const DEFAULT_LEAD_TIME_TIERS: LeadTimeTier[] = [
+  { max_volume: 1000, days: 14 },
+  { max_volume: 2000, days: 18 },
+  { max_volume: null, days: 25 },
+];
+
+function calcLeadTime(volume: number, tiers: LeadTimeTier[]): number {
+  for (const t of tiers) {
+    if (t.max_volume === null || volume <= t.max_volume) return t.days;
+  }
+  return tiers[tiers.length - 1]?.days ?? 14;
+}
+
 // Цена за 1 кг готовой продукции: зерно с учётом обжарки + упаковка + транспорт + производство + услуги
 export function calcPrice1kg(origin: CalcOrigin, params: CalcParams, usd: number): number {
   const lossPercent = params["roast_loss_percent"]?.value ?? 15;
@@ -71,6 +86,7 @@ const PriceCalculator = () => {
   const [usdRate,     setUsdRate]     = useState<number>(DEFAULT_USD);
   const [minVolume,   setMinVolume]   = useState<number>(DEFAULT_MIN_VOLUME);
   const [volumeStep,  setVolumeStep]  = useState<number>(DEFAULT_VOLUME_STEP);
+  const [leadTimeTiers, setLeadTimeTiers] = useState<LeadTimeTier[]>(DEFAULT_LEAD_TIME_TIERS);
   const [dataReady,   setDataReady]   = useState(false);
 
   const { openModal } = useLeadModal();
@@ -84,6 +100,7 @@ const PriceCalculator = () => {
         if (d.usd_rate)        setUsdRate(d.usd_rate);
         if (d.min_volume)      { setMinVolume(d.min_volume); setVolume(d.min_volume); }
         if (d.volume_step)     setVolumeStep(d.volume_step);
+        if (d.lead_time_tiers) setLeadTimeTiers(d.lead_time_tiers);
       })
       .catch(() => {})
       .finally(() => setDataReady(true));
@@ -102,11 +119,9 @@ const PriceCalculator = () => {
     ? (isSmall ? calcPrice250g(selectedOrigin, params, usdRate) : calcPrice1kg(selectedOrigin, params, usdRate))
     : 0;
   const packsCount   = isSmall ? Math.round((volume * 1000) / 250) : volume;
-  const discount     = volume >= 2000 ? 0.1 : volume >= 1000 ? 0.05 : 0;
-  const rawTotal      = selectedOrigin ? packsCount * pricePerUnit : 0;
-  const total        = Math.round(rawTotal * (1 - discount));
+  const total        = selectedOrigin ? Math.round(packsCount * pricePerUnit) : 0;
   const pricePerKg   = volume > 0 ? Math.round(total / volume) : 0;
-  const leadTime      = volume <= 1000 ? 14 : volume <= 2000 ? 18 : 25;
+  const leadTime      = calcLeadTime(volume, leadTimeTiers);
   const isLast        = step === 3;
 
   const goNext = () => { if (canNext && !isLast) setStep(s => s + 1); };
@@ -170,7 +185,6 @@ const PriceCalculator = () => {
             volume={volume}
             total={total}
             pricePerKg={pricePerKg}
-            discount={discount}
             leadTime={leadTime}
             dynamicOrigins={dataReady ? origins : undefined}
           />

@@ -177,6 +177,10 @@ def handler(event: dict, context) -> dict:
                         INSERT INTO {SCHEMA}.messages (client_id, sender_type, staff_id, body)
                         VALUES (%s, 'staff', %s, %s) RETURNING id, created_at
                     """, (target_client_id, staff["id"], text))
+                    cur.execute(f"""
+                        INSERT INTO {SCHEMA}.client_notifications (client_id, type, title, body)
+                        VALUES (%s, 'message', %s, %s)
+                    """, (target_client_id, f"Новое сообщение от {staff['name']}", text[:200]))
                 elif target_guest_id:
                     cur.execute(f"""
                         INSERT INTO {SCHEMA}.guest_messages (guest_id, sender_type, staff_id, body)

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Icon from "@/components/ui/icon";
-import { MANAGER, type Tab } from "./cabinet.types";
+import { type Tab } from "./cabinet.types";
 import { useClientAuth } from "@/context/ClientAuthContext";
 
 interface CabinetDashboardProps {
@@ -27,6 +27,11 @@ const CabinetDashboard = ({ setTab, openDeal }: CabinetDashboardProps) => {
 
   const totalVolume = allDeals.reduce((s, d) => s + d.lots.reduce((ls, l) => ls + (l.volume || 0), 0), 0);
   const totalAmount = allDeals.reduce((s, d) => s + d.lots.reduce((ls, l) => ls + (l.amount || 0), 0), 0);
+
+  const managerName = allDeals.find(d => d.assigned_name)?.assigned_name ?? null;
+  const managerInitials = managerName
+    ? managerName.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase()
+    : "";
 
   const handleCreate = async () => {
     if (!newName.trim()) { setError("Введите название партии"); return; }
@@ -96,7 +101,7 @@ const CabinetDashboard = ({ setTab, openDeal }: CabinetDashboardProps) => {
                   {activeDeal.stage_name}
                 </span>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-secondary text-muted-foreground">
-                  Заказ №{activeDeal.id}
+                  Активный заказ
                 </span>
               </div>
               <p className="font-serif text-2xl font-bold">{activeDeal.batchName}</p>
@@ -203,7 +208,7 @@ const CabinetDashboard = ({ setTab, openDeal }: CabinetDashboardProps) => {
           </div>
           <div className="min-w-0">
             <p className="text-sm font-semibold">Написать менеджеру</p>
-            <p className="text-[11px] text-muted-foreground truncate">{MANAGER.name}</p>
+            <p className="text-[11px] text-muted-foreground truncate">{managerName || "Задать вопрос"}</p>
           </div>
         </button>
       </div>
@@ -228,7 +233,7 @@ const CabinetDashboard = ({ setTab, openDeal }: CabinetDashboardProps) => {
                   className="w-full flex items-center justify-between gap-3 px-5 py-3.5 flex-wrap hover:bg-secondary/20 transition-colors text-left">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold truncate">{d.batchName}</p>
-                    <p className="text-[11px] text-muted-foreground font-mono">№{d.id} · {new Date(d.created_at).toLocaleDateString("ru-RU")}</p>
+                    <p className="text-[11px] text-muted-foreground font-mono">{new Date(d.created_at).toLocaleDateString("ru-RU")}</p>
                   </div>
                   <span className="text-sm font-mono text-muted-foreground">{dealVolume ? `${dealVolume} кг` : "—"}</span>
                   <span className="text-sm font-mono text-muted-foreground">{dealAmount ? formatMoney(dealAmount) : "—"}</span>
@@ -249,21 +254,31 @@ const CabinetDashboard = ({ setTab, openDeal }: CabinetDashboardProps) => {
       {/* Менеджер */}
       <div className="bg-card border border-border rounded-2xl p-5">
         <p className="font-semibold text-sm mb-3">Ваш менеджер</p>
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-bold flex-shrink-0">
-            {MANAGER.initials}
+        {managerName ? (
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center text-sm font-bold flex-shrink-0">
+              {managerInitials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold">{managerName}</p>
+              <p className="text-[11px] text-muted-foreground">Ведёт ваши заказы</p>
+            </div>
+            <button onClick={() => setTab("chat")}
+              className="text-xs font-medium text-primary border border-primary/30 rounded-lg px-3 py-1.5 hover:bg-primary/5 transition-colors flex-shrink-0">
+              Написать
+            </button>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold">{MANAGER.name}</p>
-            <p className="text-[11px] text-green-600 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Онлайн сейчас
-            </p>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-secondary text-muted-foreground flex items-center justify-center flex-shrink-0">
+              <Icon name="UserRoundSearch" size={18} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-muted-foreground">Менеджер ещё не назначен</p>
+              <p className="text-[11px] text-muted-foreground">Назначим, как только начнём работу по заказу</p>
+            </div>
           </div>
-          <button onClick={() => setTab("chat")}
-            className="text-xs font-medium text-primary border border-primary/30 rounded-lg px-3 py-1.5 hover:bg-primary/5 transition-colors flex-shrink-0">
-            Написать
-          </button>
-        </div>
+        )}
       </div>
     </div>
   );

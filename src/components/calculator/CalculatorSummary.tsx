@@ -11,13 +11,12 @@ interface CalculatorSummaryProps {
   volume: number;
   total: number;
   pricePerKg: number;
-  discount: number;
   leadTime: number;
   dynamicOrigins?: CalcOrigin[];
 }
 
 const CalculatorSummary = ({
-  step, origin, roast, weightFormat, bagColor, volume, total, pricePerKg, discount, leadTime, dynamicOrigins,
+  step, origin, roast, weightFormat, bagColor, volume, total, pricePerKg, leadTime, dynamicOrigins,
 }: CalculatorSummaryProps) => {
   const originLabel = dynamicOrigins && origin >= 0 ? dynamicOrigins[origin]?.label : "—";
   const weightLabel = WEIGHT_FORMATS.find(w => w.value === weightFormat)?.label ?? "—";
@@ -30,11 +29,6 @@ const CalculatorSummary = ({
         <p className="text-[10px] font-mono opacity-60 mb-1 tracking-wider">ИТОГО ЗА ПАРТИЮ</p>
         <p className="font-serif text-4xl font-bold">{total.toLocaleString("ru-RU")} ₽</p>
         <p className="text-sm opacity-70 mt-1">{pricePerKg.toLocaleString("ru-RU")} ₽ / кг</p>
-        {discount > 0 && (
-          <div className="mt-3 bg-white/15 rounded-xl px-3 py-2 flex items-center gap-2 text-sm">
-            <Icon name="Tag" size={13} /> Скидка {discount * 100}% за объём
-          </div>
-        )}
         <div className="mt-5 space-y-2 pt-4 border-t border-white/20">
           {[
             { label: "Зерно",    val: originLabel },

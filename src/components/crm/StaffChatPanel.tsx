@@ -33,7 +33,13 @@ const StaffChatPanel = ({ clientId, guestId, height = 380 }: Props) => {
     if (!token) return;
     fetch(CHAT_URL, { headers: { "X-Action": "list", "X-Staff-Token": token, ...idHeader } })
       .then(r => r.json())
-      .then(d => setMessages(d.messages || []))
+      .then(d => {
+        const next: Message[] = d.messages || [];
+        setMessages(prev => {
+          if (prev.length === next.length && prev[prev.length - 1]?.id === next[next.length - 1]?.id) return prev;
+          return next;
+        });
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   };
