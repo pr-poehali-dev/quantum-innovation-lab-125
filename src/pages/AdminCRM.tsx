@@ -3,24 +3,12 @@ import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useStaffAuth } from "@/context/StaffAuthContext";
 import ClientDrawer from "@/components/crm/ClientDrawer";
+import DealDrawer from "@/components/crm/DealDrawer";
 import KanbanBoard from "@/components/crm/KanbanBoard";
 import ChatsInbox from "@/components/crm/ChatsInbox";
 
 const CRM_URL = "https://functions.poehali.dev/0fbf69fe-e1ba-4899-a9c0-98d37524abe1";
 const CHAT_URL = "https://functions.poehali.dev/f943216e-4ba2-4e31-9cff-fcfc562f339b";
-
-interface Lead {
-  id: number;
-  name: string;
-  phone: string;
-  city: string | null;
-  email: string | null;
-  created_at: string;
-  has_deal: boolean;
-  client_id: number | null;
-  stage_name: string | null;
-  stage_color: string | null;
-}
 
 interface ClientRow {
   id: number;
@@ -34,15 +22,15 @@ interface ClientRow {
   total_amount: number;
 }
 
-type Tab = "leads" | "clients" | "kanban" | "chats";
+type Tab = "kanban" | "clients" | "chats";
 
 const AdminCRM = () => {
   const { token } = useStaffAuth();
   const [tab, setTab] = useState<Tab>("kanban");
-  const [leads, setLeads] = useState<Lead[]>([]);
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [openClientId, setOpenClientId] = useState<number | null>(null);
+  const [openDealId, setOpenDealId] = useState<number | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [kanbanRefresh, setKanbanRefresh] = useState(0);
   const [unreadChats, setUnreadChats] = useState(0);
@@ -54,13 +42,6 @@ const AdminCRM = () => {
 
   const authHeaders = { "X-Staff-Token": token || "" };
 
-  const loadLeads = () => {
-    fetch(CRM_URL, { headers: { "X-Action": "list-leads", ...authHeaders } })
-      .then(r => r.json())
-      .then(d => setLeads(d.leads || []))
-      .catch(() => showToast("Ошибка загрузки заявок", false));
-  };
-
   const loadClients = () => {
     fetch(CRM_URL, { headers: { "X-Action": "list-clients", ...authHeaders } })
       .then(r => r.json())
@@ -71,14 +52,12 @@ const AdminCRM = () => {
   useEffect(() => {
     if (!token) return;
     setLoading(true);
-    Promise.all([
-      fetch(CRM_URL, { headers: { "X-Action": "list-leads", ...authHeaders } }).then(r => r.json()),
-      fetch(CRM_URL, { headers: { "X-Action": "list-clients", ...authHeaders } }).then(r => r.json()),
-    ]).then(([l, c]) => {
-      setLeads(l.leads || []);
-      setClients(c.clients || []);
-    }).catch(() => showToast("Ошибка загрузки", false))
+    fetch(CRM_URL, { headers: { "X-Action": "list-clients", ...authHeaders } })
+      .then(r => r.json())
+      .then(c => setClients(c.clients || []))
+      .catch(() => showToast("Ошибка загрузки", false))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   useEffect(() => {
@@ -95,16 +74,10 @@ const AdminCRM = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" }) + " · " +
-      d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-  };
-
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 bg-white border-b border-border">
-        <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link to="/admin" className="text-muted-foreground hover:text-foreground transition-colors">
               <Icon name="ArrowLeft" size={16} />
@@ -117,7 +90,7 @@ const AdminCRM = () => {
           </div>
           <Link to="/admin/stages" className="flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground transition-colors">
             <Icon name="GitBranch" size={13} />
-            Этапы сделки
+            <span className="hidden sm:inline">Этапы сделки</span>
           </Link>
         </div>
       </header>
@@ -131,7 +104,7 @@ const AdminCRM = () => {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
 
         {/* Вкладки */}
         <div className="flex gap-1 mb-6 bg-secondary/40 rounded-xl p-1 w-fit">
@@ -141,18 +114,6 @@ const AdminCRM = () => {
             }`}>
             <Icon name="Kanban" size={14} />
             Канбан
-          </button>
-          <button onClick={() => setTab("leads")}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              tab === "leads" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-            }`}>
-            <Icon name="Inbox" size={14} />
-            Новые заявки
-            {leads.filter(l => l.stage_name === "Новая заявка").length > 0 && (
-              <span className="text-[10px] font-mono bg-primary/15 text-primary rounded-full px-1.5 py-0.5">
-                {leads.filter(l => l.stage_name === "Новая заявка").length}
-              </span>
-            )}
           </button>
           <button onClick={() => setTab("clients")}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -179,51 +140,17 @@ const AdminCRM = () => {
         </div>
 
         {tab === "kanban" ? (
-          <KanbanBoard onOpenClient={setOpenClientId} showToast={showToast} refreshSignal={kanbanRefresh} />
+          <KanbanBoard onOpenDeal={setOpenDealId} showToast={showToast} refreshSignal={kanbanRefresh} />
         ) : tab === "chats" ? (
           <ChatsInbox onOpenClient={setOpenClientId} />
         ) : loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : tab === "leads" ? (
-          <div className="space-y-2">
-            {leads.length === 0 && (
-              <p className="text-sm text-muted-foreground py-10 text-center">Заявок пока нет</p>
-            )}
-            {leads.map(lead => (
-              <button
-                key={lead.id}
-                onClick={() => lead.client_id !== null && setOpenClientId(lead.client_id)}
-                disabled={lead.client_id === null}
-                className="w-full bg-card border border-border rounded-xl px-4 py-3.5 flex items-center justify-between gap-4 text-left hover:border-primary/40 hover:shadow-sm transition-all disabled:opacity-70 disabled:cursor-default"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold">{lead.name}</p>
-                    <span className="text-[11px] font-mono text-muted-foreground">{lead.phone}</span>
-                    {lead.stage_name && (
-                      <span className="text-[10px] font-mono rounded-full px-1.5 py-0.5 text-white" style={{ background: lead.stage_color || "#64748b" }}>
-                        {lead.stage_name}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 mt-0.5 text-[12px] text-muted-foreground">
-                    {lead.city && <span>{lead.city}</span>}
-                    {lead.email && <span>{lead.email}</span>}
-                    <span>{formatDate(lead.created_at)}</span>
-                  </div>
-                </div>
-                {lead.client_id !== null && (
-                  <Icon name="ChevronRight" size={16} className="text-muted-foreground flex-shrink-0" />
-                )}
-              </button>
-            ))}
-          </div>
         ) : (
           <div className="space-y-2">
             {clients.length === 0 && (
-              <p className="text-sm text-muted-foreground py-10 text-center">Клиентов пока нет — создайте сделку из заявки</p>
+              <p className="text-sm text-muted-foreground py-10 text-center">Клиентов пока нет — они появятся сами, как только оформят партию</p>
             )}
             {clients.map(c => (
               <button key={c.id} onClick={() => setOpenClientId(c.id)}
@@ -241,8 +168,8 @@ const AdminCRM = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-4 flex-shrink-0">
-                  <div className="text-right">
-                    <p className="text-[12px] font-mono text-muted-foreground">{c.deals_count} сделок</p>
+                  <div className="text-right hidden sm:block">
+                    <p className="text-[12px] font-mono text-muted-foreground">{c.deals_count} партий</p>
                     <p className="text-sm font-semibold">{c.total_amount.toLocaleString("ru-RU")} ₽</p>
                   </div>
                   <Icon name="ChevronRight" size={16} className="text-muted-foreground" />
@@ -257,7 +184,18 @@ const AdminCRM = () => {
         <ClientDrawer
           clientId={openClientId}
           onClose={() => setOpenClientId(null)}
-          onChanged={() => { loadClients(); loadLeads(); setKanbanRefresh(n => n + 1); }}
+          onChanged={() => { loadClients(); setKanbanRefresh(n => n + 1); }}
+          onOpenDeal={dealId => { setOpenClientId(null); setOpenDealId(dealId); }}
+          showToast={showToast}
+        />
+      )}
+
+      {openDealId !== null && (
+        <DealDrawer
+          dealId={openDealId}
+          onClose={() => setOpenDealId(null)}
+          onChanged={() => { loadClients(); setKanbanRefresh(n => n + 1); }}
+          onOpenClient={clientId => { setOpenDealId(null); setOpenClientId(clientId); }}
           showToast={showToast}
         />
       )}

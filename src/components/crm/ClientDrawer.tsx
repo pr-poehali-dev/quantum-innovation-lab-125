@@ -26,13 +26,11 @@ interface Deal {
   history: StageHistory[];
   assigned_to: number | null;
   assigned_name: string | null;
-}
-
-interface AssignableStaff {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
+  status: string;
+  batch_name: string | null;
+  lots: { id: number }[];
+  lots_volume: number;
+  lots_amount: number;
 }
 
 interface ClientData {
@@ -43,13 +41,6 @@ interface ClientData {
   city: string | null;
   company: string | null;
   created_at: string;
-}
-
-interface Stage {
-  id: number;
-  name: string;
-  sort_order: number;
-  color: string;
 }
 
 interface ClientDoc {
@@ -73,17 +64,15 @@ interface Props {
   clientId: number;
   onClose: () => void;
   onChanged: () => void;
+  onOpenDeal: (dealId: number) => void;
   showToast: (msg: string, ok?: boolean) => void;
 }
 
-const ClientDrawer = ({ clientId, onClose, onChanged, showToast }: Props) => {
+const ClientDrawer = ({ clientId, onClose, onChanged, onOpenDeal, showToast }: Props) => {
   const { token } = useStaffAuth();
   const [client, setClient] = useState<ClientData | null>(null);
   const [deals, setDeals] = useState<Deal[]>([]);
-  const [stages, setStages] = useState<Stage[]>([]);
-  const [assignable, setAssignable] = useState<AssignableStaff[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expandedHistory, setExpandedHistory] = useState<number | null>(null);
   const [editingClient, setEditingClient] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", email: "", city: "", company: "" });
   const [docs, setDocs] = useState<ClientDoc[]>([]);
@@ -107,20 +96,16 @@ const ClientDrawer = ({ clientId, onClose, onChanged, showToast }: Props) => {
 
   const load = () => {
     setLoading(true);
-    Promise.all([
-      fetch(CRM_URL, { headers: { "X-Action": "get-client", "X-Client-Id": String(clientId), ...authHeaders } }).then(r => r.json()),
-      fetch(CRM_URL, { headers: { "X-Action": "list-stages", ...authHeaders } }).then(r => r.json()),
-      fetch(CRM_URL, { headers: { "X-Action": "list-assignable", ...authHeaders } }).then(r => r.json()),
-    ]).then(([c, s, a]) => {
-      setClient(c.client);
-      setDeals(c.deals || []);
-      setStages(s.stages || []);
-      setAssignable(a.staff || []);
-      if (c.client) setForm({
-        name: c.client.name || "", phone: c.client.phone || "", email: c.client.email || "",
-        city: c.client.city || "", company: c.client.company || "",
-      });
-    }).catch(() => showToast("Ошибка загрузки клиента", false))
+    fetch(CRM_URL, { headers: { "X-Action": "get-client", "X-Client-Id": String(clientId), ...authHeaders } })
+      .then(r => r.json())
+      .then(c => {
+        setClient(c.client);
+        setDeals(c.deals || []);
+        if (c.client) setForm({
+          name: c.client.name || "", phone: c.client.phone || "", email: c.client.email || "",
+          city: c.client.city || "", company: c.client.company || "",
+        });
+      }).catch(() => showToast("Ошибка загрузки клиента", false))
       .finally(() => setLoading(false));
   };
 
@@ -160,33 +145,6 @@ const ClientDrawer = ({ clientId, onClose, onChanged, showToast }: Props) => {
     } catch { showToast("Ошибка сети", false); }
   };
 
-  const changeStage = async (dealId: number, stageId: number) => {
-    try {
-      const r = await fetch(CRM_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Action": "update-deal-stage", ...authHeaders },
-        body: JSON.stringify({ deal_id: dealId, stage_id: stageId }),
-      });
-      if (r.ok) { load(); onChanged(); showToast("Этап обновлён ✓"); }
-      else { const d = await r.json(); showToast(d.error || "Ошибка", false); }
-    } catch { showToast("Ошибка сети", false); }
-  };
-
-  const assignDeal = async (dealId: number, staffId: number | null) => {
-    setDeals(prev => prev.map(d => d.id === dealId
-      ? { ...d, assigned_to: staffId, assigned_name: assignable.find(a => a.id === staffId)?.name || null }
-      : d));
-    try {
-      const r = await fetch(CRM_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Action": "assign-deal", ...authHeaders },
-        body: JSON.stringify({ deal_id: dealId, staff_id: staffId }),
-      });
-      if (r.ok) { showToast(staffId ? "Ответственный назначен ✓" : "Ответственный снят"); onChanged(); }
-      else { const d = await r.json(); showToast(d.error || "Ошибка", false); }
-    } catch { showToast("Ошибка сети", false); }
-  };
-
   const saveClient = async () => {
     try {
       const r = await fetch(CRM_URL, {
@@ -197,20 +155,6 @@ const ClientDrawer = ({ clientId, onClose, onChanged, showToast }: Props) => {
       if (r.ok) { setEditingClient(false); load(); onChanged(); showToast("Данные сохранены ✓"); }
       else { const d = await r.json(); showToast(d.error || "Ошибка", false); }
     } catch { showToast("Ошибка сети", false); }
-  };
-
-  const updateDealField = async (deal: Deal, patch: Partial<Deal>) => {
-    setDeals(prev => prev.map(d => d.id === deal.id ? { ...d, ...patch } : d));
-  };
-
-  const saveDealFields = async (deal: Deal) => {
-    try {
-      await fetch(CRM_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Action": "update-deal", ...authHeaders },
-        body: JSON.stringify({ id: deal.id, brand: deal.brand, volume: deal.volume, amount: deal.amount }),
-      });
-    } catch { /* тихо */ }
   };
 
   const formatDate = (iso: string) => {
@@ -285,100 +229,44 @@ const ClientDrawer = ({ clientId, onClose, onChanged, showToast }: Props) => {
               )}
             </section>
 
-            {/* Сделки */}
+            {/* Партии клиента */}
             <section>
-              <h3 className="font-serif text-base font-bold mb-3">Сделки ({deals.length})</h3>
-              <div className="space-y-3">
-                {deals.map(deal => (
-                  <div key={deal.id} className="bg-card border border-border rounded-2xl p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <input
-                        value={deal.brand || ""}
-                        onChange={e => updateDealField(deal, { brand: e.target.value })}
-                        onBlur={() => saveDealFields(deal)}
-                        placeholder="Название бренда / заказа"
-                        className="font-semibold text-sm bg-transparent outline-none border-b border-transparent focus:border-primary transition-colors flex-1"
-                      />
-                      <span className="text-[11px] font-mono text-muted-foreground flex-shrink-0 ml-2">#{deal.id}</span>
-                    </div>
-
-                    <div className="flex items-center gap-3 mb-3 text-[12px]">
-                      <div className="flex items-center gap-1">
-                        <span className="text-muted-foreground">Объём:</span>
-                        <input
-                          type="number"
-                          value={deal.volume ?? ""}
-                          onChange={e => updateDealField(deal, { volume: e.target.value ? Number(e.target.value) : null })}
-                          onBlur={() => saveDealFields(deal)}
-                          className="w-16 bg-transparent outline-none border-b border-border focus:border-primary transition-colors font-mono"
-                        />
-                        <span className="text-muted-foreground">кг</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-muted-foreground">Сумма:</span>
-                        <input
-                          type="number"
-                          value={deal.amount ?? ""}
-                          onChange={e => updateDealField(deal, { amount: e.target.value ? Number(e.target.value) : null })}
-                          onBlur={() => saveDealFields(deal)}
-                          className="w-20 bg-transparent outline-none border-b border-border focus:border-primary transition-colors font-mono"
-                        />
-                        <span className="text-muted-foreground">₽</span>
-                      </div>
-                    </div>
-
-                    {/* Этапы */}
-                    <div className="flex flex-wrap gap-1.5 mb-3">
-                      {stages.map(stage => {
-                        const active = deal.stage_id === stage.id;
-                        return (
-                          <button key={stage.id} onClick={() => !active && changeStage(deal.id, stage.id)}
-                            className="text-[11px] font-medium px-2.5 py-1 rounded-full border transition-all"
-                            style={active
-                              ? { background: stage.color, color: "white", borderColor: stage.color }
-                              : { color: "var(--muted-foreground)", borderColor: "var(--border)" }
-                            }>
-                            {stage.name}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Ответственный */}
-                    <div className="flex items-center gap-2 mb-2">
-                      <Icon name="UserCheck" size={13} className="text-muted-foreground flex-shrink-0" />
-                      <select
-                        value={deal.assigned_to ?? ""}
-                        onChange={e => assignDeal(deal.id, e.target.value ? Number(e.target.value) : null)}
-                        className="text-[12px] bg-transparent outline-none border-b border-border focus:border-primary transition-colors py-0.5"
-                      >
-                        <option value="">Без ответственного</option>
-                        {assignable.map(a => (
-                          <option key={a.id} value={a.id}>{a.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* История изменений этапов */}
-                    <button onClick={() => setExpandedHistory(expandedHistory === deal.id ? null : deal.id)}
-                      className="text-[11px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 mt-1">
-                      <Icon name={expandedHistory === deal.id ? "ChevronUp" : "ChevronDown"} size={12} />
-                      История изменений ({deal.history.length})
-                    </button>
-
-                    {expandedHistory === deal.id && (
-                      <div className="mt-2 pl-3 border-l-2 border-border space-y-1.5">
-                        {deal.history.map((h, i) => (
-                          <p key={i} className="text-[11px] text-muted-foreground">
-                            <span className="font-medium text-foreground">{h.stage_name}</span>
-                            {" · "}{h.staff_name || "система"}{" · "}{formatDate(h.changed_at)}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+              <h3 className="font-serif text-base font-bold mb-3">
+                Партии ({deals.length})
+                <span className="ml-2 text-sm font-mono text-muted-foreground font-normal">
+                  всего {deals.reduce((s, d) => s + (d.lots_amount || d.amount || 0), 0).toLocaleString("ru-RU")} ₽
+                </span>
+              </h3>
+              {deals.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">У клиента пока нет партий</p>
+              ) : (
+                <div className="space-y-2">
+                  {deals.map(deal => {
+                    const amount = deal.lots_amount || deal.amount;
+                    const volume = deal.lots_volume || deal.volume;
+                    return (
+                      <button key={deal.id} onClick={() => onOpenDeal(deal.id)}
+                        className="w-full bg-card border border-border rounded-2xl p-4 text-left hover:border-primary/40 hover:shadow-sm transition-all">
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <p className="font-semibold text-sm truncate">{deal.batch_name || deal.brand || `Партия №${deal.id}`}</p>
+                          {deal.status === "draft" ? (
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-secondary text-muted-foreground flex-shrink-0">Черновик</span>
+                          ) : (
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full text-white flex-shrink-0" style={{ background: deal.stage_color }}>
+                              {deal.stage_name}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between text-[12px] text-muted-foreground">
+                          <span>{deal.lots.length} {deal.lots.length === 1 ? "лот" : "лотов"} {volume ? `· ${volume} кг` : ""}</span>
+                          <span className="font-semibold text-foreground">{amount ? `${amount.toLocaleString("ru-RU")} ₽` : "—"}</span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1">{formatDate(deal.created_at)}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </section>
 
             {/* Документы клиента */}

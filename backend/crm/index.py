@@ -31,6 +31,10 @@ X-Action значения:
   list-logistics-fields   — GET список настраиваемых полей логистики
   save-logistics-field    — POST создать/обновить поле логистики
   delete-logistics-field  — POST удалить поле логистики: id
+  get-deal            — GET полная карточка партии (X-Deal-Id): клиент, лоты, логистика, история, заметки
+  list-deal-notes     — GET список заметок-задач по партии: X-Deal-Id
+  add-deal-note       — POST добавить заметку: deal_id, text
+  delete-deal-note    — POST удалить заметку: id
 """
 import json
 import os
@@ -138,11 +142,12 @@ def handler(event: dict, context) -> dict:
             cur.execute(f"""
                 SELECT d.id, d.brand, d.volume, d.amount, d.stage_id, ds.name, ds.color, ds.sort_order,
                        d.created_at, d.updated_at, d.assigned_to, st.name,
-                       c.id, c.name, c.phone, c.city
+                       c.id, c.name, c.phone, c.city, pb.name
                 FROM {SCHEMA}.deals d
                 JOIN {SCHEMA}.deal_stages ds ON ds.id = d.stage_id
                 JOIN {SCHEMA}.clients c ON c.id = d.client_id
                 LEFT JOIN {SCHEMA}.staff_users st ON st.id = d.assigned_to
+                LEFT JOIN {SCHEMA}.product_batches pb ON pb.id = d.batch_id
                 WHERE d.status = 'submitted'
                 ORDER BY d.updated_at DESC LIMIT 500
             """)
@@ -155,19 +160,49 @@ def handler(event: dict, context) -> dict:
                     "created_at": str(r[8]), "updated_at": str(r[9]),
                     "assigned_to": r[10], "assigned_name": r[11],
                     "client_id": r[12], "client_name": r[13], "client_phone": r[14], "client_city": r[15],
+                    "batch_name": r[16],
                 }
                 for r in rows
             ]
             for d in deals:
                 d["lots_count"] = None
+                d["lots_summary"] = None
+                d["lots_volume"] = d["volume"]
+                d["lots_amount"] = d["amount"]
+                d["is_new"] = False
             if deals:
                 ids = tuple(d["id"] for d in deals)
                 cur.execute(f"""
-                    SELECT deal_id, COUNT(*) FROM {SCHEMA}.deal_lots WHERE deal_id IN %s GROUP BY deal_id
+                    SELECT deal_id, COUNT(*), COALESCE(SUM(volume),0), COALESCE(SUM(amount),0)
+                    FROM {SCHEMA}.deal_lots WHERE deal_id IN %s GROUP BY deal_id
                 """, (ids,))
-                counts = {r[0]: r[1] for r in cur.fetchall()}
+                sums = {r[0]: (r[1], float(r[2]), float(r[3])) for r in cur.fetchall()}
+                cur.execute(f"""
+                    SELECT DISTINCT ON (l.deal_id) l.deal_id, co.label, l.volume
+                    FROM {SCHEMA}.deal_lots l
+                    LEFT JOIN {SCHEMA}.calc_origins_v2 co ON co.id = l.origin_id
+                    WHERE l.deal_id IN %s ORDER BY l.deal_id, l.lot_number
+                """, (ids,))
+                first_lots = {r[0]: (r[1], r[2]) for r in cur.fetchall()}
+                cur.execute(f"""
+                    SELECT deal_id, COUNT(*) FROM {SCHEMA}.deal_stage_log WHERE deal_id IN %s GROUP BY deal_id
+                """, (ids,))
+                log_counts = {r[0]: r[1] for r in cur.fetchall()}
+                min_order = min(x["stage_order"] for x in deals)
                 for d in deals:
-                    d["lots_count"] = counts.get(d["id"], 0)
+                    cnt, vol_sum, amt_sum = sums.get(d["id"], (0, 0, 0))
+                    d["lots_count"] = cnt
+                    if cnt > 0:
+                        d["lots_volume"] = vol_sum
+                        d["lots_amount"] = amt_sum
+                    fl = first_lots.get(d["id"])
+                    if fl:
+                        label, vol = fl
+                        extra = f" +{cnt - 1}" if cnt > 1 else ""
+                        vol_str = f" · {int(vol)} кг" if vol else ""
+                        d["lots_summary"] = f"{label or '—'}{vol_str}{extra}"
+                    # "новая" — пока в истории только 1 запись (создание) и это первый этап
+                    d["is_new"] = log_counts.get(d["id"], 0) <= 1 and d["stage_order"] == min_order
             return ok({"deals": deals})
 
         # ── list-clients ──────────────────────────────────────────
@@ -207,10 +242,11 @@ def handler(event: dict, context) -> dict:
 
             cur.execute(f"""
                 SELECT d.id, d.brand, d.volume, d.amount, d.stage_id, s.name, s.color, d.created_at, d.updated_at,
-                       d.assigned_to, st.name, d.status, d.logistics_data
+                       d.assigned_to, st.name, d.status, d.logistics_data, pb.name, pb.id
                 FROM {SCHEMA}.deals d
                 JOIN {SCHEMA}.deal_stages s ON s.id = d.stage_id
                 LEFT JOIN {SCHEMA}.staff_users st ON st.id = d.assigned_to
+                LEFT JOIN {SCHEMA}.product_batches pb ON pb.id = d.batch_id
                 WHERE d.client_id=%s ORDER BY d.created_at DESC
             """, (client_id,))
             deals = []
@@ -226,6 +262,7 @@ def handler(event: dict, context) -> dict:
                     {"stage_id": h[0], "stage_name": h[1], "staff_name": h[2], "changed_at": str(h[3])}
                     for h in cur.fetchall()
                 ]
+                lots = fetch_lots(cur, deal_id)
                 deals.append({
                     "id": deal_id, "brand": r[1], "volume": float(r[2]) if r[2] else None,
                     "amount": float(r[3]) if r[3] else None, "stage_id": r[4],
@@ -233,7 +270,10 @@ def handler(event: dict, context) -> dict:
                     "created_at": str(r[7]), "updated_at": str(r[8]), "history": history,
                     "assigned_to": r[9], "assigned_name": r[10],
                     "status": r[11], "logistics_data": r[12] or {},
-                    "lots": fetch_lots(cur, deal_id),
+                    "batch_name": r[13], "batch_id": r[14],
+                    "lots": lots,
+                    "lots_volume": sum(l["volume"] or 0 for l in lots),
+                    "lots_amount": sum(l["amount"] or 0 for l in lots),
                 })
 
             cur.execute(f"""
@@ -542,6 +582,88 @@ def handler(event: dict, context) -> dict:
             if not field_id:
                 return err("id required")
             cur.execute(f"DELETE FROM {SCHEMA}.logistics_fields WHERE id=%s", (field_id,))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── get-deal: полная карточка партии для канбана ───────────
+        if action == "get-deal":
+            deal_id = headers.get("x-deal-id", "")
+            if not deal_id:
+                return err("X-Deal-Id required")
+            cur.execute(f"""
+                SELECT d.id, d.brand, d.volume, d.amount, d.stage_id, s.name, s.color, d.created_at, d.updated_at,
+                       d.assigned_to, st.name, d.status, d.logistics_data, pb.name, pb.id,
+                       c.id, c.name, c.phone, c.email, c.city, c.company
+                FROM {SCHEMA}.deals d
+                JOIN {SCHEMA}.deal_stages s ON s.id = d.stage_id
+                JOIN {SCHEMA}.clients c ON c.id = d.client_id
+                LEFT JOIN {SCHEMA}.staff_users st ON st.id = d.assigned_to
+                LEFT JOIN {SCHEMA}.product_batches pb ON pb.id = d.batch_id
+                WHERE d.id=%s
+            """, (deal_id,))
+            r = cur.fetchone()
+            if not r:
+                return err("Партия не найдена", 404)
+            cur.execute(f"""
+                SELECT l.to_stage_id, ts.name, l.staff_name, l.changed_at
+                FROM {SCHEMA}.deal_stage_log l
+                JOIN {SCHEMA}.deal_stages ts ON ts.id = l.to_stage_id
+                WHERE l.deal_id=%s ORDER BY l.changed_at
+            """, (deal_id,))
+            history = [
+                {"stage_id": h[0], "stage_name": h[1], "staff_name": h[2], "changed_at": str(h[3])}
+                for h in cur.fetchall()
+            ]
+            lots = fetch_lots(cur, deal_id)
+            deal = {
+                "id": r[0], "brand": r[1], "volume": float(r[2]) if r[2] else None,
+                "amount": float(r[3]) if r[3] else None, "stage_id": r[4],
+                "stage_name": r[5], "stage_color": r[6],
+                "created_at": str(r[7]), "updated_at": str(r[8]), "history": history,
+                "assigned_to": r[9], "assigned_name": r[10],
+                "status": r[11], "logistics_data": r[12] or {},
+                "batch_name": r[13], "batch_id": r[14],
+                "client": {"id": r[15], "name": r[16], "phone": r[17], "email": r[18], "city": r[19], "company": r[20]},
+                "lots": lots,
+                "lots_volume": sum(l["volume"] or 0 for l in lots),
+                "lots_amount": sum(l["amount"] or 0 for l in lots),
+            }
+            return ok({"deal": deal})
+
+        # ── list-deal-notes ──────────────────────────────────────────
+        if action == "list-deal-notes":
+            deal_id = headers.get("x-deal-id", "")
+            if not deal_id:
+                return err("X-Deal-Id required")
+            cur.execute(f"""
+                SELECT id, text, staff_name, created_at FROM {SCHEMA}.deal_notes
+                WHERE deal_id=%s ORDER BY created_at DESC
+            """, (deal_id,))
+            notes = [{"id": r[0], "text": r[1], "staff_name": r[2], "created_at": str(r[3])} for r in cur.fetchall()]
+            return ok({"notes": notes})
+
+        # ── add-deal-note ────────────────────────────────────────────
+        if action == "add-deal-note":
+            body = json.loads(event.get("body") or "{}")
+            deal_id = body.get("deal_id")
+            text = (body.get("text") or "").strip()
+            if not deal_id or not text:
+                return err("deal_id and text required")
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.deal_notes (deal_id, text, staff_id, staff_name)
+                VALUES (%s, %s, %s, %s) RETURNING id, created_at
+            """, (deal_id, text, staff["id"], staff["name"]))
+            row = cur.fetchone()
+            conn.commit()
+            return ok({"ok": True, "id": row[0], "created_at": str(row[1])}, 201)
+
+        # ── delete-deal-note ─────────────────────────────────────────
+        if action == "delete-deal-note":
+            body = json.loads(event.get("body") or "{}")
+            note_id = body.get("id")
+            if not note_id:
+                return err("id required")
+            cur.execute(f"DELETE FROM {SCHEMA}.deal_notes WHERE id=%s", (note_id,))
             conn.commit()
             return ok({"ok": True})
 

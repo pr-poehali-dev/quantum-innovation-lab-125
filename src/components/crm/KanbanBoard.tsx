@@ -31,6 +31,12 @@ interface Deal {
   client_name: string;
   client_phone: string | null;
   client_city: string | null;
+  batch_name: string | null;
+  lots_count: number | null;
+  lots_summary: string | null;
+  lots_volume: number | null;
+  lots_amount: number | null;
+  is_new: boolean;
 }
 
 interface Stage {
@@ -41,7 +47,7 @@ interface Stage {
 }
 
 interface Props {
-  onOpenClient: (clientId: number) => void;
+  onOpenDeal: (dealId: number) => void;
   showToast: (msg: string, ok?: boolean) => void;
   refreshSignal?: number;
 }
@@ -51,7 +57,7 @@ interface PendingMove {
   toStage: Stage;
 }
 
-const KanbanBoard = ({ onOpenClient, showToast, refreshSignal }: Props) => {
+const KanbanBoard = ({ onOpenDeal, showToast, refreshSignal }: Props) => {
   const { token } = useStaffAuth();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
@@ -169,26 +175,39 @@ const KanbanBoard = ({ onOpenClient, showToast, refreshSignal }: Props) => {
                 className={`space-y-2 min-h-[80px] rounded-xl transition-all overflow-y-auto pr-0.5 ${isDragOver ? "ring-2 ring-primary/30 ring-inset" : ""}`}
                 style={{ maxHeight: "calc(100vh - 320px)" }}
               >
-                {stageDeals.map(deal => (
+                {stageDeals.map(deal => {
+                  const totalAmount = deal.lots_amount ?? deal.amount;
+                  const totalVolume = deal.lots_volume ?? deal.volume;
+                  return (
                   <div
                     key={deal.id}
                     draggable
                     onDragStart={() => { draggedDealId.current = deal.id; }}
                     onDragEnd={() => { draggedDealId.current = null; setDragOverStage(null); }}
-                    onClick={() => onOpenClient(deal.client_id)}
-                    className="bg-card border border-border rounded-xl p-3.5 cursor-grab active:cursor-grabbing hover:border-primary/40 hover:shadow-sm transition-all"
+                    onClick={() => onOpenDeal(deal.id)}
+                    className={`bg-card border rounded-xl p-3.5 cursor-grab active:cursor-grabbing hover:border-primary/40 hover:shadow-sm transition-all relative ${
+                      deal.is_new ? "border-primary/50 ring-1 ring-primary/20" : "border-border"
+                    }`}
                   >
-                    <div className="flex items-start justify-between gap-2 mb-1.5">
-                      <p className="text-sm font-semibold leading-tight">{deal.client_name}</p>
+                    {deal.is_new && (
+                      <span className="absolute -top-1.5 -right-1.5 w-3 h-3 rounded-full bg-primary ring-2 ring-white" title="Новая партия" />
+                    )}
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <p className="text-sm font-semibold leading-tight truncate">
+                        {deal.batch_name || deal.brand || `Партия №${deal.id}`}
+                      </p>
                       <span className="text-[10px] font-mono text-muted-foreground flex-shrink-0">#{deal.id}</span>
                     </div>
-                    {deal.brand && <p className="text-[12px] text-muted-foreground mb-1.5">{deal.brand}</p>}
+                    <p className="text-[12px] text-muted-foreground mb-1.5 truncate">{deal.client_name}</p>
+                    {deal.lots_summary && (
+                      <p className="text-[11px] text-foreground/80 mb-1.5 truncate">{deal.lots_summary}</p>
+                    )}
                     <div className="flex items-center gap-2 text-[11px] text-muted-foreground mb-2">
                       {deal.client_city && <span>{deal.client_city}</span>}
-                      {deal.volume && <span>· {deal.volume} кг</span>}
+                      {totalVolume ? <span>· {totalVolume} кг</span> : null}
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold">{formatMoney(deal.amount)}</span>
+                      <span className="text-sm font-semibold">{formatMoney(totalAmount)}</span>
                       {deal.assigned_name ? (
                         <span className="text-[10px] font-medium bg-primary/8 text-primary rounded-full px-2 py-0.5 truncate max-w-[100px]">
                           {deal.assigned_name}
@@ -198,7 +217,8 @@ const KanbanBoard = ({ onOpenClient, showToast, refreshSignal }: Props) => {
                       )}
                     </div>
                   </div>
-                ))}
+                  );
+                })}
                 {stageDeals.length === 0 && (
                   <div className="border border-dashed border-border rounded-xl py-6 text-center text-[11px] text-muted-foreground/60">
                     Нет сделок
