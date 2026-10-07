@@ -41,7 +41,7 @@ import boto3
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Action, X-Client-Token, X-Batch-Id",
+    "Access-Control-Allow-Headers": "Content-Type, X-Action, X-Client-Token, X-Batch-Id, X-Staff-Id",
 }
 SCHEMA = "t_p21475602_quantum_innovation_l"
 UNISENDER_KEY = os.environ.get("UNISENDER_API_KEY", "")
@@ -260,10 +260,12 @@ def handler(event: dict, context) -> dict:
                 batch_id = b[0]
                 cur.execute(f"""
                     SELECT d.id, d.stage_id, s.name, s.color, s.progress_percent, d.volume, d.amount,
-                           d.created_at, d.status, d.logistics_data, d.assigned_to, st.name
+                           d.created_at, d.status, d.logistics_data, d.assigned_to,
+                           COALESCE(NULLIF(TRIM(tm.first_name || ' ' || tm.last_name), ''), st.name)
                     FROM {SCHEMA}.deals d
                     LEFT JOIN {SCHEMA}.deal_stages s ON s.id = d.stage_id
                     LEFT JOIN {SCHEMA}.staff_users st ON st.id = d.assigned_to
+                    LEFT JOIN {SCHEMA}.team_members tm ON tm.staff_id = d.assigned_to AND tm.active=TRUE
                     WHERE d.batch_id=%s ORDER BY d.created_at DESC
                 """, (batch_id,))
                 deals = []
@@ -462,6 +464,34 @@ def handler(event: dict, context) -> dict:
             """, (deal_id, stage_id, f"Отправлено клиентом на согласование ({client['name']})"))
             conn.commit()
             return ok({"ok": True})
+
+        # ── get-manager: карточка закреплённого менеджера ─────────
+        if action == "get-manager":
+            client = get_client_by_token(cur, client_token)
+            if not client:
+                return err("Unauthorized", 401)
+            staff_id = headers.get("x-staff-id", "")
+            if not staff_id.isdigit():
+                return err("X-Staff-Id required")
+            cur.execute(f"""
+                SELECT 1 FROM {SCHEMA}.deals WHERE client_id=%s AND assigned_to=%s LIMIT 1
+            """, (client["id"], int(staff_id)))
+            if not cur.fetchone():
+                return err("Менеджер не найден", 404)
+            cur.execute(f"""
+                SELECT s.name, tm.first_name, tm.last_name, tm.position, tm.description, tm.photo_url, tm.contacts
+                FROM {SCHEMA}.staff_users s
+                LEFT JOIN {SCHEMA}.team_members tm ON tm.staff_id = s.id AND tm.active=TRUE
+                WHERE s.id=%s
+            """, (int(staff_id),))
+            r = cur.fetchone()
+            if not r:
+                return err("Менеджер не найден", 404)
+            full = f"{r[1] or ''} {r[2] or ''}".strip() or r[0]
+            return ok({"manager": {
+                "id": int(staff_id), "name": full, "position": r[3] or "Персональный менеджер",
+                "description": r[4] or "", "photo_url": r[5] or "", "contacts": r[6] or [],
+            }})
 
         # ── list-logistics-fields ─────────────────────────────────
         if action == "list-logistics-fields":

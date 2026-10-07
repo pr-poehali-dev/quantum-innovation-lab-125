@@ -2,6 +2,7 @@ import { useState } from "react";
 import Icon from "@/components/ui/icon";
 import { type Tab } from "./cabinet.types";
 import { useClientAuth } from "@/context/ClientAuthContext";
+import ManagerCard from "@/components/cabinet/ManagerCard";
 
 interface CabinetDashboardProps {
   setTab: (t: Tab) => void;
@@ -16,6 +17,7 @@ const CabinetDashboard = ({ setTab, openDeal }: CabinetDashboardProps) => {
   const [newName, setNewName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [managerOpen, setManagerOpen] = useState(false);
 
   const allDeals = batches.flatMap(b => b.deals.map(d => ({ ...d, batchId: b.id, batchName: b.name })));
   const submittedDeals = allDeals.filter(d => d.status === "submitted");
@@ -28,7 +30,9 @@ const CabinetDashboard = ({ setTab, openDeal }: CabinetDashboardProps) => {
   const totalVolume = allDeals.reduce((s, d) => s + d.lots.reduce((ls, l) => ls + (l.volume || 0), 0), 0);
   const totalAmount = allDeals.reduce((s, d) => s + d.lots.reduce((ls, l) => ls + (l.amount || 0), 0), 0);
 
-  const managerName = allDeals.find(d => d.assigned_name)?.assigned_name ?? null;
+  const managerDeal = allDeals.find(d => d.assigned_name && d.assigned_to);
+  const managerName = managerDeal?.assigned_name ?? null;
+  const managerId = managerDeal?.assigned_to ?? null;
   const managerInitials = managerName
     ? managerName.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase()
     : "";
@@ -254,17 +258,19 @@ const CabinetDashboard = ({ setTab, openDeal }: CabinetDashboardProps) => {
       {/* Менеджер */}
       <div className="bg-card border border-border rounded-2xl p-5">
         <p className="font-semibold text-sm mb-3">Ваш менеджер</p>
-        {managerName ? (
+        {managerName && managerId ? (
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-accent/15 text-accent flex items-center justify-center text-sm font-bold flex-shrink-0">
-              {managerInitials}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold">{managerName}</p>
-              <p className="text-[11px] text-muted-foreground">Ведёт ваши заказы</p>
-            </div>
+            <button onClick={() => setManagerOpen(true)} className="flex items-center gap-3 flex-1 min-w-0 text-left group">
+              <div className="w-10 h-10 rounded-full bg-foreground text-background flex items-center justify-center text-sm font-bold flex-shrink-0">
+                {managerInitials}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold group-hover:text-primary transition-colors truncate">{managerName}</p>
+                <p className="text-[11px] text-muted-foreground">Ведёт ваши заказы · контакты</p>
+              </div>
+            </button>
             <button onClick={() => setTab("chat")}
-              className="text-xs font-medium text-primary border border-primary/30 rounded-lg px-3 py-1.5 hover:bg-primary/5 transition-colors flex-shrink-0">
+              className="text-xs font-medium text-primary border border-primary/30 rounded-lg px-3 py-2 hover:bg-primary/5 transition-colors flex-shrink-0">
               Написать
             </button>
           </div>
@@ -280,6 +286,10 @@ const CabinetDashboard = ({ setTab, openDeal }: CabinetDashboardProps) => {
           </div>
         )}
       </div>
+
+      {managerOpen && managerId && (
+        <ManagerCard staffId={managerId} fallbackName={managerName} onClose={() => setManagerOpen(false)} onWrite={() => setTab("chat")} />
+      )}
     </div>
   );
 };

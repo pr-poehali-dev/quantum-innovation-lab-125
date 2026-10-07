@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useLeadModal } from "@/context/LeadModalContext";
 import { useClientAuth } from "@/context/ClientAuthContext";
+import { useContacts, phoneHref } from "@/lib/siteContent";
 import fallbackLogo from "@/assets/logo.png";
 
 // Порядок совпадает с порядком блоков на странице
@@ -38,6 +39,7 @@ const Header = () => {
   const phoneRef = useRef<HTMLDivElement>(null);
   const { openModal } = useLeadModal();
   const { client } = useClientAuth();
+  const contacts = useContacts();
 
   const clientInitials = client?.name
     ? client.name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase()
@@ -169,14 +171,15 @@ const Header = () => {
                 <div className="absolute right-0 top-full mt-2 z-50 bg-white border border-black/10 rounded-2xl shadow-xl p-4 min-w-[200px]">
                   <p className="text-[10px] font-mono text-black/35 mb-1.5 tracking-wider">ПОЗВОНИТЬ</p>
                   <a
-                    href="tel:+79042474302"
+                    href={phoneHref(contacts.phone)}
                     className="flex items-center gap-2 text-[15px] font-semibold text-foreground hover:text-primary transition-colors"
                     onClick={() => setPhoneOpen(false)}
                   >
                     <Icon name="Phone" size={14} className="text-primary" />
-                    +7 904 247-43-02
+                    {contacts.phone}
                   </a>
-                  <p className="text-[11px] text-black/35 mt-1.5">Пн–Пт, 9:00–18:00</p>
+                  {contacts.work_hours && <p className="text-[11px] text-black/35 mt-1.5">{contacts.work_hours}</p>}
+                  {contacts.address && <p className="text-[11px] text-black/35 mt-1">{contacts.address}</p>}
                 </div>
               )}
             </div>
@@ -184,7 +187,7 @@ const Header = () => {
             {/* Telegram — тултип при наведении */}
             <div className="hidden sm:block relative group/tg">
               <a
-                href="https://t.me/kontraktkafe"
+                href={contacts.telegram}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-primary/8 text-black/40 hover:text-primary transition-all"

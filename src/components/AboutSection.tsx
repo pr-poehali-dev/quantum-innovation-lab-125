@@ -1,14 +1,27 @@
 import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
+import { useSection } from "@/lib/siteContent";
 
 const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
 
-const STATS = [
-  { val: "500+",   label: "брендов под СТМ"  },
-  { val: "7 лет",  label: "на рынке"          },
-  { val: "50 кг",  label: "минимальный заказ" },
-  { val: "14 дн.", label: "до первой партии"  },
-];
+interface AboutStats {
+  eyebrow: string;
+  status_label: string;
+  button_label: string;
+  stats: { val: string; label: string }[];
+}
+
+const DEFAULT_STATS: AboutStats = {
+  eyebrow: "О КОМПАНИИ",
+  status_label: "ПРОИЗВОДСТВО РАБОТАЕТ",
+  button_label: "Рассчитать",
+  stats: [
+    { val: "500+",   label: "брендов под СТМ"  },
+    { val: "7 лет",  label: "на рынке"          },
+    { val: "500 кг", label: "минимальный заказ" },
+    { val: "7 дн.",  label: "до первой партии"  },
+  ],
+};
 
 interface Photo   { id: number; url: string; label: string; description: string; sort_order: number }
 interface Content { title: string; subtitle: string; bottom_text: string }
@@ -32,6 +45,7 @@ const AboutSection = () => {
   const [activePhoto, setActivePhoto] = useState(0);
   const [content,     setContent]     = useState<Content>(DEFAULT_CONTENT);
   const [photos,      setPhotos]      = useState<Photo[]>(DEFAULT_PHOTOS);
+  const extra = useSection<AboutStats>("about_stats", DEFAULT_STATS);
 
   useEffect(() => {
     fetch(ABOUT_URL)
@@ -52,7 +66,7 @@ const AboutSection = () => {
         {/* Заголовок */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-14 gap-6">
           <div>
-            <span className="text-[11px] font-mono text-white/40 tracking-widest">О КОМПАНИИ</span>
+            <span className="text-[11px] font-mono text-white/40 tracking-widest">{extra.eyebrow}</span>
             <h2 className="font-serif text-4xl md:text-5xl font-bold mt-3 leading-tight">
               {content.title.split(",")[0]},<br />
               <span className="text-white/60">{content.title.split(",").slice(1).join(",").trim()}</span>
@@ -102,7 +116,7 @@ const AboutSection = () => {
 
             {/* Статистика */}
             <div className="grid grid-cols-2 gap-3 flex-1">
-              {STATS.map((s, i) => (
+              {extra.stats.map((s, i) => (
                 <div key={i} className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col justify-between">
                   <p className="font-serif text-3xl font-bold text-white">{s.val}</p>
                   <p className="text-[11px] text-white/50 font-mono mt-1">{s.label.toUpperCase()}</p>
@@ -116,13 +130,13 @@ const AboutSection = () => {
         <div className="flex flex-col md:flex-row items-start md:items-center gap-6 pt-6 border-t border-white/10">
           <div className="flex items-center gap-3 flex-shrink-0">
             <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-[11px] font-mono text-white/50">ПРОИЗВОДСТВО РАБОТАЕТ</span>
+            <span className="text-[11px] font-mono text-white/50">{extra.status_label}</span>
           </div>
           <p className="text-sm text-white/50 leading-relaxed max-w-xl">{content.bottom_text}</p>
           <a href="#calculator"
             className="ml-auto flex-shrink-0 inline-flex items-center gap-2 bg-white text-foreground px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-white/90 transition-all">
             <Icon name="Calculator" size={14} />
-            Рассчитать
+            {extra.button_label}
           </a>
         </div>
 

@@ -29,6 +29,11 @@ X-Action значения:
   list-testimonials — GET все отзывы для админки (только владелец)
   save-testimonial — POST создать/обновить отзыв (только владелец): id?, quote, author, role, sort_order, active
   delete-testimonial — DELETE удалить отзыв (только владелец): X-Testimonial-Id
+  get-team           — GET публичные карточки сотрудников (активные, показываемые на сайте)
+  list-team          — GET все карточки для админки (владелец, супер-админ)
+  save-team-member   — POST создать/обновить карточку: id?, staff_id?, first_name, last_name, position, description, photo_url, contacts[{type,value,label}], show_on_site, active, sort_order
+  delete-team-member — DELETE удалить карточку: X-Member-Id
+  upload-team-photo  — POST загрузить фото сотрудника (base64 → S3): file_base64, file_name
 
 Авторизация редактирования — X-Staff-Token (сессия сотрудника), не статичный ключ.
 """
@@ -43,7 +48,7 @@ from botocore.config import Config
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Staff-Token, X-Action, X-Photo-Id, X-Section-Key, X-Testimonial-Id, X-Page-Slug, X-Page-Id, X-File-Id",
+    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Staff-Token, X-Action, X-Photo-Id, X-Section-Key, X-Testimonial-Id, X-Page-Slug, X-Page-Id, X-File-Id, X-Member-Id",
 }
 SCHEMA      = "t_p21475602_quantum_innovation_l"
 AWS_KEY     = os.environ.get("AWS_ACCESS_KEY_ID", "")
@@ -90,6 +95,13 @@ def get_staff_role(cur, headers: dict):
 def check_role(cur, headers: dict, allowed: tuple) -> bool:
     role = get_staff_role(cur, headers)
     return role in allowed
+
+
+def team_row(r) -> dict:
+    return {
+        "id": r[0], "staff_id": r[1], "first_name": r[2], "last_name": r[3], "position": r[4],
+        "description": r[5], "photo_url": r[6], "contacts": r[7] or [],
+    }
 
 
 def handler(event: dict, context) -> dict:
@@ -607,6 +619,102 @@ def handler(event: dict, context) -> dict:
             cur.execute(f"DELETE FROM {SCHEMA}.site_page_files WHERE id=%s", (file_id,))
             conn.commit()
             return ok({"ok": True})
+
+        # ── get-team: публичные карточки сотрудников ──────────────
+        if action == "get-team":
+            cur.execute(f"""
+                SELECT id, staff_id, first_name, last_name, position, description, photo_url, contacts
+                FROM {SCHEMA}.team_members WHERE active=TRUE AND show_on_site=TRUE
+                ORDER BY sort_order, id
+            """)
+            return ok({"members": [team_row(r) for r in cur.fetchall()]})
+
+        # ── list-team: все карточки для админки ───────────────────
+        if action == "list-team":
+            if not check_role(cur, headers, ("owner", "super_admin")):
+                return err("Unauthorized", 401)
+            cur.execute(f"""
+                SELECT id, staff_id, first_name, last_name, position, description, photo_url, contacts,
+                       show_on_site, active, sort_order
+                FROM {SCHEMA}.team_members ORDER BY sort_order, id
+            """)
+            members = []
+            for r in cur.fetchall():
+                m = team_row(r)
+                m.update({"show_on_site": r[8], "active": r[9], "sort_order": r[10]})
+                members.append(m)
+            return ok({"members": members})
+
+        # ── save-team-member ──────────────────────────────────────
+        if action == "save-team-member":
+            if not check_role(cur, headers, ("owner", "super_admin")):
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            member_id = body.get("id")
+            staff_id = body.get("staff_id") or None
+            contacts = body.get("contacts") or []
+            clean = [
+                {"type": str(c.get("type", "custom"))[:20], "value": str(c.get("value", "")).strip()[:200],
+                 "label": str(c.get("label", "")).strip()[:60]}
+                for c in contacts if str(c.get("value", "")).strip()
+            ]
+            fields = (
+                (body.get("first_name") or "").strip(), (body.get("last_name") or "").strip(),
+                (body.get("position") or "").strip(), (body.get("description") or "").strip(),
+                body.get("photo_url") or "", json.dumps(clean, ensure_ascii=False),
+                bool(body.get("show_on_site", True)), bool(body.get("active", True)),
+                int(body.get("sort_order") or 0), staff_id,
+            )
+            if staff_id:
+                cur.execute(f"SELECT id FROM {SCHEMA}.team_members WHERE staff_id=%s AND id<>%s",
+                            (staff_id, member_id or 0))
+                if cur.fetchone():
+                    return err("Этот сотрудник уже привязан к другой карточке")
+            if member_id:
+                cur.execute(f"""
+                    UPDATE {SCHEMA}.team_members SET first_name=%s, last_name=%s, position=%s, description=%s,
+                        photo_url=%s, contacts=%s, show_on_site=%s, active=%s, sort_order=%s, staff_id=%s,
+                        updated_at=NOW() WHERE id=%s
+                """, fields + (member_id,))
+            else:
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.team_members
+                        (first_name, last_name, position, description, photo_url, contacts,
+                         show_on_site, active, sort_order, staff_id)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,
+                        COALESCE(NULLIF(%s,0), (SELECT COALESCE(MAX(sort_order),0)+1 FROM {SCHEMA}.team_members)), %s)
+                    RETURNING id
+                """, fields)
+                member_id = cur.fetchone()[0]
+            conn.commit()
+            return ok({"ok": True, "id": member_id})
+
+        # ── delete-team-member ────────────────────────────────────
+        if action == "delete-team-member":
+            if not check_role(cur, headers, ("owner", "super_admin")):
+                return err("Unauthorized", 401)
+            member_id = int(headers.get("x-member-id", "0"))
+            if not member_id:
+                return err("X-Member-Id required")
+            cur.execute(f"DELETE FROM {SCHEMA}.team_members WHERE id=%s", (member_id,))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── upload-team-photo ─────────────────────────────────────
+        if action == "upload-team-photo":
+            if not check_role(cur, headers, ("owner", "super_admin")):
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            b64 = body.get("file_base64", "")
+            if not b64:
+                return err("file_base64 required")
+            ext = (body.get("file_name") or "photo.jpg").rsplit(".", 1)[-1].lower()
+            if ext not in ("jpg", "jpeg", "png", "webp"):
+                ext = "jpg"
+            ctype = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}[ext]
+            s3_key = f"team/{uuid.uuid4()}.{ext}"
+            get_s3().put_object(Bucket="files", Key=s3_key, Body=base64.b64decode(b64), ContentType=ctype)
+            return ok({"ok": True, "url": f"{CDN_BASE}/{s3_key}"})
 
         return err(f"Unknown action: {action}", 400)
 

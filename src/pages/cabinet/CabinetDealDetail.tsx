@@ -3,6 +3,7 @@ import Icon from "@/components/ui/icon";
 import { useClientAuth, type BatchDeal, type LogisticsField } from "@/context/ClientAuthContext";
 import { BAG_COLORS } from "@/components/calculator/calculator.types";
 import LotForm from "./LotForm";
+import ManagerCard from "@/components/cabinet/ManagerCard";
 
 interface Props {
   deal: BatchDeal;
@@ -24,6 +25,7 @@ const CabinetDealDetail = ({ deal, goProfile }: Props) => {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [toast, setToast] = useState("");
+  const [managerOpen, setManagerOpen] = useState(false);
 
   const isDraft = deal.status === "draft";
 
@@ -109,6 +111,12 @@ const CabinetDealDetail = ({ deal, goProfile }: Props) => {
           <p className="text-[12px] text-muted-foreground font-mono mt-0.5">
             Создан {formatDate(deal.created_at)} · {deal.lots.length} {deal.lots.length === 1 ? "лот" : "лотов"} · {totalVolume} кг · {formatMoney(totalAmount)}
           </p>
+          {deal.assigned_to && deal.assigned_name && (
+            <button onClick={() => setManagerOpen(true)}
+              className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-medium text-primary hover:text-primary/80 transition-colors">
+              <Icon name="UserCheck" size={13} /> Менеджер: {deal.assigned_name}
+            </button>
+          )}
         </div>
         {isDraft && (
           <button onClick={() => setAddingLot(true)}
@@ -237,6 +245,10 @@ const CabinetDealDetail = ({ deal, goProfile }: Props) => {
             </div>
           </div>
         </div>
+      )}
+
+      {managerOpen && deal.assigned_to && (
+        <ManagerCard staffId={deal.assigned_to} fallbackName={deal.assigned_name} onClose={() => setManagerOpen(false)} />
       )}
     </div>
   );

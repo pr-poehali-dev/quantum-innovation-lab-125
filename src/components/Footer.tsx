@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import fallbackLogo from "@/assets/logo.png";
+import { useContacts, phoneHref } from "@/lib/siteContent";
+import { CONTACT_TYPES } from "@/lib/contactTypes";
+import { Glyph } from "@/components/ContactButton";
 
 const FALLBACK_LOGO = fallbackLogo;
 const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
@@ -35,6 +38,7 @@ const Footer = () => {
   const [logoUrl, setLogoUrl] = useState(FALLBACK_LOGO);
   const [footer, setFooter] = useState<FooterData>(DEFAULT_FOOTER);
   const [pages, setPages] = useState<SitePageLink[]>([]);
+  const contacts = useContacts();
 
   useEffect(() => {
     fetch(ABOUT_URL, { headers: { "X-Action": "get-content" } })
@@ -51,7 +55,9 @@ const Footer = () => {
       .catch(() => {});
   }, []);
 
-  const phoneHref = `tel:${footer.phone.replace(/[^+\d]/g, "")}`;
+  const socials = (["whatsapp", "vk", "max"] as const)
+    .filter(t => contacts[t])
+    .map(t => ({ type: t, value: contacts[t], def: CONTACT_TYPES.find(c => c.type === t)! }));
 
   return (
     <footer id="contacts" className="pt-16 pb-8 border-t border-border bg-foreground text-white">
@@ -76,16 +82,16 @@ const Footer = () => {
 
             {/* Контакты */}
             <div className="space-y-3">
-              <a href={phoneHref} className="flex items-center gap-3 group">
+              <a href={phoneHref(contacts.phone)} className="flex items-center gap-3 group">
                 <div className="w-8 h-8 rounded-lg bg-white/8 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                   <Icon name="Phone" size={14} className="text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-white">{footer.phone}</p>
-                  <p className="text-[11px] text-white/40 font-mono">ЗВОНКИ И TELEGRAM</p>
+                  <p className="text-sm font-semibold text-white">{contacts.phone}</p>
+                  <p className="text-[11px] text-white/40 font-mono">{(contacts.phone_note || "Звонки").toUpperCase()}</p>
                 </div>
               </a>
-              <a href={footer.telegram} target="_blank" rel="noopener noreferrer"
+              <a href={contacts.telegram} target="_blank" rel="noopener noreferrer"
                 className="flex items-center gap-3 group">
                 <div className="w-8 h-8 rounded-lg bg-white/8 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                   <Icon name="Send" size={14} className="text-primary" />
@@ -95,15 +101,40 @@ const Footer = () => {
                   <p className="text-[11px] text-white/40 font-mono">БЫСТРЫЙ ОТВЕТ</p>
                 </div>
               </a>
-              <a href={`mailto:${footer.email}`} className="flex items-center gap-3 group">
+              <a href={`mailto:${contacts.email}`} className="flex items-center gap-3 group">
                 <div className="w-8 h-8 rounded-lg bg-white/8 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
                   <Icon name="Mail" size={14} className="text-primary" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-white">{footer.email}</p>
+                  <p className="text-sm font-semibold text-white">{contacts.email}</p>
                   <p className="text-[11px] text-white/40 font-mono">EMAIL</p>
                 </div>
               </a>
+              {(contacts.address || contacts.work_hours) && (
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-white/8 flex items-center justify-center flex-shrink-0">
+                    <Icon name="MapPin" size={14} className="text-primary" />
+                  </div>
+                  <div>
+                    {contacts.address && <p className="text-sm font-semibold text-white">{contacts.address}</p>}
+                    {contacts.work_hours && <p className="text-[11px] text-white/40 font-mono">{contacts.work_hours.toUpperCase()}</p>}
+                  </div>
+                </div>
+              )}
+              {socials.length > 0 && (
+                <div className="flex items-center gap-2 pt-1">
+                  {socials.map(s => {
+                    const href = s.def.href(s.value);
+                    return (
+                      <a key={s.type} href={href} target="_blank" rel="noopener noreferrer" title={s.def.label}
+                        className="w-9 h-9 rounded-lg flex items-center justify-center text-white transition-transform hover:scale-105"
+                        style={{ background: s.def.color }}>
+                        <Glyph type={s.type} size={15} />
+                      </a>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
 import { useClientAuth } from "@/context/ClientAuthContext";
+import ManagerCard from "@/components/cabinet/ManagerCard";
 
 const CHAT_URL = "https://functions.poehali.dev/f943216e-4ba2-4e31-9cff-fcfc562f339b";
 const POLL_MS = 5000;
@@ -14,7 +15,9 @@ interface Message {
 }
 
 const CabinetChat = () => {
-  const { token, client } = useClientAuth();
+  const { token, client, batches } = useClientAuth();
+  const [managerOpen, setManagerOpen] = useState(false);
+  const managerDeal = batches.flatMap(b => b.deals).find(d => d.assigned_to && d.assigned_name);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
@@ -74,12 +77,18 @@ const CabinetChat = () => {
           <div className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
             <Icon name="Headset" size={16} />
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">Поддержка КонтрактКофе</p>
             <p className="text-[11px] text-green-600 flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> На связи 24/7
             </p>
           </div>
+          {managerDeal?.assigned_to && (
+            <button onClick={() => setManagerOpen(true)}
+              className="flex items-center gap-1.5 text-xs font-medium text-primary border border-primary/30 rounded-lg px-3 py-1.5 hover:bg-primary/5 transition-colors flex-shrink-0">
+              <Icon name="UserCheck" size={13} /> Мой менеджер
+            </button>
+          )}
         </div>
 
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
@@ -128,6 +137,10 @@ const CabinetChat = () => {
           </button>
         </div>
       </div>
+
+      {managerOpen && managerDeal?.assigned_to && (
+        <ManagerCard staffId={managerDeal.assigned_to} fallbackName={managerDeal.assigned_name} onClose={() => setManagerOpen(false)} />
+      )}
     </div>
   );
 };

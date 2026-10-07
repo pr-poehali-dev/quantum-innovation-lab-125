@@ -5,6 +5,22 @@ const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e2
 
 interface Advantage { icon: string; title: string; short: string; detail: string; tag: string }
 interface Segment { name: string; icon: string }
+interface FeatureStat { val: string; label: string; icon: string }
+interface FeaturesMeta {
+  eyebrow: string; title_line1: string; title_line2: string; segments_label: string; stats: FeatureStat[];
+}
+
+const DEFAULT_META: FeaturesMeta = {
+  eyebrow: "О ПРОИЗВОДСТВЕ",
+  title_line1: "Почему выбирают",
+  title_line2: "КонтрактКофе",
+  segments_label: "РАБОТАЕМ С",
+  stats: [
+    { val: "500+",   label: "брендов создано",   icon: "Award"   },
+    { val: "7 дн",   label: "до первой партии",  icon: "Clock"   },
+    { val: "500 кг", label: "минимальный заказ", icon: "Package" },
+  ],
+};
 
 const DEFAULT_ADVANTAGES: Advantage[] = [
   {
@@ -64,6 +80,7 @@ const FeaturesSection = () => {
   const [active, setActive] = useState<number | null>(null);
   const [advantages, setAdvantages] = useState<Advantage[]>(DEFAULT_ADVANTAGES);
   const [segments, setSegments] = useState<Segment[]>(DEFAULT_SEGMENTS);
+  const [meta, setMeta] = useState<FeaturesMeta>(DEFAULT_META);
 
   useEffect(() => {
     fetch(ABOUT_URL, { headers: { "X-Action": "get-sections", "X-Section-Key": "features" } })
@@ -71,6 +88,13 @@ const FeaturesSection = () => {
       .then(d => {
         if (d.data?.advantages?.length) setAdvantages(d.data.advantages);
         if (d.data?.segments?.length) setSegments(d.data.segments);
+        if (d.data) setMeta(m => ({
+          eyebrow: d.data.eyebrow ?? m.eyebrow,
+          title_line1: d.data.title_line1 ?? m.title_line1,
+          title_line2: d.data.title_line2 ?? m.title_line2,
+          segments_label: d.data.segments_label ?? m.segments_label,
+          stats: d.data.stats?.length ? d.data.stats : m.stats,
+        }));
       })
       .catch(() => {});
   }, []);
@@ -82,14 +106,14 @@ const FeaturesSection = () => {
         {/* Заголовок */}
         <div className="flex flex-col md:flex-row items-start justify-between mb-14 scroll-reveal">
           <div>
-            <span className="text-[11px] font-mono text-black/40 tracking-widest">О ПРОИЗВОДСТВЕ</span>
+            <span className="text-[11px] font-mono text-black/40 tracking-widest">{meta.eyebrow}</span>
             <h2 className="font-serif text-4xl md:text-5xl mt-3 font-bold leading-tight text-foreground">
-              Почему выбирают<br />КонтрактКофе
+              {meta.title_line1}<br />{meta.title_line2}
             </h2>
           </div>
           {/* Сегменты */}
           <div className="mt-6 md:mt-0">
-            <p className="text-[11px] font-mono text-black/40 mb-3 tracking-wider">РАБОТАЕМ С</p>
+            <p className="text-[11px] font-mono text-black/40 mb-3 tracking-wider">{meta.segments_label}</p>
             <div className="flex flex-wrap gap-2">
               {segments.map(s => (
                 <div key={s.name}
@@ -159,12 +183,8 @@ const FeaturesSection = () => {
 
         {/* Нижняя плашка */}
         <div className="mt-8 grid md:grid-cols-3 gap-4 scroll-reveal" data-delay="200">
-          {[
-            { val: "500+",  label: "брендов создано",     icon: "Award"   },
-            { val: "14 дн", label: "до первой партии",    icon: "Clock"   },
-            { val: "50 кг", label: "минимальный заказ",   icon: "Package" },
-          ].map(stat => (
-            <div key={stat.val}
+          {meta.stats.map((stat, idx) => (
+            <div key={idx}
               className="flex items-center gap-4 bg-white border border-black/8 rounded-2xl px-5 py-4 shadow-sm">
               <div className="w-9 h-9 rounded-xl bg-black/5 flex items-center justify-center flex-shrink-0">
                 <Icon name={stat.icon} fallback="Circle" size={16} className="text-foreground" />

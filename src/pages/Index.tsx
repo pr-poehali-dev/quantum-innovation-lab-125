@@ -4,6 +4,7 @@ import WorkflowSection from "@/components/WorkflowSection";
 import FeaturesSection from "@/components/FeaturesSection";
 import AboutSection from "@/components/AboutSection";
 import CTASection from "@/components/CTASection";
+import TeamSection from "@/components/TeamSection";
 import PriceCalculator from "@/components/PriceCalculator";
 import Footer from "@/components/Footer";
 import AiChat from "@/components/AiChat";
@@ -25,6 +26,7 @@ const Index = () => {
       <AboutSection />
       <FeaturesSection />
       <CTASection />
+      <TeamSection />
       <Footer />
       <AiChat />
       <LeadModal open={open} onClose={closeModal} source={source} brief={brief ?? undefined} />

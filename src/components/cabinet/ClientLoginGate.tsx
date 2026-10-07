@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useClientAuth } from "@/context/ClientAuthContext";
+import ConsentCheckbox, { useConsentEnabled } from "@/components/ConsentCheckbox";
 
 const ClientLoginGate = ({ children }: { children: ReactNode }) => {
   const { client, loading, requestCode, verifyCode } = useClientAuth();
@@ -10,6 +11,8 @@ const ClientLoginGate = ({ children }: { children: ReactNode }) => {
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [agreed, setAgreed] = useState(false);
+  const consentEnabled = useConsentEnabled();
 
   if (loading) {
     return (
@@ -23,6 +26,7 @@ const ClientLoginGate = ({ children }: { children: ReactNode }) => {
 
   const submitEmail = async () => {
     if (!email.trim()) { setError("Введите email"); return; }
+    if (consentEnabled && !agreed) { setError("Подтвердите согласие с условиями, чтобы получить код"); return; }
     setBusy(true);
     setError("");
     const res = await requestCode(email.trim());
@@ -70,6 +74,7 @@ const ClientLoginGate = ({ children }: { children: ReactNode }) => {
                   className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:border-primary transition-colors"
                   placeholder="you@company.ru"
                 />
+                <ConsentCheckbox checked={agreed} onChange={v => { setAgreed(v); setError(""); }} />
                 {error && <p className="text-sm text-destructive flex items-center gap-1.5"><Icon name="AlertCircle" size={14} />{error}</p>}
                 <button onClick={submitEmail} disabled={busy}
                   className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-2.5 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-60">

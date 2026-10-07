@@ -2,10 +2,16 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useStaffAuth } from "@/context/StaffAuthContext";
+import ContactsEditor from "@/components/admin/landing/ContactsEditor";
+import ConsentEditor, { type ConsentData } from "@/components/admin/landing/ConsentEditor";
+import TeamEditor from "@/components/admin/landing/TeamEditor";
+import StatsEditor, { type StatItem } from "@/components/admin/landing/StatsEditor";
+import { DEFAULT_CONTACTS, type SiteContacts } from "@/lib/siteContent";
+import { DEFAULT_CONSENT } from "@/components/ConsentCheckbox";
 
 const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
 
-type Tab = "hero" | "workflow" | "features" | "cta" | "footer" | "testimonials";
+type Tab = "hero" | "workflow" | "about" | "features" | "cta" | "contacts" | "team" | "consent" | "footer" | "testimonials";
 
 interface HeroData {
   title_line1: string; title_line2: string; title_line3: string;
@@ -22,7 +28,13 @@ interface WorkflowData { eyebrow: string; title_line1: string; title_line2: stri
 
 interface Advantage { icon: string; title: string; short: string; detail: string; tag: string }
 interface Segment { name: string; icon: string }
-interface FeaturesData { advantages: Advantage[]; segments: Segment[] }
+interface FeaturesData {
+  advantages: Advantage[]; segments: Segment[];
+  eyebrow?: string; title_line1?: string; title_line2?: string; segments_label?: string; stats?: StatItem[];
+}
+interface AboutStatsData { eyebrow: string; status_label: string; button_label: string; stats: StatItem[] }
+interface TeamMeta { enabled: boolean; eyebrow: string; title: string; subtitle: string }
+interface PageOption { slug: string; title: string }
 
 interface FooterData {
   phone: string; email: string; telegram: string; description: string;
@@ -35,8 +47,12 @@ interface CtaData { eyebrow: string; title_line1: string; title_line2: string; s
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "hero", label: "Главный экран", icon: "Layout" },
   { id: "workflow", label: "Кофе под СТМ", icon: "GitBranch" },
-  { id: "features", label: "Преимущества", icon: "Sparkles" },
+  { id: "about", label: "О производстве", icon: "Factory" },
+  { id: "features", label: "Почему выбирают", icon: "Sparkles" },
   { id: "cta", label: "Запустите бренд", icon: "Megaphone" },
+  { id: "team", label: "Команда", icon: "Users" },
+  { id: "contacts", label: "Контакты", icon: "Phone" },
+  { id: "consent", label: "Согласие", icon: "ShieldCheck" },
   { id: "footer", label: "Футер", icon: "PanelBottom" },
   { id: "testimonials", label: "Отзывы", icon: "MessageSquareQuote" },
 ];
@@ -53,6 +69,11 @@ const AdminLanding = () => {
   const [features, setFeatures] = useState<FeaturesData | null>(null);
   const [footer, setFooter] = useState<FooterData | null>(null);
   const [cta, setCta] = useState<CtaData | null>(null);
+  const [aboutStats, setAboutStats] = useState<AboutStatsData | null>(null);
+  const [contacts, setContacts] = useState<SiteContacts>(DEFAULT_CONTACTS);
+  const [consent, setConsent] = useState<ConsentData>(DEFAULT_CONSENT);
+  const [teamMeta, setTeamMeta] = useState<TeamMeta | null>(null);
+  const [pages, setPages] = useState<PageOption[]>([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
 
   const authHeaders = { "X-Staff-Token": token || "" };
@@ -65,15 +86,21 @@ const AdminLanding = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const [sectionsRes, testRes] = await Promise.all([
+      const [sectionsRes, testRes, pagesRes] = await Promise.all([
         fetch(ABOUT_URL, { headers: { "X-Action": "get-sections" } }).then(r => r.json()),
         fetch(ABOUT_URL, { headers: { "X-Action": "list-testimonials", ...authHeaders } }).then(r => r.json()),
+        fetch(ABOUT_URL, { headers: { "X-Action": "list-site-pages", ...authHeaders } }).then(r => r.json()).catch(() => ({})),
       ]);
       if (sectionsRes.sections?.hero) setHero(sectionsRes.sections.hero);
       if (sectionsRes.sections?.workflow) setWorkflow(sectionsRes.sections.workflow);
       if (sectionsRes.sections?.features) setFeatures(sectionsRes.sections.features);
       if (sectionsRes.sections?.footer) setFooter(sectionsRes.sections.footer);
       if (sectionsRes.sections?.cta) setCta(sectionsRes.sections.cta);
+      if (sectionsRes.sections?.about_stats) setAboutStats(sectionsRes.sections.about_stats);
+      if (sectionsRes.sections?.contacts) setContacts({ ...DEFAULT_CONTACTS, ...sectionsRes.sections.contacts });
+      if (sectionsRes.sections?.consent) setConsent({ ...DEFAULT_CONSENT, ...sectionsRes.sections.consent });
+      if (sectionsRes.sections?.team) setTeamMeta(sectionsRes.sections.team);
+      if (pagesRes.pages) setPages(pagesRes.pages.map((p: PageOption) => ({ slug: p.slug, title: p.title })));
       if (testRes.testimonials) setTestimonials(testRes.testimonials);
     } catch { showToast("Ошибка загрузки", false); }
     finally { setLoading(false); }
@@ -255,10 +282,89 @@ const AdminLanding = () => {
               </div>
             )}
 
+            {/* ── О ПРОИЗВОДСТВЕ (плашки блока «Производство, которому доверяют») ── */}
+            {tab === "about" && aboutStats && (
+              <div className="bg-card border border-border rounded-2xl p-6 space-y-5">
+                <p className="text-[13px] text-muted-foreground">
+                  Заголовок, описание и фотографии блока редактируются в разделе «Блок О компании». Здесь — надписи и плашки с цифрами.
+                </p>
+                <div className="grid md:grid-cols-3 gap-3">
+                  <div><label className={labelCls}>НАДПИСЬ НАД ЗАГОЛОВКОМ</label>
+                    <input className={inputCls} value={aboutStats.eyebrow} onChange={e => setAboutStats({ ...aboutStats, eyebrow: e.target.value })} /></div>
+                  <div><label className={labelCls}>СТАТУС ВНИЗУ</label>
+                    <input className={inputCls} value={aboutStats.status_label} onChange={e => setAboutStats({ ...aboutStats, status_label: e.target.value })} /></div>
+                  <div><label className={labelCls}>ТЕКСТ КНОПКИ</label>
+                    <input className={inputCls} value={aboutStats.button_label} onChange={e => setAboutStats({ ...aboutStats, button_label: e.target.value })} /></div>
+                </div>
+                <StatsEditor title="Плашки с цифрами" stats={aboutStats.stats} inputCls={inputCls}
+                  onChange={stats => setAboutStats({ ...aboutStats, stats })} />
+                <button onClick={() => saveSection("about_stats", aboutStats)} disabled={saving}
+                  className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-40">
+                  <Icon name={saving ? "Loader" : "Save"} size={14} className={saving ? "animate-spin" : ""} /> Сохранить
+                </button>
+              </div>
+            )}
+
+            {/* ── КОНТАКТЫ ── */}
+            {tab === "contacts" && (
+              <ContactsEditor initial={contacts} saving={saving} inputCls={inputCls} labelCls={labelCls}
+                onSave={async data => { setContacts(data); await saveSection("contacts", data); }} />
+            )}
+
+            {/* ── КОМАНДА ── */}
+            {tab === "team" && (
+              <div className="space-y-6">
+                {teamMeta && (
+                  <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
+                    <div className="flex items-center justify-between gap-4">
+                      <p className="text-sm font-semibold">Блок «Команда» на главной странице</p>
+                      <button onClick={() => setTeamMeta({ ...teamMeta, enabled: !teamMeta.enabled })} role="switch" aria-checked={teamMeta.enabled}
+                        className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${teamMeta.enabled ? "bg-primary" : "bg-border"}`}>
+                        <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all ${teamMeta.enabled ? "left-[22px]" : "left-0.5"}`} />
+                      </button>
+                    </div>
+                    <div className="grid md:grid-cols-3 gap-3">
+                      <div><label className={labelCls}>НАДПИСЬ</label>
+                        <input className={inputCls} value={teamMeta.eyebrow} onChange={e => setTeamMeta({ ...teamMeta, eyebrow: e.target.value })} /></div>
+                      <div><label className={labelCls}>ЗАГОЛОВОК</label>
+                        <input className={inputCls} value={teamMeta.title} onChange={e => setTeamMeta({ ...teamMeta, title: e.target.value })} /></div>
+                      <div><label className={labelCls}>ПОДЗАГОЛОВОК</label>
+                        <input className={inputCls} value={teamMeta.subtitle} onChange={e => setTeamMeta({ ...teamMeta, subtitle: e.target.value })} /></div>
+                    </div>
+                    <button onClick={() => saveSection("team", teamMeta)} disabled={saving}
+                      className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all disabled:opacity-40">
+                      <Icon name={saving ? "Loader" : "Save"} size={14} className={saving ? "animate-spin" : ""} /> Сохранить заголовки
+                    </button>
+                  </div>
+                )}
+                <TeamEditor inputCls={inputCls} labelCls={labelCls} showToast={showToast} />
+              </div>
+            )}
+
+            {/* ── СОГЛАСИЕ ── */}
+            {tab === "consent" && (
+              <ConsentEditor initial={consent} pages={pages} saving={saving} inputCls={inputCls} labelCls={labelCls}
+                onSave={async data => { setConsent(data); await saveSection("consent", data); }} />
+            )}
+
             {/* ── FEATURES ── */}
             {tab === "features" && features && (
               <div className="bg-card border border-border rounded-2xl p-6 space-y-4">
-                <p className="text-sm font-semibold">Преимущества ({features.advantages.length})</p>
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div><label className={labelCls}>НАДПИСЬ НАД ЗАГОЛОВКОМ</label>
+                    <input className={inputCls} value={features.eyebrow ?? "О ПРОИЗВОДСТВЕ"} onChange={e => setFeatures({ ...features, eyebrow: e.target.value })} /></div>
+                  <div><label className={labelCls}>ПОДПИСЬ «РАБОТАЕМ С»</label>
+                    <input className={inputCls} value={features.segments_label ?? "РАБОТАЕМ С"} onChange={e => setFeatures({ ...features, segments_label: e.target.value })} /></div>
+                  <div><label className={labelCls}>ЗАГОЛОВОК СТРОКА 1</label>
+                    <input className={inputCls} value={features.title_line1 ?? "Почему выбирают"} onChange={e => setFeatures({ ...features, title_line1: e.target.value })} /></div>
+                  <div><label className={labelCls}>ЗАГОЛОВОК СТРОКА 2</label>
+                    <input className={inputCls} value={features.title_line2 ?? "КонтрактКофе"} onChange={e => setFeatures({ ...features, title_line2: e.target.value })} /></div>
+                </div>
+                <div className="pt-3 border-t border-border">
+                  <StatsEditor title="Плашки внизу блока" withIcon stats={features.stats ?? []} inputCls={inputCls}
+                    onChange={stats => setFeatures({ ...features, stats })} />
+                </div>
+                <p className="text-sm font-semibold pt-3 border-t border-border">Преимущества ({features.advantages.length})</p>
                 {features.advantages.map((a, i) => (
                   <div key={i} className="bg-secondary/30 border border-border rounded-xl p-4 space-y-2">
                     <div className="grid md:grid-cols-2 gap-2">

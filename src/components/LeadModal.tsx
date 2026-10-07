@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import type { LeadModalSource } from "@/context/LeadModalContext";
+import ConsentCheckbox, { useConsentEnabled } from "@/components/ConsentCheckbox";
 import func2url from "../../backend/func2url.json";
 
 // ── Field вынесен наружу — иначе при каждом setState пересоздаётся и теряет фокус
@@ -65,6 +66,8 @@ const LeadModal = ({ open, onClose, source = "header", brief }: LeadModalProps) 
   const [step, setStep] = useState<Step>("form");
   const [form, setForm] = useState({ name: "", city: "", phone: "", email: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [agreed, setAgreed] = useState(false);
+  const consentEnabled = useConsentEnabled();
 
   if (!open) return null;
 
@@ -80,6 +83,7 @@ const LeadModal = ({ open, onClose, source = "header", brief }: LeadModalProps) 
     if (!form.name.trim())  e.name  = "Введите имя";
     if (!form.phone.trim()) e.phone = "Введите телефон";
     if (form.email && !/\S+@\S+\.\S+/.test(form.email)) e.email = "Неверный формат";
+    if (consentEnabled && !agreed) e.consent = "Подтвердите согласие, чтобы отправить заявку";
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -103,6 +107,7 @@ const LeadModal = ({ open, onClose, source = "header", brief }: LeadModalProps) 
     setStep("form");
     setForm({ name: "", city: "", phone: "", email: "" });
     setErrors({});
+    setAgreed(false);
     onClose();
   };
 
@@ -149,6 +154,12 @@ const LeadModal = ({ open, onClose, source = "header", brief }: LeadModalProps) 
                     value={form.email} error={errors.email} disabled={loading} onChange={setField("email")} />
                 </div>
 
+                <div>
+                  <ConsentCheckbox checked={agreed} invalid={!!errors.consent}
+                    onChange={v => { setAgreed(v); setErrors(e => ({ ...e, consent: "" })); }} />
+                  {errors.consent && <p className="text-[11px] text-red-500 mt-1">{errors.consent}</p>}
+                </div>
+
                 <button onClick={handleSubmit} disabled={loading}
                   className="w-full bg-primary text-primary-foreground py-3.5 rounded-xl font-semibold text-sm hover:bg-primary/90 transition-all hover:shadow-lg hover:shadow-primary/20 flex items-center justify-center gap-2 mt-2 disabled:opacity-70">
                   {loading
@@ -193,9 +204,6 @@ const LeadModal = ({ open, onClose, source = "header", brief }: LeadModalProps) 
                   </a>
                 )}
 
-                <p className="text-[10px] text-muted-foreground text-center">
-                  Нажимая «Отправить», вы соглашаетесь с политикой конфиденциальности
-                </p>
               </div>
             </>
           )}
