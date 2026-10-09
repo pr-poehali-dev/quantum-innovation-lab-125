@@ -35,6 +35,9 @@ X-Action значения:
   list-deal-notes     — GET список заметок-задач по партии: X-Deal-Id
   add-deal-note       — POST добавить заметку: deal_id, text
   delete-deal-note    — POST удалить заметку: id
+  trash-deal          — POST убрать сделку в корзину: deal_id
+  restore-deal        — POST вернуть сделку из корзины: deal_id
+  list-trash          — GET сделки в корзине
 """
 import json
 import os
@@ -148,7 +151,7 @@ def handler(event: dict, context) -> dict:
                 JOIN {SCHEMA}.clients c ON c.id = d.client_id
                 LEFT JOIN {SCHEMA}.staff_users st ON st.id = d.assigned_to
                 LEFT JOIN {SCHEMA}.product_batches pb ON pb.id = d.batch_id
-                WHERE d.status = 'submitted'
+                WHERE d.status = 'submitted' AND d.trashed_at IS NULL
                 ORDER BY d.updated_at DESC LIMIT 500
             """)
             rows = cur.fetchall()
@@ -212,7 +215,7 @@ def handler(event: dict, context) -> dict:
                        COUNT(d.id) AS deals_count,
                        COALESCE(SUM(d.amount), 0) AS total_amount
                 FROM {SCHEMA}.clients c
-                LEFT JOIN {SCHEMA}.deals d ON d.client_id = c.id AND d.status = 'submitted'
+                LEFT JOIN {SCHEMA}.deals d ON d.client_id = c.id AND d.status = 'submitted' AND d.trashed_at IS NULL
                 GROUP BY c.id ORDER BY c.created_at DESC LIMIT 300
             """)
             clients = [
@@ -247,7 +250,7 @@ def handler(event: dict, context) -> dict:
                 JOIN {SCHEMA}.deal_stages s ON s.id = d.stage_id
                 LEFT JOIN {SCHEMA}.staff_users st ON st.id = d.assigned_to
                 LEFT JOIN {SCHEMA}.product_batches pb ON pb.id = d.batch_id
-                WHERE d.client_id=%s ORDER BY d.created_at DESC
+                WHERE d.client_id=%s AND d.trashed_at IS NULL ORDER BY d.created_at DESC
             """, (client_id,))
             deals = []
             for r in cur.fetchall():
@@ -666,6 +669,53 @@ def handler(event: dict, context) -> dict:
             cur.execute(f"DELETE FROM {SCHEMA}.deal_notes WHERE id=%s", (note_id,))
             conn.commit()
             return ok({"ok": True})
+
+        # ── trash-deal: в корзину ─────────────────────────────────
+        if action == "trash-deal":
+            body = json.loads(event.get("body") or "{}")
+            deal_id = body.get("deal_id")
+            if not deal_id:
+                return err("deal_id required")
+            cur.execute(f"""
+                UPDATE {SCHEMA}.deals SET trashed_at=NOW(), trashed_by=%s WHERE id=%s AND trashed_at IS NULL
+            """, (staff["name"], deal_id))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── restore-deal: вернуть из корзины ──────────────────────
+        if action == "restore-deal":
+            body = json.loads(event.get("body") or "{}")
+            deal_id = body.get("deal_id")
+            if not deal_id:
+                return err("deal_id required")
+            cur.execute(f"""
+                UPDATE {SCHEMA}.deals SET trashed_at=NULL, trashed_by=NULL, updated_at=NOW() WHERE id=%s
+            """, (deal_id,))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── list-trash: корзина сделок ────────────────────────────
+        if action == "list-trash":
+            cur.execute(f"""
+                SELECT d.id, pb.name, d.brand, c.id, c.name, ds.name, ds.color, d.trashed_at, d.trashed_by,
+                       COALESCE((SELECT SUM(amount) FROM {SCHEMA}.deal_lots WHERE deal_id=d.id), d.amount),
+                       COALESCE((SELECT SUM(volume) FROM {SCHEMA}.deal_lots WHERE deal_id=d.id), d.volume)
+                FROM {SCHEMA}.deals d
+                JOIN {SCHEMA}.clients c ON c.id = d.client_id
+                JOIN {SCHEMA}.deal_stages ds ON ds.id = d.stage_id
+                LEFT JOIN {SCHEMA}.product_batches pb ON pb.id = d.batch_id
+                WHERE d.trashed_at IS NOT NULL
+                ORDER BY d.trashed_at DESC LIMIT 200
+            """)
+            items = [
+                {
+                    "id": r[0], "batch_name": r[1], "brand": r[2], "client_id": r[3], "client_name": r[4],
+                    "stage_name": r[5], "stage_color": r[6], "trashed_at": str(r[7]), "trashed_by": r[8],
+                    "amount": float(r[9]) if r[9] else None, "volume": float(r[10]) if r[10] else None,
+                }
+                for r in cur.fetchall()
+            ]
+            return ok({"deals": items})
 
         return err(f"Unknown action: {action}", 400)
     finally:

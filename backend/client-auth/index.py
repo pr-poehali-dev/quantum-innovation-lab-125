@@ -266,7 +266,7 @@ def handler(event: dict, context) -> dict:
                     LEFT JOIN {SCHEMA}.deal_stages s ON s.id = d.stage_id
                     LEFT JOIN {SCHEMA}.staff_users st ON st.id = d.assigned_to
                     LEFT JOIN {SCHEMA}.team_members tm ON tm.staff_id = d.assigned_to AND tm.active=TRUE
-                    WHERE d.batch_id=%s ORDER BY d.created_at DESC
+                    WHERE d.batch_id=%s AND d.trashed_at IS NULL ORDER BY d.created_at DESC
                 """, (batch_id,))
                 deals = []
                 for r in cur.fetchall():
