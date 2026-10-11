@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import { useStaffAuth } from "@/context/StaffAuthContext";
 import { BAG_COLORS } from "@/components/calculator/calculator.types";
+import DealDocuments, { type DealDoc } from "@/components/crm/DealDocuments";
 
 const CRM_URL = "https://functions.poehali.dev/0fbf69fe-e1ba-4899-a9c0-98d37524abe1";
 
@@ -47,6 +48,8 @@ interface DealFull {
   lots: Lot[];
   lots_volume: number;
   lots_amount: number;
+  ship_date: string | null;
+  documents: DealDoc[];
 }
 
 interface Stage {
@@ -302,6 +305,16 @@ const DealDrawer = ({ dealId, onClose, onChanged, onOpenClient, showToast }: Pro
                 </div>
               )}
             </section>
+
+            {deal.ship_date && (
+              <div className="flex items-center gap-2 text-sm bg-secondary/40 rounded-xl px-4 py-3">
+                <Icon name="CalendarClock" size={15} className="text-primary flex-shrink-0" />
+                <span className="text-muted-foreground">Желаемая отгрузка:</span>
+                <span className="font-semibold">{new Date(deal.ship_date).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })}</span>
+              </div>
+            )}
+
+            <DealDocuments dealId={deal.id} documents={deal.documents || []} onChanged={() => { load(); onChanged(); }} showToast={showToast} />
 
             {/* Логистика */}
             {Object.keys(deal.logistics_data || {}).length > 0 && (

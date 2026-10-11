@@ -30,6 +30,10 @@ export interface BatchDeal {
   logistics_data: Record<string, string>;
   assigned_to: number | null;
   assigned_name: string | null;
+  ship_date: string | null;
+  draft_trashed_at: string | null;
+  docs_total: number;
+  docs_done: number;
   lots: DealLot[];
 }
 
@@ -75,6 +79,13 @@ export interface LogisticsField {
   sort_order: number;
 }
 
+export interface SaveOrderInput {
+  batch_id?: number;
+  batch_name: string;
+  deal_id?: number;
+  positions: Omit<LotInput, "id" | "deal_id">[];
+}
+
 export interface LotInput {
   id?: number;
   deal_id?: number;
@@ -95,14 +106,16 @@ interface ClientAuthContextType {
   loading: boolean;
   token: string | null;
   unreadNotifications: number;
-  requestCode: (email: string) => Promise<{ ok: boolean; error?: string }>;
+  requestCode: (email: string, name?: string) => Promise<{ ok: boolean; error?: string }>;
   verifyCode: (email: string, code: string) => Promise<{ ok: boolean; error?: string }>;
   createBatch: (name: string) => Promise<{ ok: boolean; error?: string; batchId?: number }>;
   createDraftDeal: (batchId: number) => Promise<{ ok: boolean; error?: string; dealId?: number }>;
   saveLot: (data: LotInput) => Promise<{ ok: boolean; error?: string; id?: number }>;
   deleteLot: (id: number) => Promise<{ ok: boolean; error?: string }>;
-  updateLogistics: (dealId: number, data: Record<string, string>) => Promise<{ ok: boolean; error?: string }>;
-  submitDeal: (dealId: number) => Promise<{ ok: boolean; error?: string }>;
+  updateLogistics: (dealId: number, data: Record<string, string>, shipDate?: string) => Promise<{ ok: boolean; error?: string }>;
+  submitDeal: (dealId: number, phone?: string) => Promise<{ ok: boolean; error?: string; batchName?: string | null; contact?: { phone: string | null; email: string | null } }>;
+  saveOrder: (data: SaveOrderInput) => Promise<{ ok: boolean; error?: string; batchId?: number; dealId?: number }>;
+  setDraftTrashed: (dealId: number, trashed: boolean) => Promise<{ ok: boolean; error?: string }>;
   updateProfile: (data: { name?: string; phone?: string; city?: string; company?: string }) => Promise<{ ok: boolean; error?: string }>;
   fetchLogisticsFields: () => Promise<LogisticsField[]>;
   fetchNotifications: () => Promise<ClientNotification[]>;
@@ -126,6 +139,8 @@ const ClientAuthContext = createContext<ClientAuthContextType>({
   deleteLot: async () => ({ ok: false }),
   updateLogistics: async () => ({ ok: false }),
   submitDeal: async () => ({ ok: false }),
+  saveOrder: async () => ({ ok: false }),
+  setDraftTrashed: async () => ({ ok: false }),
   updateProfile: async () => ({ ok: false }),
   fetchLogisticsFields: async () => [],
   fetchNotifications: async () => [],
@@ -173,12 +188,12 @@ export const ClientAuthProvider = ({ children }: { children: ReactNode }) => {
     fetchMe(saved);
   }, []);
 
-  const requestCode = async (email: string) => {
+  const requestCode = async (email: string, name?: string) => {
     try {
       const r = await fetch(CLIENT_AUTH_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Action": "request-code" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, name }),
       });
       const d = await r.json();
       if (!r.ok) return { ok: false, error: d.error || "Ошибка" };
@@ -274,13 +289,13 @@ export const ClientAuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const updateLogistics = async (dealId: number, data: Record<string, string>) => {
+  const updateLogistics = async (dealId: number, data: Record<string, string>, shipDate?: string) => {
     if (!token) return { ok: false, error: "Не авторизован" };
     try {
       const r = await fetch(CLIENT_AUTH_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Action": "update-logistics", "X-Client-Token": token },
-        body: JSON.stringify({ deal_id: dealId, logistics_data: data }),
+        body: JSON.stringify({ deal_id: dealId, logistics_data: data, ship_date: shipDate }),
       });
       const d = await r.json();
       if (!r.ok) return { ok: false, error: d.error || "Не удалось сохранить логистику" };
@@ -291,16 +306,50 @@ export const ClientAuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const submitDeal = async (dealId: number) => {
+  const submitDeal = async (dealId: number, phone?: string) => {
     if (!token) return { ok: false, error: "Не авторизован" };
     try {
       const r = await fetch(CLIENT_AUTH_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Action": "submit-deal", "X-Client-Token": token },
-        body: JSON.stringify({ deal_id: dealId }),
+        body: JSON.stringify({ deal_id: dealId, phone }),
       });
       const d = await r.json();
       if (!r.ok) return { ok: false, error: d.error || "Не удалось отправить на согласование" };
+      fetchMe(token);
+      return { ok: true, batchName: d.batch_name, contact: d.contact };
+    } catch {
+      return { ok: false, error: "Ошибка сети" };
+    }
+  };
+
+  const saveOrder = async (data: SaveOrderInput) => {
+    if (!token) return { ok: false, error: "Не авторизован" };
+    try {
+      const r = await fetch(CLIENT_AUTH_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Action": "save-order", "X-Client-Token": token },
+        body: JSON.stringify(data),
+      });
+      const d = await r.json();
+      if (!r.ok) return { ok: false, error: d.error || "Не удалось сохранить заказ" };
+      fetchMe(token);
+      return { ok: true, batchId: d.batch_id, dealId: d.deal_id };
+    } catch {
+      return { ok: false, error: "Ошибка сети" };
+    }
+  };
+
+  const setDraftTrashed = async (dealId: number, trashed: boolean) => {
+    if (!token) return { ok: false, error: "Не авторизован" };
+    try {
+      const r = await fetch(CLIENT_AUTH_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Action": trashed ? "trash-draft" : "restore-draft", "X-Client-Token": token },
+        body: JSON.stringify({ deal_id: dealId }),
+      });
+      const d = await r.json();
+      if (!r.ok) return { ok: false, error: d.error || "Ошибка" };
       fetchMe(token);
       return { ok: true };
     } catch {
@@ -370,7 +419,7 @@ export const ClientAuthProvider = ({ children }: { children: ReactNode }) => {
     <ClientAuthContext.Provider value={{
       client, batches, stages, loading, token, unreadNotifications,
       requestCode, verifyCode, createBatch, createDraftDeal, saveLot, deleteLot,
-      updateLogistics, submitDeal, updateProfile, fetchLogisticsFields, fetchNotifications, markNotificationsRead,
+      updateLogistics, submitDeal, saveOrder, setDraftTrashed, updateProfile, fetchLogisticsFields, fetchNotifications, markNotificationsRead,
       logout, refresh,
     }}>
       {children}

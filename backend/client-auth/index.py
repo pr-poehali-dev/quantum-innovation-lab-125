@@ -16,8 +16,11 @@ X-Action значения:
   save-lot           — POST создать/обновить лот заказа (только пока заказ в статусе draft):
                         id?, deal_id, origin_id, roast, packaging, weight_format, color, volume, amount, note
   delete-lot         — POST удалить лот (только пока заказ в статусе draft): id
-  update-logistics   — POST обновить данные логистики заказа: deal_id, logistics_data (объект)
-  submit-deal        — POST отправить заказ на согласование (нужен минимум 1 лот): deal_id
+  update-logistics   — POST обновить логистику и дату отгрузки заказа: deal_id, logistics_data (объект), ship_date?
+  submit-deal        — POST отправить заказ на согласование (минимум 1 позиция, нужен телефон): deal_id, phone?
+  save-order         — POST создать/обновить партию и черновик заказа с позициями: batch_id?, batch_name, deal_id?, positions[]
+  trash-draft        — POST убрать черновик в корзину: deal_id
+  restore-draft      — POST вернуть черновик из корзины: deal_id
   list-logistics-fields — GET список полей логистики для формы (публично, без авторизации)
   list-mockups       — GET список макетов дизайна партии: X-Batch-Id
   upload-mockup      — POST клиент загружает макет (base64 → S3): batch_id, file_base64, file_name
@@ -28,6 +31,7 @@ X-Action значения:
 import json
 import os
 import random
+import re
 import secrets
 import base64
 import uuid
@@ -87,6 +91,18 @@ def get_client_by_token(cur, token: str):
     if not crow:
         return None
     return {"id": crow[0], "name": crow[1], "phone": crow[2], "email": crow[3], "city": crow[4], "company": crow[5]}
+
+
+MAX_VOLUME = 5000
+
+
+def get_min_volume(cur) -> int:
+    cur.execute(f"SELECT value FROM {SCHEMA}.site_settings WHERE key='calc_min_volume'")
+    row = cur.fetchone()
+    try:
+        return int(float(row[0])) if row else 500
+    except (TypeError, ValueError):
+        return 500
 
 
 def get_sender(cur):
@@ -195,7 +211,14 @@ def handler(event: dict, context) -> dict:
             cur.execute(f"SELECT id, name FROM {SCHEMA}.clients WHERE lower(email)=%s", (email,))
             client_row = cur.fetchone()
             if not client_row:
-                return ok({"ok": True})
+                if "@" not in email or "." not in email.split("@")[-1]:
+                    return err("Введите корректный email")
+                display = (body.get("name") or "").strip() or email.split("@")[0]
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.clients (name, email, phone) VALUES (%s, %s, %s) RETURNING id, name
+                """, (display, email, (body.get("phone") or "").strip() or None))
+                client_row = cur.fetchone()
+                conn.commit()
 
             code = str(random.randint(100000, 999999))
             expires = datetime.utcnow() + timedelta(minutes=15)
@@ -261,7 +284,10 @@ def handler(event: dict, context) -> dict:
                 cur.execute(f"""
                     SELECT d.id, d.stage_id, s.name, s.color, s.progress_percent, d.volume, d.amount,
                            d.created_at, d.status, d.logistics_data, d.assigned_to,
-                           COALESCE(NULLIF(TRIM(tm.first_name || ' ' || tm.last_name), ''), st.name)
+                           COALESCE(NULLIF(TRIM(tm.first_name || ' ' || tm.last_name), ''), st.name),
+                           d.ship_date, d.draft_trashed_at,
+                           (SELECT COUNT(*) FROM {SCHEMA}.deal_documents dd WHERE dd.deal_id = d.id AND dd.status <> 'removed'),
+                           (SELECT COUNT(*) FROM {SCHEMA}.deal_documents dd WHERE dd.deal_id = d.id AND dd.status = 'done')
                     FROM {SCHEMA}.deals d
                     LEFT JOIN {SCHEMA}.deal_stages s ON s.id = d.stage_id
                     LEFT JOIN {SCHEMA}.staff_users st ON st.id = d.assigned_to
@@ -277,6 +303,9 @@ def handler(event: dict, context) -> dict:
                         "volume": float(r[5]) if r[5] else None, "amount": float(r[6]) if r[6] else None,
                         "created_at": str(r[7]), "status": r[8], "logistics_data": r[9] or {},
                         "assigned_to": r[10], "assigned_name": r[11],
+                        "ship_date": str(r[12]) if r[12] else None,
+                        "draft_trashed_at": str(r[13]) if r[13] else None,
+                        "docs_total": r[14], "docs_done": r[15],
                         "lots": fetch_lots(cur, deal_id),
                     })
                 batches.append({"id": batch_id, "name": b[1], "created_at": str(b[2]), "deals": deals})
@@ -419,12 +448,14 @@ def handler(event: dict, context) -> dict:
             deal_id = body.get("deal_id")
             if not deal_id:
                 return err("deal_id required")
-            cur.execute(f"SELECT id FROM {SCHEMA}.deals WHERE id=%s AND client_id=%s", (deal_id, client["id"]))
+            cur.execute(f"SELECT status FROM {SCHEMA}.deals WHERE id=%s AND client_id=%s", (deal_id, client["id"]))
             if not cur.fetchone():
                 return err("Заказ не найден", 404)
+            ship_date = (body.get("ship_date") or "").strip() or None
             cur.execute(f"""
-                UPDATE {SCHEMA}.deals SET logistics_data=%s, updated_at=NOW() WHERE id=%s
-            """, (json.dumps(body.get("logistics_data") or {}), deal_id))
+                UPDATE {SCHEMA}.deals SET logistics_data=%s, ship_date=COALESCE(%s::date, ship_date), updated_at=NOW()
+                WHERE id=%s
+            """, (json.dumps(body.get("logistics_data") or {}), ship_date, deal_id))
             conn.commit()
             return ok({"ok": True})
 
@@ -437,17 +468,24 @@ def handler(event: dict, context) -> dict:
             deal_id = body.get("deal_id")
             if not deal_id:
                 return err("deal_id required")
+            phone_in = (body.get("phone") or "").strip()
+            if phone_in and len(re.sub(r"\D", "", phone_in)) >= 10:
+                cur.execute(f"UPDATE {SCHEMA}.clients SET phone=%s WHERE id=%s", (phone_in, client["id"]))
+                client["phone"] = phone_in
             if not client.get("phone"):
-                return err("Укажите номер телефона для связи в разделе «Личные данные», прежде чем отправлять заказ на согласование", 422)
+                return err("Укажите номер телефона для связи — иначе менеджер не сможет с вами связаться", 422)
             cur.execute(f"SELECT status, stage_id FROM {SCHEMA}.deals WHERE id=%s AND client_id=%s", (deal_id, client["id"]))
             row = cur.fetchone()
             if not row:
                 return err("Заказ не найден", 404)
             if row[0] == "submitted":
                 return err("Заказ уже отправлен на согласование")
-            cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.deal_lots WHERE deal_id=%s", (deal_id,))
-            if cur.fetchone()[0] == 0:
-                return err("Добавьте хотя бы один лот перед отправкой")
+            cur.execute(f"SELECT COUNT(*), COALESCE(MIN(volume),0) FROM {SCHEMA}.deal_lots WHERE deal_id=%s", (deal_id,))
+            lots_cnt, lots_min = cur.fetchone()
+            if lots_cnt == 0:
+                return err("Добавьте хотя бы одну позицию перед отправкой")
+            if float(lots_min) < get_min_volume(cur):
+                return err(f"Минимальный объём одной позиции — {get_min_volume(cur)} кг")
 
             stage_id = row[1]
             if not stage_id:
@@ -462,6 +500,110 @@ def handler(event: dict, context) -> dict:
                 INSERT INTO {SCHEMA}.deal_stage_log (deal_id, from_stage_id, to_stage_id, staff_id, staff_name)
                 VALUES (%s, NULL, %s, NULL, %s)
             """, (deal_id, stage_id, f"Отправлено клиентом на согласование ({client['name']})"))
+            cur.execute(f"""
+                SELECT pb.name FROM {SCHEMA}.deals d LEFT JOIN {SCHEMA}.product_batches pb ON pb.id = d.batch_id WHERE d.id=%s
+            """, (deal_id,))
+            bn = cur.fetchone()
+            conn.commit()
+            return ok({"ok": True, "batch_name": bn[0] if bn else None,
+                       "contact": {"phone": client.get("phone"), "email": client.get("email")}})
+
+        # ── save-order: партия + заказ + позиции одним запросом ───
+        if action == "save-order":
+            client = get_client_by_token(cur, client_token)
+            if not client:
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            positions = body.get("positions") or []
+            if not positions:
+                return err("Добавьте хотя бы одну позицию")
+            min_volume = get_min_volume(cur)
+            for i, pos in enumerate(positions, 1):
+                vol = float(pos.get("volume") or 0)
+                if vol < min_volume:
+                    return err(f"Позиция {i}: минимальный объём — {min_volume} кг")
+                if vol > MAX_VOLUME:
+                    return err(f"Позиция {i}: максимальный объём — {MAX_VOLUME} кг")
+                if not pos.get("origin_id"):
+                    return err(f"Позиция {i}: выберите зерно")
+
+            batch_id = body.get("batch_id")
+            batch_name = (body.get("batch_name") or "").strip()
+            if batch_id:
+                cur.execute(f"SELECT id FROM {SCHEMA}.product_batches WHERE id=%s AND client_id=%s", (batch_id, client["id"]))
+                if not cur.fetchone():
+                    return err("Партия не найдена", 404)
+                if batch_name:
+                    cur.execute(f"UPDATE {SCHEMA}.product_batches SET name=%s, updated_at=NOW() WHERE id=%s", (batch_name, batch_id))
+            else:
+                if not batch_name:
+                    return err("Введите название партии")
+                cur.execute(f"INSERT INTO {SCHEMA}.product_batches (client_id, name) VALUES (%s, %s) RETURNING id", (client["id"], batch_name))
+                batch_id = cur.fetchone()[0]
+
+            deal_id = body.get("deal_id")
+            if deal_id:
+                cur.execute(f"SELECT status FROM {SCHEMA}.deals WHERE id=%s AND client_id=%s", (deal_id, client["id"]))
+                row = cur.fetchone()
+                if not row:
+                    return err("Заказ не найден", 404)
+                if row[0] != "draft":
+                    return err("Заказ уже отправлен на согласование — менять его нельзя")
+                cur.execute(f"UPDATE {SCHEMA}.deals SET batch_id=%s, draft_trashed_at=NULL WHERE id=%s", (batch_id, deal_id))
+            else:
+                cur.execute(f"SELECT id FROM {SCHEMA}.deal_stages ORDER BY sort_order LIMIT 1")
+                fs = cur.fetchone()
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.deals (client_id, batch_id, stage_id, status)
+                    VALUES (%s, %s, %s, 'draft') RETURNING id
+                """, (client["id"], batch_id, fs[0] if fs else None))
+                deal_id = cur.fetchone()[0]
+
+            total_amount, total_volume = 0, 0
+            cur.execute(f"SELECT id FROM {SCHEMA}.deal_lots WHERE deal_id=%s ORDER BY lot_number, id", (deal_id,))
+            reusable = [r[0] for r in cur.fetchall()]
+            for n, pos in enumerate(positions, 1):
+                amount = float(pos.get("amount") or 0)
+                vol = float(pos.get("volume") or 0)
+                total_amount += amount
+                total_volume += vol
+                args = (pos.get("origin_id"), pos.get("roast"),
+                        pos.get("packaging") or "Квадропак, бесшовный пакет", pos.get("weight_format"),
+                        pos.get("color"), vol, amount, pos.get("note") or "")
+                if reusable:
+                    lot_id = reusable.pop(0)
+                    cur.execute(f"""
+                        UPDATE {SCHEMA}.deal_lots SET lot_number=%s, origin_id=%s, roast=%s, packaging=%s,
+                            weight_format=%s, color=%s, volume=%s, amount=%s, note=%s, updated_at=NOW()
+                        WHERE id=%s
+                    """, (n,) + args + (lot_id,))
+                else:
+                    cur.execute(f"""
+                        INSERT INTO {SCHEMA}.deal_lots
+                            (deal_id, lot_number, origin_id, roast, packaging, weight_format, color, volume, amount, note)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (deal_id, n) + args)
+            for extra_id in reusable:
+                cur.execute(f"DELETE FROM {SCHEMA}.deal_lots WHERE id=%s", (extra_id,))
+            cur.execute(f"UPDATE {SCHEMA}.deals SET volume=%s, amount=%s, updated_at=NOW() WHERE id=%s",
+                        (total_volume, total_amount, deal_id))
+            conn.commit()
+            return ok({"ok": True, "batch_id": batch_id, "deal_id": deal_id}, 201)
+
+        # ── trash-draft / restore-draft: корзина черновиков ───────
+        if action in ("trash-draft", "restore-draft"):
+            client = get_client_by_token(cur, client_token)
+            if not client:
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            deal_id = body.get("deal_id")
+            if not deal_id:
+                return err("deal_id required")
+            value = "NOW()" if action == "trash-draft" else "NULL"
+            cur.execute(f"""
+                UPDATE {SCHEMA}.deals SET draft_trashed_at={value}
+                WHERE id=%s AND client_id=%s AND status='draft'
+            """, (deal_id, client["id"]))
             conn.commit()
             return ok({"ok": True})
 

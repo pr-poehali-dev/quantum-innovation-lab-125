@@ -1,195 +1,114 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import Icon from "@/components/ui/icon";
 import { useLeadModal } from "@/context/LeadModalContext";
-import CalculatorStepPanel from "./calculator/CalculatorStepPanel";
-import CalculatorSummary from "./calculator/CalculatorSummary";
+import PositionWizard from "@/components/calculator/PositionWizard";
+import OrderSummary from "@/components/calculator/OrderSummary";
+import {
+  colorLabel, formatLabel, loadCart, maxLeadTime, saveCart, useCalcData,
+  type Position,
+} from "@/lib/calcCore";
 
-const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
+export { calcPrice1kg, calcPrice250g } from "@/lib/calcCore";
+export type { CalcOrigin } from "@/lib/calcCore";
 
-export interface CalcOrigin {
-  id: number;
-  label: string;
-  price_usd_per_kg: number;
-  sort_order: number;
-}
-
-interface CalcParams {
-  [key: string]: { value: number; label: string };
-}
-
-const DEFAULT_PARAMS: CalcParams = {
-  roast_loss_percent:    { value: 15,  label: "Потеря веса при обжарке, %" },
-  pkg_1kg:               { value: 50,  label: "Упаковка 1 кг" },
-  transport_1kg:         { value: 15,  label: "Транспорт 1 кг" },
-  production_1kg:        { value: 10,  label: "Производство 1 кг" },
-  roasting_service_1kg:  { value: 100, label: "Услуги обжарки и упаковки 1 кг" },
-  pkg_250g:              { value: 40,  label: "Упаковка 250 г" },
-  transport_250g:        { value: 3.15, label: "Транспорт 250 г" },
-  production_250g:       { value: 2.49, label: "Производство 250 г" },
-  roasting_service_250g: { value: 30,  label: "Услуги обжарки и упаковки 250 г" },
-};
-
-const DEFAULT_USD = 85;
-const DEFAULT_MIN_VOLUME = 500;
-const DEFAULT_VOLUME_STEP = 5;
-
-interface LeadTimeTier { max_volume: number | null; days: number }
-
-const DEFAULT_LEAD_TIME_TIERS: LeadTimeTier[] = [
-  { max_volume: 1000, days: 14 },
-  { max_volume: 2000, days: 18 },
-  { max_volume: null, days: 25 },
-];
-
-function calcLeadTime(volume: number, tiers: LeadTimeTier[]): number {
-  for (const t of tiers) {
-    if (t.max_volume === null || volume <= t.max_volume) return t.days;
-  }
-  return tiers[tiers.length - 1]?.days ?? 14;
-}
-
-// Цена за 1 кг готовой продукции: зерно с учётом обжарки + упаковка + транспорт + производство + услуги
-export function calcPrice1kg(origin: CalcOrigin, params: CalcParams, usd: number): number {
-  const lossPercent = params["roast_loss_percent"]?.value ?? 15;
-  const roastedPrice = (origin.price_usd_per_kg * usd) / (1 - lossPercent / 100);
-  return Math.round(
-    roastedPrice
-    + (params["pkg_1kg"]?.value ?? 0)
-    + (params["transport_1kg"]?.value ?? 0)
-    + (params["production_1kg"]?.value ?? 0)
-    + (params["roasting_service_1kg"]?.value ?? 0)
-  );
-}
-
-// Цена за упаковку 250 г (итог не за кг, а за пачку весом 250г)
-export function calcPrice250g(origin: CalcOrigin, params: CalcParams, usd: number): number {
-  const lossPercent = params["roast_loss_percent"]?.value ?? 15;
-  const roastedPrice = (origin.price_usd_per_kg * usd * 0.25) / (1 - lossPercent / 100);
-  return Math.round(
-    roastedPrice
-    + (params["pkg_250g"]?.value ?? 0)
-    + (params["transport_250g"]?.value ?? 0)
-    + (params["production_250g"]?.value ?? 0)
-    + (params["roasting_service_250g"]?.value ?? 0)
-  );
-}
+type View = "wizard" | "summary";
 
 const PriceCalculator = () => {
-  const [step,         setStep]         = useState(0);
-  const [origin,       setOrigin]       = useState(-1);
-  const [roast,        setRoast]        = useState(1);
-  const [weightFormat, setWeightFormat] = useState<"1kg" | "250g">("1kg");
-  const [bagColor,     setBagColor]     = useState<"black" | "white" | "custom">("black");
-  const [volume,       setVolume]       = useState(DEFAULT_MIN_VOLUME);
-
-  const [origins,     setOrigins]     = useState<CalcOrigin[]>([]);
-  const [params,      setParams]      = useState<CalcParams>(DEFAULT_PARAMS);
-  const [usdRate,     setUsdRate]     = useState<number>(DEFAULT_USD);
-  const [minVolume,   setMinVolume]   = useState<number>(DEFAULT_MIN_VOLUME);
-  const [volumeStep,  setVolumeStep]  = useState<number>(DEFAULT_VOLUME_STEP);
-  const [leadTimeTiers, setLeadTimeTiers] = useState<LeadTimeTier[]>(DEFAULT_LEAD_TIME_TIERS);
-  const [dataReady,   setDataReady]   = useState(false);
-
+  const calc = useCalcData();
+  const navigate = useNavigate();
   const { openModal } = useLeadModal();
 
+  const [positions, setPositions] = useState<Position[]>(() => loadCart().positions);
+  const [view, setView] = useState<View>(() => (loadCart().positions.length ? "summary" : "wizard"));
+  const [editingUid, setEditingUid] = useState<string | null>(null);
+
+  useEffect(() => { saveCart({ positions }); }, [positions]);
+
   useEffect(() => {
-    fetch(ABOUT_URL, { headers: { "X-Action": "get-calc" } })
-      .then(r => r.json())
-      .then(d => {
-        if (d.origins?.length) setOrigins(d.origins);
-        if (d.params)          setParams(d.params);
-        if (d.usd_rate)        setUsdRate(d.usd_rate);
-        if (d.min_volume)      { setMinVolume(d.min_volume); setVolume(d.min_volume); }
-        if (d.volume_step)     setVolumeStep(d.volume_step);
-        if (d.lead_time_tiers) setLeadTimeTiers(d.lead_time_tiers);
-      })
-      .catch(() => {})
-      .finally(() => setDataReady(true));
+    const onCleared = () => { setPositions([]); setEditingUid(null); setView("wizard"); };
+    window.addEventListener("kk-cart-cleared", onCleared);
+    return () => window.removeEventListener("kk-cart-cleared", onCleared);
   }, []);
 
-  const canNext = (() => {
-    if (step === 0) return origin >= 0;
-    return true;
-  })();
+  const editing = editingUid ? positions.find(p => p.uid === editingUid) ?? null : null;
 
-  const selectedOrigin = origin >= 0 ? origins[origin] : null;
-  const isSmall = weightFormat === "250g";
+  const handleDone = (p: Position) => {
+    setPositions(prev => (prev.some(x => x.uid === p.uid) ? prev.map(x => (x.uid === p.uid ? p : x)) : [...prev, p]));
+    setEditingUid(null);
+    setView("summary");
+  };
 
-  // Итог считаем по факту выбранной фасовки: для 1кг — цена*объём, для 250г — переводим объём(кг) в пачки
-  const pricePerUnit = selectedOrigin
-    ? (isSmall ? calcPrice250g(selectedOrigin, params, usdRate) : calcPrice1kg(selectedOrigin, params, usdRate))
-    : 0;
-  const packsCount   = isSmall ? Math.round((volume * 1000) / 250) : volume;
-  const total        = selectedOrigin ? Math.round(packsCount * pricePerUnit) : 0;
-  const pricePerKg   = volume > 0 ? Math.round(total / volume) : 0;
-  const leadTime      = calcLeadTime(volume, leadTimeTiers);
-  const isLast        = step === 3;
+  const handleRemove = (uid: string) => {
+    const next = positions.filter(p => p.uid !== uid);
+    setPositions(next);
+    if (next.length === 0) setView("wizard");
+  };
 
-  const goNext = () => { if (canNext && !isLast) setStep(s => s + 1); };
-
-  const handleSubmitToManager = () => {
+  const handleSend = () => {
+    const total = positions.reduce((s, p) => s + p.amount, 0);
     openModal("calculator", {
-      origin: selectedOrigin?.label,
-      roast: ["Светлая", "Средняя", "Тёмная"][roast],
-      weight_format: weightFormat === "250g" ? "250 г" : "1 кг",
-      bag_color: bagColor,
-      volume,
+      positions: positions.map(p => ({
+        origin: p.origin_label, roast: p.roast, weight_format: formatLabel(p.weight_format),
+        bag_color: colorLabel(p.color), volume: p.volume, amount: p.amount,
+        custom_package: p.color === "custom",
+      })),
       total,
+      total_volume: positions.reduce((s, p) => s + p.volume, 0),
+      lead_time_days: maxLeadTime(positions, calc.tiers),
     });
   };
 
-  return (
-    <section id="calculator" className="py-24">
-      <div className="max-w-5xl mx-auto px-6">
+  const handleCabinet = () => {
+    saveCart({ positions });
+    navigate("/cabinet?import=cart");
+  };
 
-        <div className="scroll-reveal mb-10">
+  return (
+    <section id="calculator" className="py-20 md:py-24">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6">
+        <div className="scroll-reveal mb-8 md:mb-10">
           <span className="text-xs font-mono text-primary tracking-wider">ПРОИЗВОДСТВЕННЫЙ БРИФ</span>
-          <h2 className="font-serif text-4xl md:text-5xl mt-3 font-bold">
+          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl mt-3 font-bold">
             Рассчитайте стоимость<br />
             <span className="text-primary">своей партии</span>
           </h2>
-          <p className="text-muted-foreground mt-3 max-w-lg">
-            Приходите со своим дизайном упаковки — детали обсудим с менеджером. Здесь считаем стоимость производства.
+          <p className="text-muted-foreground mt-3 max-w-xl text-sm sm:text-base">
+            Заказ состоит из позиций: сорт, обжарка, фасовка и пакет. Минимум {calc.minVolume.toLocaleString("ru-RU")} кг на каждую позицию —
+            добавляйте сколько нужно.
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6 items-start">
-
-          <CalculatorStepPanel
-            step={step}
-            origin={origin}
-            roast={roast}
-            weightFormat={weightFormat}
-            bagColor={bagColor}
-            volume={volume}
-            minVolume={minVolume}
-            volumeStep={volumeStep}
-            canNext={canNext}
-            isLast={isLast}
-            setStep={setStep}
-            setOrigin={setOrigin}
-            setRoast={setRoast}
-            setWeightFormat={setWeightFormat}
-            setBagColor={setBagColor}
-            setVolume={setVolume}
-            goNext={goNext}
-            onSubmit={handleSubmitToManager}
-            dynamicOrigins={dataReady ? origins : undefined}
+        {view === "wizard" || positions.length === 0 ? (
+          <PositionWizard
+            key={editing?.uid ?? `new-${positions.length}`}
+            calc={calc}
+            initial={editing}
+            positionNumber={editing ? positions.findIndex(p => p.uid === editing.uid) + 1 : positions.length + 1}
+            onDone={handleDone}
+            onCancel={positions.length > 0 ? () => { setEditingUid(null); setView("summary"); } : undefined}
           />
-
-          <CalculatorSummary
-            step={step}
-            origin={origin}
-            roast={roast}
-            weightFormat={weightFormat}
-            bagColor={bagColor}
-            volume={volume}
-            total={total}
-            pricePerKg={pricePerKg}
-            leadTime={leadTime}
-            dynamicOrigins={dataReady ? origins : undefined}
-          />
-
-        </div>
+        ) : (
+          <OrderSummary
+            positions={positions}
+            tiers={calc.tiers}
+            onEdit={uid => { setEditingUid(uid); setView("wizard"); }}
+            onRemove={handleRemove}
+            onAdd={() => { setEditingUid(null); setView("wizard"); }}
+          >
+            <button type="button" onClick={handleSend}
+              className="w-full flex items-center justify-center gap-2 bg-accent text-accent-foreground py-3.5 rounded-2xl text-sm font-bold hover:bg-accent/90 transition-all shadow-md shadow-accent/20 active:scale-[0.99]">
+              <Icon name="Send" size={15} /> Отправить заявку на согласование
+            </button>
+            <button type="button" onClick={handleCabinet}
+              className="w-full flex items-center justify-center gap-2 border border-primary/40 text-primary py-3.5 rounded-2xl text-sm font-semibold hover:bg-primary/5 transition-all active:scale-[0.99]">
+              <Icon name="LogIn" size={15} /> Оформить через личный кабинет
+            </button>
+            <p className="text-[11px] text-muted-foreground text-center leading-relaxed px-2">
+              В кабинете всё, что вы выбрали, сохранится — заново заполнять не придётся.
+            </p>
+          </OrderSummary>
+        )}
       </div>
     </section>
   );

@@ -45,7 +45,7 @@ const ClientLoginGate = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-6">
+    <div className="min-h-screen bg-background flex items-center justify-center px-5 py-8">
       <div className="w-full max-w-sm">
         <div className="flex justify-center mb-8">
           <Link to="/" className="flex items-center gap-2">
@@ -64,15 +64,15 @@ const ClientLoginGate = ({ children }: { children: ReactNode }) => {
 
           {step === "email" ? (
             <>
-              <p className="text-sm text-muted-foreground mb-6">Введите email, указанный при заказе — пришлём код входа</p>
+              <p className="text-sm text-muted-foreground mb-6">Введите email — пришлём код. Если вы у нас впервые, кабинет создастся автоматически</p>
               <div className="space-y-3">
                 <input
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && submitEmail()}
-                  className="w-full px-3 py-2.5 border border-border rounded-xl text-sm focus:outline-none focus:border-primary transition-colors"
-                  placeholder="you@company.ru"
+                  className="w-full px-3 py-3 border border-border rounded-xl text-base sm:text-sm focus:outline-none focus:border-primary transition-colors"
+                  placeholder="you@company.ru" autoComplete="email" inputMode="email"
                 />
                 <ConsentCheckbox checked={agreed} onChange={v => { setAgreed(v); setError(""); }} />
                 {error && <p className="text-sm text-destructive flex items-center gap-1.5"><Icon name="AlertCircle" size={14} />{error}</p>}

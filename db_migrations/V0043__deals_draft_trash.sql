@@ -1,0 +1,1 @@
+ALTER TABLE t_p21475602_quantum_innovation_l.deals ADD COLUMN draft_trashed_at TIMESTAMPTZ NULL;

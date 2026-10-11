@@ -8,13 +8,14 @@ interface CabinetSidebarProps {
   setTab: (t: Tab) => void;
   client: ClientProfile | null;
   ordersCount: number;
+  draftsCount: number;
   open: boolean;
   onClose: () => void;
   onLogout: () => void;
   hasLiveDeal: boolean;
 }
 
-const CabinetSidebar = ({ tab, setTab, client, ordersCount, open, onClose, onLogout, hasLiveDeal }: CabinetSidebarProps) => {
+const CabinetSidebar = ({ tab, setTab, client, ordersCount, draftsCount, open, onClose, onLogout, hasLiveDeal }: CabinetSidebarProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -66,6 +67,17 @@ const CabinetSidebar = ({ tab, setTab, client, ordersCount, open, onClose, onLog
           </div>
         </div>
 
+        <div className="px-3 pt-4">
+          <button onClick={() => { setTab("new-order"); onClose(); }}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.98] shadow-sm ${
+              tab === "new-order"
+                ? "bg-primary text-primary-foreground shadow-primary/30"
+                : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-primary/20"
+            }`}>
+            <Icon name="Plus" size={16} /> Новый заказ
+          </button>
+        </div>
+
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
           {SIDEBAR_GROUPS.map(group => (
             <div key={group.title}>
@@ -75,12 +87,12 @@ const CabinetSidebar = ({ tab, setTab, client, ordersCount, open, onClose, onLog
               <div className="space-y-0.5">
                 {group.items.map(item => {
                   const isActive = tab === item.id;
-                  const badgeValue = item.id === "batches" ? ordersCount : item.badge;
+                  const badgeValue = item.id === "batches" ? ordersCount : item.id === "drafts" ? (draftsCount || undefined) : item.badge;
                   return (
                     <button
                       key={item.id}
                       onClick={() => { setTab(item.id); onClose(); }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                         isActive
                           ? "bg-primary/8 text-primary"
                           : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
@@ -124,6 +136,9 @@ const CabinetSidebar = ({ tab, setTab, client, ordersCount, open, onClose, onLog
 
           {menuOpen && (
             <div className="absolute bottom-full left-3 right-3 mb-1 bg-card border border-border rounded-xl shadow-lg overflow-hidden">
+              <a href="/" className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-foreground hover:bg-secondary/50 transition-colors border-b border-border">
+                <Icon name="Home" size={15} /> На главную
+              </a>
               <button onClick={onLogout}
                 className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-destructive hover:bg-destructive/8 transition-colors">
                 <Icon name="LogOut" size={15} /> Выйти

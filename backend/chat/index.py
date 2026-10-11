@@ -11,7 +11,8 @@ X-Action значения:
                         Клиент передаёт X-Client-Token — получает свой диалог.
                         Гость передаёт X-Guest-Token — получает свой диалог.
                         Сотрудник передаёт X-Staff-Token + X-Client-Id (клиент) ИЛИ X-Guest-Id (гость).
-  send                — POST отправить сообщение: body {text}.
+  send                — POST отправить сообщение: body {text?, file_base64?, file_name?, doc_id?}. Файлы и документы — только клиенту (не гостю).
+                        doc_id: сотрудник отправляет документ-ярлык в чат; клиент с file_base64 возвращает подписанный файл (статус returned).
                         Клиент — X-Client-Token. Гость — X-Guest-Token (создаётся автоматически, если нет).
                         Сотрудник — X-Staff-Token + body.client_id ИЛИ body.guest_id.
   start-guest         — POST создать гостевую сессию (если у посетителя ещё нет токена): body {name?}
@@ -20,7 +21,11 @@ X-Action значения:
 """
 import json
 import os
+import base64
+import re
 import secrets
+import uuid
+import boto3
 import psycopg2
 
 CORS = {
@@ -29,6 +34,57 @@ CORS = {
     "Access-Control-Allow-Headers": "Content-Type, X-Action, X-Client-Token, X-Staff-Token, X-Client-Id, X-Guest-Token, X-Guest-Id",
 }
 SCHEMA = "t_p21475602_quantum_innovation_l"
+
+
+AWS_KEY = os.environ.get("AWS_ACCESS_KEY_ID", "")
+AWS_SEC = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+CDN_BASE = f"https://cdn.poehali.dev/projects/{AWS_KEY}/bucket"
+MAX_FILE_BYTES = 10 * 1024 * 1024
+CONTENT_TYPES = {
+    "pdf": "application/pdf", "png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg",
+    "doc": "application/msword", "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "xls": "application/vnd.ms-excel", "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "zip": "application/zip", "txt": "text/plain",
+}
+
+MSG_COLS = """m.id, m.sender_type, m.staff_id, s.name, m.body, m.created_at, m.read_at,
+       m.kind, m.file_url, m.file_name, m.doc_id, d.title, d.status, d.deal_id, d.signed_file_url, d.signed_file_name,
+       d.file_url, d.file_name"""
+MSG_JOIN = f"""LEFT JOIN {{schema}}.staff_users s ON s.id = m.staff_id
+       LEFT JOIN {{schema}}.deal_documents d ON d.id = m.doc_id"""
+
+
+def msg_dict(r) -> dict:
+    out = {
+        "id": r[0], "sender_type": r[1], "staff_id": r[2], "staff_name": r[3],
+        "text": r[4], "created_at": str(r[5]), "read_at": str(r[6]) if r[6] else None,
+        "kind": "text", "file_url": None, "file_name": None, "doc": None,
+    }
+    if len(r) > 7:
+        out["kind"] = r[7] or "text"
+        out["file_url"] = r[8]
+        out["file_name"] = r[9]
+        if r[10]:
+            out["doc"] = {
+                "id": r[10], "title": r[11], "status": r[12], "deal_id": r[13],
+                "signed_file_url": r[14], "signed_file_name": r[15],
+                "file_url": r[16], "file_name": r[17],
+            }
+    return out
+
+
+def upload_file(b64: str, file_name: str):
+    data = base64.b64decode(b64)
+    if len(data) > MAX_FILE_BYTES:
+        return None, "Файл больше 10 МБ"
+    ext = file_name.rsplit(".", 1)[-1].lower() if "." in file_name else "bin"
+    ext = re.sub(r"[^a-z0-9]", "", ext)[:8] or "bin"
+    key = f"chat/{uuid.uuid4()}.{ext}"
+    boto3.client(
+        "s3", endpoint_url="https://bucket.poehali.dev",
+        aws_access_key_id=AWS_KEY, aws_secret_access_key=AWS_SEC,
+    ).put_object(Bucket="files", Key=key, Body=data, ContentType=CONTENT_TYPES.get(ext, "application/octet-stream"))
+    return f"{CDN_BASE}/{key}", None
 
 
 def get_conn():
@@ -117,9 +173,9 @@ def handler(event: dict, context) -> dict:
                     """, (client_id,))
                     conn.commit()
                     cur.execute(f"""
-                        SELECT m.id, m.sender_type, m.staff_id, s.name, m.body, m.created_at, m.read_at
+                        SELECT {MSG_COLS}
                         FROM {SCHEMA}.messages m
-                        LEFT JOIN {SCHEMA}.staff_users s ON s.id = m.staff_id
+                        {MSG_JOIN.format(schema=SCHEMA)}
                         WHERE m.client_id=%s ORDER BY m.created_at
                     """, (client_id,))
                 elif guest_id:
@@ -138,9 +194,9 @@ def handler(event: dict, context) -> dict:
                     return err("X-Client-Id or X-Guest-Id required")
             elif client:
                 cur.execute(f"""
-                    SELECT m.id, m.sender_type, m.staff_id, s.name, m.body, m.created_at, m.read_at
+                    SELECT {MSG_COLS}
                     FROM {SCHEMA}.messages m
-                    LEFT JOIN {SCHEMA}.staff_users s ON s.id = m.staff_id
+                    {MSG_JOIN.format(schema=SCHEMA)}
                     WHERE m.client_id=%s ORDER BY m.created_at
                 """, (client["id"],))
             elif guest:
@@ -153,35 +209,71 @@ def handler(event: dict, context) -> dict:
             else:
                 return err("Unauthorized", 401)
 
-            messages = [
-                {
-                    "id": r[0], "sender_type": r[1], "staff_id": r[2], "staff_name": r[3],
-                    "text": r[4], "created_at": str(r[5]), "read_at": str(r[6]) if r[6] else None,
-                }
-                for r in cur.fetchall()
-            ]
+            messages = [msg_dict(r) for r in cur.fetchall()]
             return ok({"messages": messages})
 
         # ── send ──────────────────────────────────────────────────
         if action == "send":
             body = json.loads(event.get("body") or "{}")
             text = (body.get("text") or "").strip()
-            if not text:
+            file_b64 = body.get("file_base64") or ""
+            file_name = (body.get("file_name") or "file").strip()[:120]
+            doc_id = body.get("doc_id")
+            if not text and not file_b64 and not doc_id:
                 return err("text required")
+
+            file_url = None
+            if file_b64:
+                file_url, upload_err = upload_file(file_b64, file_name)
+                if upload_err:
+                    return err(upload_err)
+
+            kind = "file" if file_url else "text"
+            doc_title = None
+            target_client_id = None
+            new_row = None
+
+            if doc_id:
+                cur.execute(f"SELECT client_id, title FROM {SCHEMA}.deal_documents WHERE id=%s", (doc_id,))
+                drow = cur.fetchone()
+                if not drow:
+                    return err("Документ не найден", 404)
+                doc_title = drow[1]
+                owner_id = client["id"] if client else body.get("client_id")
+                if owner_id is None or int(owner_id) != drow[0]:
+                    return err("Документ принадлежит другому клиенту", 403)
 
             if staff:
                 target_client_id = body.get("client_id")
                 target_guest_id = body.get("guest_id")
                 if target_client_id:
+                    if doc_id:
+                        kind = "doc"
+                        if file_url:
+                            cur.execute(f"""
+                                UPDATE {SCHEMA}.deal_documents SET file_url=%s, file_name=%s, updated_at=NOW() WHERE id=%s
+                            """, (file_url, file_name, doc_id))
+                            file_url = None
+                        cur.execute(f"""
+                            UPDATE {SCHEMA}.deal_documents
+                            SET status = CASE WHEN status IN ('todo','sent') THEN 'sent' ELSE status END,
+                                sent_at = COALESCE(sent_at, NOW()), updated_at=NOW()
+                            WHERE id=%s
+                        """, (doc_id,))
                     cur.execute(f"""
-                        INSERT INTO {SCHEMA}.messages (client_id, sender_type, staff_id, body)
-                        VALUES (%s, 'staff', %s, %s) RETURNING id, created_at
-                    """, (target_client_id, staff["id"], text))
+                        INSERT INTO {SCHEMA}.messages (client_id, sender_type, staff_id, body, kind, doc_id, file_url, file_name)
+                        VALUES (%s, 'staff', %s, %s, %s, %s, %s, %s) RETURNING id, created_at
+                    """, (target_client_id, staff["id"], text, kind, doc_id, file_url, file_name if file_url else None))
+                    new_row = cur.fetchone()
+                    note_title = f"Документ на подпись: {doc_title}" if kind == "doc" else f"Новое сообщение от {staff['name']}"
+                    note_body = (text or (f"Файл: {file_name}" if file_url else "Откройте чат, чтобы посмотреть"))[:200]
                     cur.execute(f"""
                         INSERT INTO {SCHEMA}.client_notifications (client_id, type, title, body)
                         VALUES (%s, 'message', %s, %s)
-                    """, (target_client_id, f"Новое сообщение от {staff['name']}", text[:200]))
+                    """, (target_client_id, note_title, note_body))
                 elif target_guest_id:
+                    if file_url or doc_id:
+                        return err("Гостям файлы не отправляются")
                     cur.execute(f"""
                         INSERT INTO {SCHEMA}.guest_messages (guest_id, sender_type, staff_id, body)
                         VALUES (%s, 'staff', %s, %s) RETURNING id, created_at
@@ -189,11 +281,19 @@ def handler(event: dict, context) -> dict:
                 else:
                     return err("client_id or guest_id required")
             elif client:
+                if doc_id and file_url:
+                    cur.execute(f"""
+                        UPDATE {SCHEMA}.deal_documents
+                        SET signed_file_url=%s, signed_file_name=%s, status='returned', updated_at=NOW()
+                        WHERE id=%s AND status <> 'done'
+                    """, (file_url, file_name, doc_id))
                 cur.execute(f"""
-                    INSERT INTO {SCHEMA}.messages (client_id, sender_type, body)
-                    VALUES (%s, 'client', %s) RETURNING id, created_at
-                """, (client["id"], text))
+                    INSERT INTO {SCHEMA}.messages (client_id, sender_type, body, kind, doc_id, file_url, file_name)
+                    VALUES (%s, 'client', %s, %s, %s, %s, %s) RETURNING id, created_at
+                """, (client["id"], text, kind, doc_id, file_url, file_name if file_url else None))
             elif guest:
+                if file_url or doc_id:
+                    return err("Войдите в личный кабинет, чтобы отправлять файлы", 401)
                 cur.execute(f"""
                     INSERT INTO {SCHEMA}.guest_messages (guest_id, sender_type, body)
                     VALUES (%s, 'guest', %s) RETURNING id, created_at
@@ -201,7 +301,8 @@ def handler(event: dict, context) -> dict:
             else:
                 return err("Unauthorized", 401)
 
-            new_id, created_at = cur.fetchone()
+            new_row = new_row if (staff and target_client_id) else cur.fetchone()
+            new_id, created_at = new_row
             conn.commit()
             return ok({"ok": True, "id": new_id, "created_at": str(created_at)}, 201)
 
@@ -215,7 +316,7 @@ def handler(event: dict, context) -> dict:
                        COALESCE(uc.unread, 0)
                 FROM {SCHEMA}.clients c
                 LEFT JOIN LATERAL (
-                    SELECT body, created_at, sender_type FROM {SCHEMA}.messages
+                    SELECT COALESCE(NULLIF(body,''), CASE kind WHEN 'doc' THEN 'Документ' ELSE 'Вложение' END) AS body, created_at, sender_type FROM {SCHEMA}.messages
                     WHERE client_id = c.id ORDER BY created_at DESC LIMIT 1
                 ) lm ON TRUE
                 LEFT JOIN LATERAL (

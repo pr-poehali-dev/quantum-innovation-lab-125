@@ -6,7 +6,7 @@ import psycopg2
 
 
 def handler(event: dict, context) -> dict:
-    """Приём заявки с сайта, сохранение в БД и отправка в Albato → AmoCRM"""
+    """Приём заявки с сайта (телефон и почта обязательны): сохраняется как неавторизованная заявка и уходит в Albato → AmoCRM"""
 
     cors = {
         "Access-Control-Allow-Origin": "*",
@@ -27,52 +27,27 @@ def handler(event: dict, context) -> dict:
     else:
         body = raw_body
 
-    name  = (body.get("name")  or "").strip()
+    name  = (body.get("name")  or "").strip() or "Без имени"
     phone = (body.get("phone") or "").strip()
     city  = (body.get("city")  or "").strip()
     email = (body.get("email") or "").strip()
     brief = body.get("brief")
 
-    if not name or not phone:
+    if not phone or not email:
         return {
             "statusCode": 400,
             "headers": cors,
-            "body": json.dumps({"error": "name and phone are required"}),
+            "body": json.dumps({"error": "phone and email are required"}),
         }
 
-    # 1. Сохраняем заявку в БД
     schema = "t_p21475602_quantum_innovation_l"
     conn = psycopg2.connect(os.environ["DATABASE_URL"])
     cur = conn.cursor()
     cur.execute(
-        f'INSERT INTO {schema}.leads (name, phone, city, email, brief) VALUES (%s, %s, %s, %s, %s) RETURNING id',
-        (name, phone or None, city or None, email or None, json.dumps(brief) if brief else None),
+        f'INSERT INTO {schema}.leads (name, phone, city, email, brief, status) VALUES (%s, %s, %s, %s, %s, \'new\') RETURNING id',
+        (name, phone, city or None, email, json.dumps(brief, ensure_ascii=False) if brief else None),
     )
     lead_id = cur.fetchone()[0]
-
-    # 1.1 Автоматически создаём клиента и сделку на первом этапе воронки
-    cur.execute(
-        f'INSERT INTO {schema}.clients (name, phone, email, city) VALUES (%s, %s, %s, %s) RETURNING id',
-        (name, phone or None, email or None, city or None),
-    )
-    client_id = cur.fetchone()[0]
-
-    cur.execute(f'SELECT id FROM {schema}.deal_stages ORDER BY sort_order LIMIT 1')
-    first_stage = cur.fetchone()
-    if first_stage:
-        stage_id = first_stage[0]
-        cur.execute(
-            f'''INSERT INTO {schema}.deals (client_id, lead_id, stage_id)
-                VALUES (%s, %s, %s) RETURNING id''',
-            (client_id, lead_id, stage_id),
-        )
-        deal_id = cur.fetchone()[0]
-        cur.execute(
-            f'''INSERT INTO {schema}.deal_stage_log (deal_id, from_stage_id, to_stage_id, staff_id, staff_name)
-                VALUES (%s, NULL, %s, NULL, %s)''',
-            (deal_id, stage_id, "Автоматически (новая заявка)"),
-        )
-
     conn.commit()
     cur.close()
     conn.close()

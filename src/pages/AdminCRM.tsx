@@ -6,6 +6,7 @@ import ClientDrawer from "@/components/crm/ClientDrawer";
 import DealDrawer from "@/components/crm/DealDrawer";
 import KanbanBoard from "@/components/crm/KanbanBoard";
 import ChatsInbox from "@/components/crm/ChatsInbox";
+import SiteLeads from "@/components/crm/SiteLeads";
 
 const CRM_URL = "https://functions.poehali.dev/0fbf69fe-e1ba-4899-a9c0-98d37524abe1";
 const CHAT_URL = "https://functions.poehali.dev/f943216e-4ba2-4e31-9cff-fcfc562f339b";
@@ -22,7 +23,7 @@ interface ClientRow {
   total_amount: number;
 }
 
-type Tab = "kanban" | "clients" | "chats";
+type Tab = "kanban" | "leads" | "clients" | "chats";
 
 const AdminCRM = () => {
   const { token } = useStaffAuth();
@@ -34,6 +35,7 @@ const AdminCRM = () => {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [kanbanRefresh, setKanbanRefresh] = useState(0);
   const [unreadChats, setUnreadChats] = useState(0);
+  const [newLeads, setNewLeads] = useState(0);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -57,6 +59,15 @@ const AdminCRM = () => {
       .then(c => setClients(c.clients || []))
       .catch(() => showToast("Ошибка загрузки", false))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(CRM_URL, { headers: { "X-Action": "list-leads", ...authHeaders } })
+      .then(r => r.json())
+      .then(d => setNewLeads((d.leads || []).filter((l: { status: string }) => l.status === "new").length))
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
@@ -107,13 +118,23 @@ const AdminCRM = () => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
 
         {/* Вкладки */}
-        <div className="flex gap-1 mb-6 bg-secondary/40 rounded-xl p-1 w-fit">
+        <div className="flex gap-1 mb-6 bg-secondary/40 rounded-xl p-1 max-w-full overflow-x-auto">
           <button onClick={() => setTab("kanban")}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               tab === "kanban" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
             }`}>
             <Icon name="Kanban" size={14} />
             Канбан
+          </button>
+          <button onClick={() => setTab("leads")}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+              tab === "leads" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}>
+            <Icon name="UserX" size={14} />
+            Без регистрации
+            {newLeads > 0 && (
+              <span className="text-[10px] font-mono bg-primary text-primary-foreground rounded-full px-1.5 py-0.5">{newLeads}</span>
+            )}
           </button>
           <button onClick={() => setTab("clients")}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -141,6 +162,8 @@ const AdminCRM = () => {
 
         {tab === "kanban" ? (
           <KanbanBoard onOpenDeal={setOpenDealId} showToast={showToast} refreshSignal={kanbanRefresh} />
+        ) : tab === "leads" ? (
+          <SiteLeads showToast={showToast} onCount={setNewLeads} />
         ) : tab === "chats" ? (
           <ChatsInbox onOpenClient={setOpenClientId} />
         ) : loading ? (

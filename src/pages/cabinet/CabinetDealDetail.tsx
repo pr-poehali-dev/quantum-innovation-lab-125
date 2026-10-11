@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import Icon from "@/components/ui/icon";
 import { useClientAuth, type BatchDeal, type LogisticsField } from "@/context/ClientAuthContext";
-import { BAG_COLORS } from "@/components/calculator/calculator.types";
-import LotForm from "./LotForm";
+import { colorLabel, formatLabel, formatRub } from "@/lib/calcCore";
 import ManagerCard from "@/components/cabinet/ManagerCard";
 
 interface Props {
@@ -10,242 +9,110 @@ interface Props {
   goProfile: () => void;
 }
 
-const formatMoney = (n: number | null) => n ? `${n.toLocaleString("ru-RU")} ₽` : "—";
-const formatDate = (iso: string) => new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" });
-const colorLabel = (v: string | null) => BAG_COLORS.find(c => c.value === v)?.label ?? v ?? "—";
-const weightLabel = (v: string | null) => v === "250g" ? "250 г" : v === "1kg" ? "1 кг" : v ?? "—";
+const formatDate = (iso: string) => new Date(iso).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
 
-const CabinetDealDetail = ({ deal, goProfile }: Props) => {
-  const { deleteLot, updateLogistics, submitDeal, fetchLogisticsFields } = useClientAuth();
-  const [addingLot, setAddingLot] = useState(false);
-  const [editingLotId, setEditingLotId] = useState<number | null>(null);
+const CabinetDealDetail = ({ deal }: Props) => {
+  const { fetchLogisticsFields } = useClientAuth();
   const [fields, setFields] = useState<LogisticsField[]>([]);
-  const [logisticsForm, setLogisticsForm] = useState<Record<string, string>>(deal.logistics_data || {});
-  const [savingLogistics, setSavingLogistics] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState("");
-  const [toast, setToast] = useState("");
   const [managerOpen, setManagerOpen] = useState(false);
 
-  const isDraft = deal.status === "draft";
-
-  useEffect(() => {
-    fetchLogisticsFields().then(setFields);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    setLogisticsForm(deal.logistics_data || {});
-  }, [deal.logistics_data]);
-
-  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(""), 2500); };
+  useEffect(() => { fetchLogisticsFields().then(setFields); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const totalAmount = deal.lots.reduce((s, l) => s + (l.amount || 0), 0);
   const totalVolume = deal.lots.reduce((s, l) => s + (l.volume || 0), 0);
-
-  const editingLot = editingLotId ? deal.lots.find(l => l.id === editingLotId) : undefined;
-
-  const handleDeleteLot = async (id: number) => {
-    if (!confirm("Удалить лот?")) return;
-    const res = await deleteLot(id);
-    if (!res.ok) showToast(res.error || "Не удалось удалить лот");
-  };
-
-  const saveLogistics = async () => {
-    setSavingLogistics(true);
-    const res = await updateLogistics(deal.id, logisticsForm);
-    setSavingLogistics(false);
-    if (res.ok) showToast("Логистика сохранена ✓");
-    else showToast(res.error || "Ошибка сохранения");
-  };
-
-  const handleSubmit = async () => {
-    setSubmitting(true);
-    setSubmitError("");
-    const res = await submitDeal(deal.id);
-    setSubmitting(false);
-    if (res.ok) showToast("Заказ отправлен на согласование ✓");
-    else setSubmitError(res.error || "Не удалось отправить на согласование");
-  };
-
-  const phoneMissing = submitError.includes("телефон");
-
-  if (addingLot || editingLotId) {
-    return (
-      <div className="max-w-2xl">
-        <button onClick={() => { setAddingLot(false); setEditingLotId(null); }}
-          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4">
-          <Icon name="ArrowLeft" size={14} /> Назад к заказу
-        </button>
-        <h2 className="font-serif text-xl font-bold mb-4">{editingLot ? "Редактировать лот" : "Новый лот"}</h2>
-        <LotForm
-          dealId={deal.id}
-          prefill={editingLot}
-          onDone={() => { setAddingLot(false); setEditingLotId(null); }}
-          onCancel={() => { setAddingLot(false); setEditingLotId(null); }}
-        />
-      </div>
-    );
-  }
+  const filled = fields.filter(f => (deal.logistics_data?.[f.key] || "").trim());
+  const stagePct = deal.progress_percent;
 
   return (
-    <div>
-      {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-green-500 text-white px-4 py-2.5 rounded-full shadow-lg text-sm font-medium">
-          {toast}
-        </div>
-      )}
-
-      <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="font-serif text-2xl font-bold">Заказ</h2>
-            {isDraft ? (
-              <span className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-secondary text-muted-foreground">Черновик</span>
-            ) : (
-              <span className="text-[11px] font-medium px-2.5 py-1 rounded-full text-white" style={{ background: deal.stage_color || "#64748b" }}>
-                {deal.stage_name}
-              </span>
-            )}
-          </div>
-          <p className="text-[12px] text-muted-foreground font-mono mt-0.5">
-            Создан {formatDate(deal.created_at)} · {deal.lots.length} {deal.lots.length === 1 ? "лот" : "лотов"} · {totalVolume} кг · {formatMoney(totalAmount)}
-          </p>
-          {deal.assigned_to && deal.assigned_name && (
-            <button onClick={() => setManagerOpen(true)}
-              className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-medium text-primary hover:text-primary/80 transition-colors">
-              <Icon name="UserCheck" size={13} /> Менеджер: {deal.assigned_name}
-            </button>
+    <div className="max-w-3xl">
+      <div className="mb-5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <h2 className="font-serif text-2xl font-bold">Состав партии</h2>
+          {deal.status === "draft" ? (
+            <span className="text-[11px] font-medium px-2.5 py-1 rounded-full bg-secondary text-muted-foreground">Черновик</span>
+          ) : (
+            <span className="text-[11px] font-medium px-2.5 py-1 rounded-full text-white" style={{ background: deal.stage_color || "#64748b" }}>
+              {deal.stage_name}
+            </span>
           )}
         </div>
-        {isDraft && (
-          <button onClick={() => setAddingLot(true)}
-            className="flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all active:scale-95">
-            <Icon name="Plus" size={15} /> Добавить лот
+        <p className="text-[12px] text-muted-foreground font-mono mt-1">
+          Отправлена {formatDate(deal.created_at)} · {deal.lots.length} поз. · {totalVolume.toLocaleString("ru-RU")} кг · {formatRub(totalAmount)}
+        </p>
+        {deal.assigned_to && deal.assigned_name && (
+          <button onClick={() => setManagerOpen(true)}
+            className="mt-2 inline-flex items-center gap-1.5 text-[13px] font-medium text-primary hover:text-primary/80 transition-colors">
+            <Icon name="UserCheck" size={14} /> Менеджер: {deal.assigned_name}
           </button>
         )}
       </div>
 
-      {/* Лоты */}
-      <div className="space-y-3 mb-6">
-        {deal.lots.length === 0 ? (
-          <div className="bg-card border border-dashed border-border rounded-2xl p-8 text-center text-muted-foreground text-sm">
-            {isDraft ? "Добавьте первый лот, чтобы отправить заказ на согласование" : "В этом заказе нет лотов"}
+      {stagePct !== null && stagePct !== undefined && deal.status === "submitted" && (
+        <div className="bg-card border border-border rounded-2xl p-4 mb-4">
+          <div className="flex justify-between text-xs text-muted-foreground mb-2">
+            <span>Готовность партии</span><span className="font-mono text-primary font-semibold">{stagePct}%</span>
           </div>
-        ) : (
-          deal.lots.map(lot => (
-            <div key={lot.id} className="bg-card border border-border rounded-2xl p-4">
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="w-7 h-7 rounded-lg bg-primary/8 text-primary flex items-center justify-center text-[11px] font-bold flex-shrink-0">
-                    {lot.lot_number}
-                  </span>
-                  <p className="text-sm font-bold">Лот {lot.lot_number} — {lot.origin_label || "—"}</p>
-                </div>
-                {isDraft && (
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <button onClick={() => setEditingLotId(lot.id)}
-                      className="p-1.5 rounded-lg text-muted-foreground hover:text-primary hover:bg-primary/8 transition-colors">
-                      <Icon name="Pencil" size={13} />
-                    </button>
-                    <button onClick={() => handleDeleteLot(lot.id)}
-                      className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/8 transition-colors">
-                      <Icon name="Trash2" size={13} />
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {[
-                  { label: "Обжарка", val: lot.roast },
-                  { label: "Фасовка", val: weightLabel(lot.weight_format) },
-                  { label: "Цвет", val: colorLabel(lot.color) },
-                  { label: "Объём", val: lot.volume ? `${lot.volume} кг` : "—" },
-                ].map(p => (
-                  <div key={p.label} className="bg-secondary/40 rounded-xl px-3 py-2 border border-border/50">
-                    <p className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider mb-0.5">{p.label}</p>
-                    <p className="text-[12px] font-semibold truncate">{p.val}</p>
-                  </div>
-                ))}
-              </div>
-              {lot.note && <p className="text-[12px] text-muted-foreground mt-2">{lot.note}</p>}
-              <p className="text-sm font-bold text-primary mt-2 text-right">{formatMoney(lot.amount)}</p>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Логистика */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden mb-6">
-        <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-          <Icon name="Truck" size={15} className="text-primary" />
-          <h3 className="font-semibold text-sm">Логистика доставки</h3>
+          <div className="h-2 bg-secondary rounded-full overflow-hidden">
+            <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${stagePct}%` }} />
+          </div>
         </div>
-        <div className="p-5 space-y-3">
-          {fields.map(f => (
-            <div key={f.key}>
-              <label className="block text-[11px] font-mono text-muted-foreground mb-1.5 tracking-wider">
-                {f.label.toUpperCase()} {f.required && <span className="text-primary">*</span>}
-              </label>
-              {f.field_type === "textarea" ? (
-                <textarea
-                  disabled={!isDraft}
-                  className="w-full px-3 py-2.5 border border-border rounded-xl text-sm bg-background focus:outline-none focus:border-primary transition-colors disabled:opacity-60"
-                  rows={2}
-                  value={logisticsForm[f.key] || ""}
-                  onChange={e => setLogisticsForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                />
-              ) : (
-                <input
-                  disabled={!isDraft}
-                  type={f.field_type === "date" ? "date" : f.field_type === "phone" ? "tel" : "text"}
-                  className="w-full px-3 py-2.5 border border-border rounded-xl text-sm bg-background focus:outline-none focus:border-primary transition-colors disabled:opacity-60"
-                  value={logisticsForm[f.key] || ""}
-                  onChange={e => setLogisticsForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                />
-              )}
-            </div>
-          ))}
-          {isDraft && (
-            <button onClick={saveLogistics} disabled={savingLogistics}
-              className="flex items-center gap-1.5 text-sm font-medium text-primary border border-primary/30 rounded-xl px-4 py-2 hover:bg-primary/5 transition-colors disabled:opacity-60">
-              {savingLogistics ? <div className="w-3.5 h-3.5 border-2 border-primary border-t-transparent rounded-full animate-spin" /> : <Icon name="Save" size={14} />}
-              Сохранить логистику
-            </button>
-          )}
-        </div>
-      </div>
+      )}
 
-      {/* Отправка на согласование */}
-      {isDraft && (
-        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-5">
-          <div className="flex items-start gap-3">
-            <Icon name="Info" size={18} className="text-primary flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-sm font-semibold mb-1">Готовы отправить заказ на согласование?</p>
-              <p className="text-[13px] text-muted-foreground mb-3">
-                После отправки менеджер увидит заказ и свяжется с вами. Изменить лоты будет уже нельзя.
-              </p>
-              {submitError && (
-                <div className="mb-3 bg-destructive/8 border border-destructive/20 rounded-xl p-3">
-                  <p className="text-sm text-destructive">{submitError}</p>
-                  {phoneMissing && (
-                    <button onClick={goProfile}
-                      className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary/80 transition-colors">
-                      <Icon name="UserCog" size={14} /> Заполнить телефон в личных данных
-                    </button>
-                  )}
-                </div>
-              )}
-              <button onClick={handleSubmit} disabled={submitting || deal.lots.length === 0}
-                className="flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-primary/90 transition-all disabled:opacity-50">
-                {submitting ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Icon name="Send" size={15} />}
-                Отправить на согласование
-              </button>
+      {deal.docs_total > 0 && (
+        <div className="bg-card border border-border rounded-2xl p-4 mb-4 flex items-center gap-3">
+          <span className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center flex-shrink-0"><Icon name="FileCheck" size={16} /></span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold">Документы: оформлено {deal.docs_done} из {deal.docs_total}</p>
+            <div className="h-1.5 bg-secondary rounded-full overflow-hidden mt-1.5">
+              <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${(deal.docs_done / deal.docs_total) * 100}%` }} />
             </div>
           </div>
         </div>
       )}
+
+      <div className="space-y-3 mb-6">
+        {deal.lots.map((lot, i) => (
+          <div key={lot.id} className="bg-card border border-border rounded-2xl p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 min-w-0">
+                <span className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center text-xs font-bold flex-shrink-0">{i + 1}</span>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">{lot.origin_label || "—"}</p>
+                  <p className="text-[12px] text-muted-foreground mt-1">
+                    {lot.roast} обжарка · {formatLabel(lot.weight_format)} · пакет: {colorLabel(lot.color)}
+                  </p>
+                  {lot.color === "custom" && (
+                    <p className="text-[11px] text-primary mt-1 flex items-center gap-1"><Icon name="Info" size={11} /> Детали упаковки — с менеджером</p>
+                  )}
+                </div>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="font-serif text-lg font-bold">{formatRub(lot.amount || 0)}</p>
+                <p className="text-[11px] text-muted-foreground font-mono">{(lot.volume || 0).toLocaleString("ru-RU")} кг</p>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+          <Icon name="Truck" size={15} className="text-primary" />
+          <h3 className="font-semibold text-sm">Доставка</h3>
+        </div>
+        <div className="p-5 space-y-3 text-sm">
+          <div className="flex justify-between gap-3">
+            <span className="text-muted-foreground">Желаемая дата отгрузки</span>
+            <span className="font-medium text-right">{deal.ship_date ? formatDate(deal.ship_date) : "не указана"}</span>
+          </div>
+          {filled.map(f => (
+            <div key={f.key} className="flex justify-between gap-3">
+              <span className="text-muted-foreground">{f.label}</span>
+              <span className="font-medium text-right">{deal.logistics_data[f.key]}</span>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {managerOpen && deal.assigned_to && (
         <ManagerCard staffId={deal.assigned_to} fallbackName={deal.assigned_name} onClose={() => setManagerOpen(false)} />

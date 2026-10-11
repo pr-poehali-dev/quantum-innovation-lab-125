@@ -35,6 +35,12 @@ X-Action значения:
   list-deal-notes     — GET список заметок-задач по партии: X-Deal-Id
   add-deal-note       — POST добавить заметку: deal_id, text
   delete-deal-note    — POST удалить заметку: id
+  set-lead-status     — POST статус заявки с сайта: id, status (new|processed|rejected)
+  list-doc-templates  — GET шаблоны документов
+  add-deal-document   — POST добавить документ-задачу в сделку: deal_id, title | titles[]
+  set-document-status — POST статус документа: id, status (todo|sent|returned|done)
+  remove-deal-document — POST убрать документ из сделки: id
+  list-client-documents — GET документы клиента (X-Client-Id) для чата
   trash-deal          — POST убрать сделку в корзину: deal_id
   restore-deal        — POST вернуть сделку из корзины: deal_id
   list-trash          — GET сделки в корзине
@@ -97,6 +103,23 @@ def fetch_lots(cur, deal_id):
     ]
 
 
+def fetch_docs(cur, deal_id):
+    cur.execute(f"""
+        SELECT id, title, status, file_url, file_name, signed_file_url, signed_file_name,
+               sent_at, completed_at, completed_by, created_at
+        FROM {SCHEMA}.deal_documents WHERE deal_id=%s AND status <> 'removed' ORDER BY id
+    """, (deal_id,))
+    return [
+        {
+            "id": r[0], "title": r[1], "status": r[2], "file_url": r[3], "file_name": r[4],
+            "signed_file_url": r[5], "signed_file_name": r[6],
+            "sent_at": str(r[7]) if r[7] else None, "completed_at": str(r[8]) if r[8] else None,
+            "completed_by": r[9], "created_at": str(r[10]),
+        }
+        for r in cur.fetchall()
+    ]
+
+
 def handler(event: dict, context) -> dict:
     """Обработчик CRM: заявки, клиенты, сделки, лоты, этапы, логистика."""
     if event.get("httpMethod") == "OPTIONS":
@@ -114,31 +137,33 @@ def handler(event: dict, context) -> dict:
         if not staff:
             return err("Unauthorized", 401)
 
-        # ── list-leads ────────────────────────────────────────────
+        # ── list-leads: заявки с сайта без регистрации ────────────
         if action == "list-leads":
             cur.execute(f"""
-                SELECT l.id, l.name, l.phone, l.city, l.email, l.brief, l.created_at,
-                       d.client_id, ds.name, ds.color, d.id, d.stage_id, d.brand, d.volume, d.amount,
-                       d.assigned_to, st.name
+                SELECT l.id, l.name, l.phone, l.city, l.email, l.brief, l.created_at, l.status
                 FROM {SCHEMA}.leads l
-                LEFT JOIN {SCHEMA}.deals d ON d.lead_id = l.id
-                LEFT JOIN {SCHEMA}.deal_stages ds ON ds.id = d.stage_id
-                LEFT JOIN {SCHEMA}.staff_users st ON st.id = d.assigned_to
-                ORDER BY l.created_at DESC LIMIT 200
+                WHERE l.status IN ('new', 'processed', 'rejected')
+                ORDER BY (l.status = 'new') DESC, l.created_at DESC LIMIT 300
             """)
             leads = [
                 {
                     "id": r[0], "name": r[1], "phone": r[2], "city": r[3], "email": r[4],
-                    "brief": r[5], "created_at": str(r[6]),
-                    "client_id": r[7], "has_deal": r[7] is not None,
-                    "stage_name": r[8], "stage_color": r[9], "deal_id": r[10], "stage_id": r[11],
-                    "brand": r[12], "volume": float(r[13]) if r[13] else None,
-                    "amount": float(r[14]) if r[14] else None,
-                    "assigned_to": r[15], "assigned_name": r[16],
+                    "brief": r[5], "created_at": str(r[6]), "status": r[7],
                 }
                 for r in cur.fetchall()
             ]
             return ok({"leads": leads})
+
+        # ── set-lead-status ───────────────────────────────────────
+        if action == "set-lead-status":
+            body = json.loads(event.get("body") or "{}")
+            lead_id = body.get("id")
+            status = body.get("status")
+            if not lead_id or status not in ("new", "processed", "rejected"):
+                return err("id and valid status required")
+            cur.execute(f"UPDATE {SCHEMA}.leads SET status=%s WHERE id=%s", (status, lead_id))
+            conn.commit()
+            return ok({"ok": True})
 
         # ── list-deals: только submitted — черновики клиента не мешают канбану ──
         if action == "list-deals":
@@ -172,6 +197,8 @@ def handler(event: dict, context) -> dict:
                 d["lots_summary"] = None
                 d["lots_volume"] = d["volume"]
                 d["lots_amount"] = d["amount"]
+                d["docs_total"] = 0
+                d["docs_done"] = 0
                 d["is_new"] = False
             if deals:
                 ids = tuple(d["id"] for d in deals)
@@ -191,10 +218,16 @@ def handler(event: dict, context) -> dict:
                     SELECT deal_id, COUNT(*) FROM {SCHEMA}.deal_stage_log WHERE deal_id IN %s GROUP BY deal_id
                 """, (ids,))
                 log_counts = {r[0]: r[1] for r in cur.fetchall()}
+                cur.execute(f"""
+                    SELECT deal_id, COUNT(*), COUNT(*) FILTER (WHERE status='done')
+                    FROM {SCHEMA}.deal_documents WHERE deal_id IN %s AND status <> 'removed' GROUP BY deal_id
+                """, (ids,))
+                doc_counts = {r[0]: (r[1], r[2]) for r in cur.fetchall()}
                 min_order = min(x["stage_order"] for x in deals)
                 for d in deals:
                     cnt, vol_sum, amt_sum = sums.get(d["id"], (0, 0, 0))
                     d["lots_count"] = cnt
+                    d["docs_total"], d["docs_done"] = doc_counts.get(d["id"], (0, 0))
                     if cnt > 0:
                         d["lots_volume"] = vol_sum
                         d["lots_amount"] = amt_sum
@@ -596,7 +629,7 @@ def handler(event: dict, context) -> dict:
             cur.execute(f"""
                 SELECT d.id, d.brand, d.volume, d.amount, d.stage_id, s.name, s.color, d.created_at, d.updated_at,
                        d.assigned_to, st.name, d.status, d.logistics_data, pb.name, pb.id,
-                       c.id, c.name, c.phone, c.email, c.city, c.company
+                       c.id, c.name, c.phone, c.email, c.city, c.company, d.ship_date
                 FROM {SCHEMA}.deals d
                 JOIN {SCHEMA}.deal_stages s ON s.id = d.stage_id
                 JOIN {SCHEMA}.clients c ON c.id = d.client_id
@@ -630,6 +663,8 @@ def handler(event: dict, context) -> dict:
                 "lots": lots,
                 "lots_volume": sum(l["volume"] or 0 for l in lots),
                 "lots_amount": sum(l["amount"] or 0 for l in lots),
+                "ship_date": str(r[21]) if r[21] else None,
+                "documents": fetch_docs(cur, deal_id),
             }
             return ok({"deal": deal})
 
@@ -716,6 +751,89 @@ def handler(event: dict, context) -> dict:
                 for r in cur.fetchall()
             ]
             return ok({"deals": items})
+
+        # ── list-doc-templates ────────────────────────────────────
+        if action == "list-doc-templates":
+            cur.execute(f"SELECT id, title FROM {SCHEMA}.doc_templates WHERE active=TRUE ORDER BY sort_order, id")
+            return ok({"templates": [{"id": r[0], "title": r[1]} for r in cur.fetchall()]})
+
+        # ── add-deal-document: задача-документ в сделке ───────────
+        if action == "add-deal-document":
+            body = json.loads(event.get("body") or "{}")
+            deal_id = body.get("deal_id")
+            titles = body.get("titles") or ([body.get("title")] if body.get("title") else [])
+            titles = [str(t).strip()[:150] for t in titles if str(t).strip()]
+            if not deal_id or not titles:
+                return err("deal_id and title required")
+            cur.execute(f"SELECT client_id FROM {SCHEMA}.deals WHERE id=%s", (deal_id,))
+            row = cur.fetchone()
+            if not row:
+                return err("Сделка не найдена", 404)
+            ids = []
+            for t in titles:
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.deal_documents (deal_id, client_id, title, created_by)
+                    VALUES (%s, %s, %s, %s) RETURNING id
+                """, (deal_id, row[0], t, staff["name"]))
+                ids.append(cur.fetchone()[0])
+            conn.commit()
+            return ok({"ok": True, "ids": ids}, 201)
+
+        # ── set-document-status: todo | sent | returned | done ────
+        if action == "set-document-status":
+            body = json.loads(event.get("body") or "{}")
+            doc_id = body.get("id")
+            status = body.get("status")
+            if not doc_id or status not in ("todo", "sent", "returned", "done"):
+                return err("id and valid status required")
+            if status == "done":
+                cur.execute(f"""
+                    UPDATE {SCHEMA}.deal_documents SET status='done', completed_at=NOW(), completed_by=%s, updated_at=NOW()
+                    WHERE id=%s RETURNING client_id, title, deal_id
+                """, (staff["name"], doc_id))
+            else:
+                cur.execute(f"""
+                    UPDATE {SCHEMA}.deal_documents SET status=%s, completed_at=NULL, completed_by=NULL, updated_at=NOW()
+                    WHERE id=%s RETURNING client_id, title, deal_id
+                """, (status, doc_id))
+            row = cur.fetchone()
+            if not row:
+                return err("Документ не найден", 404)
+            if status == "done":
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.client_notifications (client_id, type, title, body, deal_id)
+                    VALUES (%s, 'stage_change', %s, %s, %s)
+                """, (row[0], f"Документ оформлен: {row[1]}", "Менеджер подтвердил, что документ заполнен", row[2]))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── remove-deal-document ──────────────────────────────────
+        if action == "remove-deal-document":
+            body = json.loads(event.get("body") or "{}")
+            doc_id = body.get("id")
+            if not doc_id:
+                return err("id required")
+            cur.execute(f"UPDATE {SCHEMA}.messages SET doc_id=NULL, kind='text', body=COALESCE(NULLIF(body,''), 'Документ удалён') WHERE doc_id=%s", (doc_id,))
+            cur.execute(f"UPDATE {SCHEMA}.deal_documents SET status='removed', updated_at=NOW() WHERE id=%s", (doc_id,))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── list-client-documents: документы клиента для чата ─────
+        if action == "list-client-documents":
+            client_id = headers.get("x-client-id", "")
+            if not client_id:
+                return err("X-Client-Id required")
+            cur.execute(f"""
+                SELECT d.id, d.title, d.status, d.deal_id, COALESCE(pb.name, deals.brand, 'Партия №' || deals.id)
+                FROM {SCHEMA}.deal_documents d
+                JOIN {SCHEMA}.deals ON deals.id = d.deal_id
+                LEFT JOIN {SCHEMA}.product_batches pb ON pb.id = deals.batch_id
+                WHERE d.client_id=%s AND d.status <> 'removed' AND deals.trashed_at IS NULL
+                ORDER BY d.id DESC
+            """, (client_id,))
+            return ok({"documents": [
+                {"id": r[0], "title": r[1], "status": r[2], "deal_id": r[3], "deal_title": r[4]} for r in cur.fetchall()
+            ]})
 
         return err(f"Unknown action: {action}", 400)
     finally:

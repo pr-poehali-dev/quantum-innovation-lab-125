@@ -10,9 +10,13 @@
       "name": "Missing required fields",
       "method": "POST",
       "path": "/",
-      "body": {"city": "Москва"},
+      "body": {
+        "name": "Тест"
+      },
       "expectedStatus": 400,
-      "expectedBody": {"error": "name and phone are required"},
+      "expectedBody": {
+        "error": "phone and email are required"
+      },
       "bodyMatcher": "partial"
     },
     {
@@ -24,10 +28,15 @@
         "phone": "+70000000000",
         "city": "Москва",
         "email": "test@test.ru",
-        "brief": {"usage": "Эспрессо в кофейню", "volume": 100}
+        "brief": {
+          "usage": "Эспрессо в кофейню",
+          "volume": 100
+        }
       },
       "expectedStatus": 200,
-      "expectedBody": {"ok": true},
+      "expectedBody": {
+        "ok": true
+      },
       "bodyMatcher": "partial"
     }
   ]

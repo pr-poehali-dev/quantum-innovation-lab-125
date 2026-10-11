@@ -3,10 +3,11 @@ import { Link, useSearchParams } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import type { Tab } from "./cabinet/cabinet.types";
 import CabinetSidebar from "./cabinet/CabinetSidebar";
-import CabinetDashboard from "./cabinet/CabinetDashboard";
+import CabinetNewOrder from "./cabinet/CabinetNewOrder";
+import CabinetDrafts from "./cabinet/CabinetDrafts";
 import CabinetBatches from "./cabinet/CabinetBatches";
-import CabinetBatchDetail from "./cabinet/CabinetBatchDetail";
 import CabinetDealDetail from "./cabinet/CabinetDealDetail";
+import { loadCart } from "@/lib/calcCore";
 import CabinetDocs from "./cabinet/CabinetDocs";
 import CabinetMockups from "./cabinet/CabinetMockups";
 import CabinetChat from "./cabinet/CabinetChat";
@@ -15,7 +16,8 @@ import ClientLoginGate from "@/components/cabinet/ClientLoginGate";
 import { useClientAuth } from "@/context/ClientAuthContext";
 
 const TITLES: Record<Tab, string> = {
-  dashboard: "Дашборд",
+  "new-order": "Новый заказ",
+  drafts: "Черновики заявок",
   batches: "Мои партии",
   docs: "Документы",
   mockups: "Дизайн-макеты",
@@ -23,12 +25,16 @@ const TITLES: Record<Tab, string> = {
   profile: "Личные данные",
 };
 
-const VALID_TABS: Tab[] = ["dashboard", "batches", "docs", "mockups", "chat", "profile"];
+const VALID_TABS: Tab[] = ["new-order", "batches", "drafts", "docs", "mockups", "chat", "profile"];
 
 const CabinetContent = () => {
   const [searchParams] = useSearchParams();
-  const initialTab = (searchParams.get("tab") as Tab) || "dashboard";
-  const [tab, setTab] = useState<Tab>(VALID_TABS.includes(initialTab) ? initialTab : "dashboard");
+  const fromCalculator = searchParams.get("import") === "cart" && loadCart().positions.length > 0;
+  const requestedTab = searchParams.get("tab") as Tab | null;
+  const [tab, setTab] = useState<Tab>(
+    fromCalculator ? "new-order" : requestedTab && VALID_TABS.includes(requestedTab) ? requestedTab : "batches",
+  );
+  const [resumeDealId, setResumeDealId] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openBatchId, setOpenBatchId] = useState<number | null>(null);
   const [openDealId, setOpenDealId] = useState<number | null>(null);
@@ -40,9 +46,15 @@ const CabinetContent = () => {
 
   const hasLiveDeal = batches.some(b => b.deals.some(d => d.status === "submitted"));
 
-  const goTab = (t: Tab) => { setTab(t); setOpenBatchId(null); setOpenDealId(null); setSidebarOpen(false); };
-  const openBatch = (batchId: number) => { setOpenBatchId(batchId); setOpenDealId(null); };
-  const openDeal = (batchId: number, dealId: number) => { setTab("batches"); setOpenBatchId(batchId); setOpenDealId(dealId); };
+  const goTab = (t: Tab) => { setTab(t); setResumeDealId(null); setOpenBatchId(null); setOpenDealId(null); setSidebarOpen(false); };
+  const resumeDraft = (dealId: number) => { setResumeDealId(dealId); setTab("new-order"); setSidebarOpen(false); };
+  const draftsCount = batches.reduce((n, b) => n + b.deals.filter(d => d.status === "draft" && !d.draft_trashed_at).length, 0);
+  const openBatch = (batchId: number) => {
+    const b = batches.find(x => x.id === batchId);
+    const d = b?.deals.find(x => x.status === "submitted") ?? b?.deals[0];
+    setOpenBatchId(batchId);
+    setOpenDealId(d ? d.id : null);
+  };
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -67,11 +79,8 @@ const CabinetContent = () => {
   // Хлебные крошки, кликабельные — построены по текущему уровню вложенности
   const crumbs: { label: string; onClick?: () => void }[] = [{ label: "КонтрактКофе" }];
   if (tab === "batches") {
-    crumbs.push({ label: "Мои партии", onClick: currentBatch ? () => setOpenBatchId(null) : undefined });
-    if (currentBatch) {
-      crumbs.push({ label: currentBatch.name, onClick: currentDeal ? () => setOpenDealId(null) : undefined });
-      if (currentDeal) crumbs.push({ label: "Заказ" });
-    }
+    crumbs.push({ label: "Мои партии", onClick: currentBatch ? () => { setOpenBatchId(null); setOpenDealId(null); } : undefined });
+    if (currentBatch) crumbs.push({ label: currentBatch.name });
   } else {
     crumbs.push({ label: TITLES[tab] });
   }
@@ -82,7 +91,8 @@ const CabinetContent = () => {
         tab={tab}
         setTab={goTab}
         client={client}
-        ordersCount={batches.length}
+        ordersCount={batches.filter(b => b.deals.some(d => d.status === "submitted")).length}
+        draftsCount={draftsCount}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onLogout={logout}
@@ -155,12 +165,18 @@ const CabinetContent = () => {
         </header>
 
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-6">
-          {tab === "dashboard" && <CabinetDashboard setTab={goTab} openDeal={openDeal} />}
-          {tab === "batches" && !currentBatch && <CabinetBatches onOpenBatch={openBatch} />}
-          {tab === "batches" && currentBatch && !currentDeal && (
-            <CabinetBatchDetail batch={currentBatch} onOpenDeal={(dealId) => setOpenDealId(dealId)} />
+          {tab === "new-order" && (
+            <CabinetNewOrder
+              key={resumeDealId ?? "new"}
+              resumeDealId={resumeDealId}
+              goProfile={() => goTab("profile")}
+              onCancel={() => goTab(draftsCount ? "drafts" : "batches")}
+              onFinished={(batchId, dealId) => { setTab("batches"); setResumeDealId(null); setOpenBatchId(batchId); setOpenDealId(dealId); }}
+            />
           )}
-          {tab === "batches" && currentDeal && <CabinetDealDetail deal={currentDeal} goProfile={() => goTab("profile")} />}
+          {tab === "drafts" && <CabinetDrafts onResume={resumeDraft} onNew={() => goTab("new-order")} />}
+          {tab === "batches" && !currentBatch && <CabinetBatches onOpenBatch={openBatch} onNew={() => goTab("new-order")} />}
+          {tab === "batches" && currentBatch && currentDeal && <CabinetDealDetail deal={currentDeal} goProfile={() => goTab("profile")} />}
           {tab === "docs" && <CabinetDocs />}
           {tab === "mockups" && <CabinetMockups />}
           {tab === "chat" && <CabinetChat />}

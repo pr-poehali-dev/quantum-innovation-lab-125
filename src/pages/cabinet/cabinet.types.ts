@@ -1,4 +1,4 @@
-export type Tab = "dashboard" | "batches" | "docs" | "mockups" | "chat" | "profile";
+export type Tab = "new-order" | "batches" | "drafts" | "docs" | "mockups" | "chat" | "profile";
 
 export interface SidebarItem {
   id: Tab;
@@ -14,35 +14,25 @@ export interface SidebarGroup {
 
 export const SIDEBAR_GROUPS: SidebarGroup[] = [
   {
-    title: "Обзор",
+    title: "Заказы",
     items: [
-      { id: "dashboard", label: "Дашборд", icon: "LayoutDashboard" },
-      { id: "batches",   label: "Мои партии", icon: "Package" },
+      { id: "batches", label: "Мои партии", icon: "Package" },
+      { id: "drafts", label: "Черновики заявок", icon: "FilePen" },
     ],
   },
   {
     title: "Мои данные",
     items: [
-      { id: "docs",    label: "Документы",     icon: "FileText" },
+      { id: "docs", label: "Документы", icon: "FileText" },
       { id: "mockups", label: "Дизайн-макеты", icon: "Palette" },
     ],
   },
   {
     title: "Коммуникации",
-    items: [
-      { id: "chat", label: "Чат с менеджером", icon: "MessageCircle" },
-    ],
+    items: [{ id: "chat", label: "Чат с менеджером", icon: "MessageCircle" }],
   },
   {
     title: "Профиль",
-    items: [
-      { id: "profile", label: "Личные данные", icon: "UserCog" },
-    ],
+    items: [{ id: "profile", label: "Личные данные", icon: "UserCog" }],
   },
 ];
-
-export const MANAGER = {
-  name: "Михаил Карпов",
-  initials: "МК",
-  online: true,
-};

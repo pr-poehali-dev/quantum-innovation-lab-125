@@ -36,6 +36,8 @@ interface Deal {
   lots_summary: string | null;
   lots_volume: number | null;
   lots_amount: number | null;
+  docs_total: number;
+  docs_done: number;
   is_new: boolean;
 }
 
@@ -263,6 +265,18 @@ const KanbanBoard = ({ onOpenDeal, showToast, refreshSignal }: Props) => {
                       {deal.client_city && <span>{deal.client_city}</span>}
                       {totalVolume ? <span>· {totalVolume} кг</span> : null}
                     </div>
+                    {deal.docs_total > 0 && (
+                      <div className="mb-2">
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                          <span className="flex items-center gap-1"><Icon name="FileCheck" size={10} /> Документы</span>
+                          <span className="font-mono">{deal.docs_done}/{deal.docs_total}</span>
+                        </div>
+                        <div className="h-1 bg-secondary rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${deal.docs_done === deal.docs_total ? "bg-green-500" : "bg-amber-500"}`}
+                            style={{ width: `${(deal.docs_done / deal.docs_total) * 100}%` }} />
+                        </div>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-semibold">{formatMoney(totalAmount)}</span>
                       {deal.assigned_name ? (
