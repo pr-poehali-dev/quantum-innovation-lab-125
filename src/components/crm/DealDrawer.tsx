@@ -323,7 +323,7 @@ const DealDrawer = ({ dealId, onClose, onChanged, onOpenClient, showToast }: Pro
                   <Icon name="Truck" size={15} className="text-primary" /> Логистика
                 </h3>
                 <div className="bg-card border border-border rounded-2xl p-4 space-y-2">
-                  {Object.entries(deal.logistics_data).map(([k, v]) => v && (
+                  {Object.entries(deal.logistics_data).filter(([k]) => k !== "ship_date").map(([k, v]) => v && (
                     <div key={k} className="flex items-start justify-between gap-3 text-[12px]">
                       <span className="text-muted-foreground flex-shrink-0">{k}</span>
                       <span className="font-medium text-right">{v}</span>

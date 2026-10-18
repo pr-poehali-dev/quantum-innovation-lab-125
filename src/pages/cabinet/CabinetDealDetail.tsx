@@ -16,7 +16,7 @@ const CabinetDealDetail = ({ deal }: Props) => {
   const [fields, setFields] = useState<LogisticsField[]>([]);
   const [managerOpen, setManagerOpen] = useState(false);
 
-  useEffect(() => { fetchLogisticsFields().then(setFields); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => { fetchLogisticsFields().then(list => setFields(list.filter(f => f.key !== "ship_date"))); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const totalAmount = deal.lots.reduce((s, l) => s + (l.amount || 0), 0);
   const totalVolume = deal.lots.reduce((s, l) => s + (l.volume || 0), 0);

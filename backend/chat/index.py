@@ -62,9 +62,12 @@ def msg_dict(r) -> dict:
     }
     if len(r) > 7:
         out["kind"] = r[7] or "text"
+        if out["kind"] == "doc" and (not r[10] or r[12] == "removed"):
+            out["kind"] = "text"
+            out["text"] = out["text"] or "Документ удалён из сделки"
         out["file_url"] = r[8]
         out["file_name"] = r[9]
-        if r[10]:
+        if r[10] and r[12] != "removed":
             out["doc"] = {
                 "id": r[10], "title": r[11], "status": r[12], "deal_id": r[13],
                 "signed_file_url": r[14], "signed_file_name": r[15],

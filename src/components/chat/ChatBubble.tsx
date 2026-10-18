@@ -49,7 +49,7 @@ const ChatBubble = ({ m, mine, time, canMark, onMark, onReply }: Props) => {
         {mine && m.staff_name && <p className="text-[10px] text-muted-foreground mb-0.5 mr-1 text-right">{m.staff_name}</p>}
 
         {m.doc && (() => {
-          const st = DOC_STYLE[m.doc.status];
+          const st = DOC_STYLE[m.doc.status] ?? DOC_STYLE.sent;
           const doc = m.doc;
           return (
             <div className={`rounded-2xl border p-3 mb-1 w-[260px] max-w-full transition-colors ${st.wrap} ${doc.status === "done" ? "" : ""}`}>

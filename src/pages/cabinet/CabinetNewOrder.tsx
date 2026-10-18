@@ -59,7 +59,7 @@ const CabinetNewOrder = ({ resumeDealId, onFinished, onCancel }: Props) => {
   const [sent, setSent] = useState<SentInfo | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
-  useEffect(() => { fetchLogisticsFields().then(setFields); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  useEffect(() => { fetchLogisticsFields().then(list => setFields(list.filter(f => f.key !== "ship_date"))); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   useEffect(() => { if (client?.phone) setPhone(p => p || client.phone || ""); }, [client]);
 
