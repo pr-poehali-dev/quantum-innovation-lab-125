@@ -1,9 +1,16 @@
 """Таблица расчёта цены: хранение, пересчёт и публичные цены для калькулятора."""
 import json
+import math
 
 from sheet_engine import Book, ERR, col_to_letter
 
 SHEET_KEY = "calc_sheet"
+
+
+def ceil_price(v: float) -> int:
+    """Итоговая цена всегда округляется вверх до целого рубля (шум float отсекаем до 6 знаков)."""
+    return int(math.ceil(round(v, 6)))
+
 MAX_ROWS = 60
 MAX_COLS = 40
 
@@ -75,8 +82,8 @@ def public_prices(data):
         items.append({
             "id": int(ids.get(L, c)),
             "label": str(s1["cells"].get(f"{L}{s1['header_row']}")).strip(),
-            "price_1kg": round(p1, 4),
-            "price_250g": round(p2, 4),
+            "price_1kg": ceil_price(p1),
+            "price_250g": ceil_price(p2),
         })
     return items
 
@@ -129,7 +136,7 @@ def client_table(data):
                 v = book.get(si, f"{col_to_letter(c)}{r}")
                 if isinstance(v, float):
                     numeric = True
-                    values.append(round(v, 2))
+                    values.append(ceil_price(v) if r == res else round(v, 2))
                 else:
                     values.append(None)
             if not numeric:
