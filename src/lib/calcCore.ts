@@ -4,12 +4,9 @@ import { ABOUT_URL } from "@/lib/siteContent";
 export interface CalcOrigin {
   id: number;
   label: string;
-  price_usd_per_kg: number;
+  price_1kg: number;
+  price_250g: number;
   sort_order: number;
-}
-
-export interface CalcParams {
-  [key: string]: { value: number; label: string };
 }
 
 export interface LeadTimeTier { max_volume: number | null; days: number }
@@ -51,52 +48,19 @@ export const formatLabel = (v: string | null | undefined) => FORMAT_OPTIONS.find
 export const MAX_VOLUME = 5000;
 export const PACKAGING_LABEL = "Квадропак, бесшовный пакет";
 
-export const DEFAULT_PARAMS: CalcParams = {
-  roast_loss_percent: { value: 15, label: "Потеря веса при обжарке, %" },
-  pkg_1kg: { value: 50, label: "Упаковка 1 кг" },
-  transport_1kg: { value: 15, label: "Транспорт 1 кг" },
-  production_1kg: { value: 10, label: "Производство 1 кг" },
-  roasting_service_1kg: { value: 100, label: "Услуги обжарки и упаковки 1 кг" },
-  pkg_250g: { value: 40, label: "Упаковка 250 г" },
-  transport_250g: { value: 3.15, label: "Транспорт 250 г" },
-  production_250g: { value: 2.49, label: "Производство 250 г" },
-  roasting_service_250g: { value: 30, label: "Услуги обжарки и упаковки 250 г" },
-};
-
 export const DEFAULT_TIERS: LeadTimeTier[] = [
   { max_volume: 1000, days: 14 },
   { max_volume: 2000, days: 18 },
   { max_volume: null, days: 25 },
 ];
 
-export function calcPrice1kg(origin: CalcOrigin, params: CalcParams, usd: number): number {
-  const loss = params["roast_loss_percent"]?.value ?? 15;
-  const roasted = (origin.price_usd_per_kg * usd) / (1 - loss / 100);
-  return Math.round(
-    roasted
-    + (params["pkg_1kg"]?.value ?? 0)
-    + (params["transport_1kg"]?.value ?? 0)
-    + (params["production_1kg"]?.value ?? 0)
-    + (params["roasting_service_1kg"]?.value ?? 0),
-  );
-}
+export const calcPrice1kg = (origin: CalcOrigin) => origin.price_1kg;
+export const calcPrice250g = (origin: CalcOrigin) => origin.price_250g;
 
-export function calcPrice250g(origin: CalcOrigin, params: CalcParams, usd: number): number {
-  const loss = params["roast_loss_percent"]?.value ?? 15;
-  const roasted = (origin.price_usd_per_kg * usd * 0.25) / (1 - loss / 100);
-  return Math.round(
-    roasted
-    + (params["pkg_250g"]?.value ?? 0)
-    + (params["transport_250g"]?.value ?? 0)
-    + (params["production_250g"]?.value ?? 0)
-    + (params["roasting_service_250g"]?.value ?? 0),
-  );
-}
-
-export function calcAmount(origin: CalcOrigin | undefined, format: WeightFormat, volume: number, params: CalcParams, usd: number): number {
+export function calcAmount(origin: CalcOrigin | undefined, format: WeightFormat, volume: number): number {
   if (!origin) return 0;
-  if (format === "250g") return Math.round(Math.round((volume * 1000) / 250) * calcPrice250g(origin, params, usd));
-  return Math.round(volume * calcPrice1kg(origin, params, usd));
+  if (format === "250g") return Math.round(Math.round((volume * 1000) / 250) * origin.price_250g);
+  return Math.round(volume * origin.price_1kg);
 }
 
 export function calcLeadTime(volume: number, tiers: LeadTimeTier[]): number {
@@ -112,7 +76,6 @@ export const newUid = () => Math.random().toString(36).slice(2, 10);
 
 export interface CalcData {
   origins: CalcOrigin[];
-  params: CalcParams;
   usdRate: number;
   minVolume: number;
   volumeStep: number;
@@ -122,7 +85,7 @@ export interface CalcData {
 
 export function useCalcData(): CalcData {
   const [data, setData] = useState<CalcData>({
-    origins: [], params: DEFAULT_PARAMS, usdRate: 85, minVolume: 500, volumeStep: 5, tiers: DEFAULT_TIERS, ready: false,
+    origins: [], usdRate: 85, minVolume: 500, volumeStep: 5, tiers: DEFAULT_TIERS, ready: false,
   });
 
   useEffect(() => {
@@ -130,7 +93,6 @@ export function useCalcData(): CalcData {
       .then(r => r.json())
       .then(d => setData({
         origins: d.origins || [],
-        params: d.params || DEFAULT_PARAMS,
         usdRate: d.usd_rate || 85,
         minVolume: d.min_volume || 500,
         volumeStep: d.volume_step || 5,

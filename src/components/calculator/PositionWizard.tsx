@@ -53,7 +53,7 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
 
   const origin = calc.origins.find(o => o.id === originId);
   const volumeValid = volume >= calc.minVolume && volume <= MAX_VOLUME;
-  const amount = calcAmount(origin, format, volume, calc.params, calc.usdRate);
+  const amount = calcAmount(origin, format, volume);
   const perKg = volume > 0 ? Math.round(amount / volume) : 0;
   const leadTime = calcLeadTime(volume, calc.tiers);
   const canNext = step === 0 ? !!origin : step === 3 ? volumeValid : true;

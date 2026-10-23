@@ -5,7 +5,23 @@
       "method": "GET",
       "path": "/",
       "expectedStatus": 200,
-      "expectedBody": { "content": {}, "photos": [] },
+      "expectedBody": {
+        "content": {},
+        "photos": []
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Calc prices from sheet",
+      "method": "GET",
+      "path": "/",
+      "headers": {
+        "X-Action": "get-calc"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "origins": []
+      },
       "bodyMatcher": "partial"
     }
   ]

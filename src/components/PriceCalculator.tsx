@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useLeadModal } from "@/context/LeadModalContext";
+import { openPriceTable } from "@/lib/priceTable";
 import PositionWizard from "@/components/calculator/PositionWizard";
 import OrderSummary from "@/components/calculator/OrderSummary";
 import {
@@ -65,20 +66,33 @@ const PriceCalculator = () => {
   };
 
   return (
-    <section id="calculator" className="py-20 md:py-24">
+    <section id="calculator" className="relative py-16 md:py-24 scroll-mt-16">
+      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-primary/[0.07] via-primary/[0.04] to-transparent" />
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
       <div className="max-w-5xl mx-auto px-4 sm:px-6">
-        <div className="scroll-reveal mb-8 md:mb-10">
-          <span className="text-xs font-mono text-primary tracking-wider">ПРОИЗВОДСТВЕННЫЙ БРИФ</span>
-          <h2 className="font-serif text-3xl sm:text-4xl md:text-5xl mt-3 font-bold">
-            Рассчитайте стоимость<br />
-            <span className="text-primary">своей партии</span>
-          </h2>
-          <p className="text-muted-foreground mt-3 max-w-xl text-sm sm:text-base">
-            Заказ состоит из позиций: сорт, обжарка, фасовка и пакет. Минимум {calc.minVolume.toLocaleString("ru-RU")} кг на каждую позицию —
-            добавляйте сколько нужно.
-          </p>
+        <div className="scroll-reveal mb-8 md:mb-10 flex flex-col md:flex-row md:items-end md:justify-between gap-5">
+          <div className="max-w-3xl">
+            <span className="inline-flex items-center gap-2 text-[11px] font-mono text-primary tracking-wider bg-primary/10 rounded-full px-3 py-1">
+              <Icon name="Calculator" size={12} /> ПРОИЗВОДСТВЕННЫЙ БРИФ
+            </span>
+            <h2 className="font-serif text-3xl sm:text-4xl lg:text-[2.75rem] mt-4 font-bold leading-[1.12]">
+              Рассчитайте стоимость<br />
+              <span className="text-primary">своей партии</span>
+            </h2>
+            <p className="text-muted-foreground mt-3 text-sm sm:text-base leading-relaxed">
+              Соберите заказ из позиций: сорт, обжарка, фасовка и пакет. Минимум {calc.minVolume.toLocaleString("ru-RU")} кг на каждую позицию —
+              добавляйте сколько нужно.
+            </p>
+          </div>
+          <button type="button" onClick={openPriceTable}
+            className="group flex items-center justify-center gap-2.5 self-start md:self-end flex-shrink-0 bg-card border border-primary/30 text-primary rounded-2xl px-5 py-3 text-sm font-semibold shadow-sm hover:bg-primary hover:text-primary-foreground hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-[0.98]">
+            <Icon name="Table2" size={16} />
+            Подробнее о стоимости
+            <Icon name="ArrowUpRight" size={14} className="opacity-60 group-hover:opacity-100 transition-opacity" />
+          </button>
         </div>
 
+        <div className="rounded-[28px] border border-primary/20 bg-card/60 backdrop-blur-sm p-3 sm:p-5 md:p-6 shadow-[0_20px_60px_-24px_hsl(var(--primary)/0.35)]">
         {view === "wizard" || positions.length === 0 ? (
           <PositionWizard
             key={editing?.uid ?? `new-${positions.length}`}
@@ -109,6 +123,7 @@ const PriceCalculator = () => {
             </p>
           </OrderSummary>
         )}
+        </div>
       </div>
     </section>
   );

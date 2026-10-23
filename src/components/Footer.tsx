@@ -5,6 +5,7 @@ import fallbackLogo from "@/assets/logo.png";
 import { useContacts, phoneHref } from "@/lib/siteContent";
 import { CONTACT_TYPES } from "@/lib/contactTypes";
 import { Glyph } from "@/components/ContactButton";
+import { openPriceTable } from "@/lib/priceTable";
 
 const FALLBACK_LOGO = fallbackLogo;
 const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
@@ -149,6 +150,11 @@ const Footer = () => {
                   </a>
                 </li>
               ))}
+              <li>
+                <button onClick={openPriceTable} className="text-sm text-white/60 hover:text-white transition-colors">
+                  Подробнее о стоимости
+                </button>
+              </li>
             </ul>
           </div>
 
@@ -182,6 +188,9 @@ const Footer = () => {
                 <a href="#calculator" className="text-primary hover:text-primary/80 transition-colors font-semibold">
                   Рассчитать стоимость →
                 </a>
+                <button onClick={openPriceTable} className="block mt-2 text-white/70 hover:text-white transition-colors font-semibold text-left">
+                  Подробнее о стоимости →
+                </button>
               </div>
             </div>
           </div>

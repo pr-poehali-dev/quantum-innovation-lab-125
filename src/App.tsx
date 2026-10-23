@@ -26,6 +26,7 @@ import { ClientAuthProvider } from "./context/ClientAuthContext";
 import StaffGuard from "./components/StaffGuard";
 import RoleGuard from "./components/RoleGuard";
 import ErrorBoundary from "./components/ErrorBoundary";
+import PriceTableModal from "./components/PriceTableModal";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ const App = () => (
         <ClientAuthProvider>
         <StaffAuthProvider>
           <BrowserRouter>
+            <PriceTableModal />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/cabinet" element={<Cabinet />} />

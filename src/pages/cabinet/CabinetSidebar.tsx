@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import { SIDEBAR_GROUPS, type Tab } from "./cabinet.types";
 import type { ClientProfile } from "@/context/ClientAuthContext";
+import { openPriceTable } from "@/lib/priceTable";
 
 interface CabinetSidebarProps {
   tab: Tab;
@@ -79,6 +80,15 @@ const CabinetSidebar = ({ tab, setTab, client, ordersCount, draftsCount, open, o
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+          <div>
+            <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground px-3 mb-1.5">Информация</p>
+            <button onClick={() => { openPriceTable(); onClose(); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors">
+              <Icon name="Table2" size={15} className="flex-shrink-0" />
+              <span className="flex-1 text-left truncate">Подробнее о стоимости</span>
+            </button>
+          </div>
+
           {SIDEBAR_GROUPS.map(group => (
             <div key={group.title}>
               <p className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground px-3 mb-1.5">

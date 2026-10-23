@@ -11,6 +11,10 @@ X-Action значения:
   delete-photo     — DELETE удалить фото (только владелец)
   get-calc         — GET публичные данные калькулятора v2 (сорта, параметры, курс+дата, мин.объём, шаг, сроки производства)
   save-calc        — POST сохранить калькулятор v2 (владелец и менеджер)
+  get-price-table  — GET публичная таблица «Подробнее о стоимости» (значения без формул)
+  get-calc-sheet   — GET таблица расчёта цены для админки (формулы) (владелец, супер-админ, менеджер)
+  save-calc-sheet  — POST сохранить таблицу расчёта: sheet. Цены в калькуляторе и таблице для клиентов обновляются сразу
+  list-sheet-history / get-sheet-version — история версий таблицы (X-Version-Id)
   get-rate         — GET курс доллара (+ дата обновления)
   save-rate        — POST сохранить курс доллара (владелец и менеджер)
   get-email-settings  — GET настройки email-отправителя (владелец и менеджер)
@@ -44,11 +48,12 @@ import base64
 import psycopg2
 import boto3
 from botocore.config import Config
+import sheet_service
 
 CORS = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Staff-Token, X-Action, X-Photo-Id, X-Section-Key, X-Testimonial-Id, X-Page-Slug, X-Page-Id, X-File-Id, X-Member-Id",
+    "Access-Control-Allow-Headers": "Content-Type, X-Admin-Key, X-Staff-Token, X-Action, X-Photo-Id, X-Section-Key, X-Testimonial-Id, X-Page-Slug, X-Page-Id, X-File-Id, X-Member-Id, X-Version-Id",
 }
 SCHEMA      = "t_p21475602_quantum_innovation_l"
 AWS_KEY     = os.environ.get("AWS_ACCESS_KEY_ID", "")
@@ -223,22 +228,20 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"ok": True})
 
-        # ── get-calc: публичные данные калькулятора v2 ────────────
+        # ── get-calc: публичные данные калькулятора (цены берутся из таблицы расчёта) ──
         if action == "get-calc":
-            cur.execute(f"""
-                SELECT id, label, price_usd_per_kg, sort_order
-                FROM {SCHEMA}.calc_origins_v2 WHERE active=TRUE ORDER BY sort_order, id
-            """)
-            origins = [
-                {"id": r[0], "label": r[1], "price_usd_per_kg": float(r[2]), "sort_order": r[3]}
-                for r in cur.fetchall()
-            ]
-            cur.execute(f"SELECT key, value, label FROM {SCHEMA}.calc_params_v2 ORDER BY key")
-            params = {r[0]: {"value": float(r[1]), "label": r[2]} for r in cur.fetchall()}
+            sheet = sheet_service.load_sheet(cur, SCHEMA)
             cur.execute(f"SELECT value, updated_at FROM {SCHEMA}.site_settings WHERE key='usd_rate'")
             rate_row = cur.fetchone()
             usd_rate = float(rate_row[0]) if rate_row else 85.0
             rate_updated_at = str(rate_row[1]) if rate_row and rate_row[1] else None
+            origins = []
+            if sheet:
+                sheet_rate = sheet_service.rate_of(sheet)
+                if sheet_rate:
+                    usd_rate = sheet_rate
+                for n, it in enumerate(sheet_service.public_prices(sheet), 1):
+                    origins.append({**it, "price_usd_per_kg": 0, "sort_order": n})
             cur.execute(f"SELECT value FROM {SCHEMA}.site_settings WHERE key='calc_min_volume'")
             min_row = cur.fetchone()
             min_volume = int(float(min_row[0])) if min_row else 500
@@ -251,9 +254,123 @@ def handler(event: dict, context) -> dict:
                 {"max_volume": 1000, "days": 14}, {"max_volume": 2000, "days": 18}, {"max_volume": None, "days": 25},
             ]
             return ok({
-                "origins": origins, "params": params, "usd_rate": usd_rate, "usd_rate_updated_at": rate_updated_at,
+                "origins": origins, "usd_rate": usd_rate, "usd_rate_updated_at": rate_updated_at,
                 "min_volume": min_volume, "volume_step": volume_step, "lead_time_tiers": lead_time_tiers,
             })
+
+        # ── get-price-table: публичная таблица «Подробнее о стоимости» (без формул) ──
+        if action == "get-price-table":
+            sheet = sheet_service.load_sheet(cur, SCHEMA)
+            if not sheet:
+                return ok({"products": [], "formats": []})
+            cur.execute(f"SELECT updated_at FROM {SCHEMA}.site_settings WHERE key='calc_sheet'")
+            upd = cur.fetchone()
+            return ok({**sheet_service.client_table(sheet), "updated_at": str(upd[0]) if upd and upd[0] else None})
+
+        # ── get-calc-sheet: таблица расчёта для админки (с формулами и значениями) ──
+        if action == "get-calc-sheet":
+            if not check_role(cur, headers, ("owner", "super_admin", "manager")):
+                return err("Unauthorized", 401)
+            sheet = sheet_service.load_sheet(cur, SCHEMA)
+            if not sheet:
+                return err("Таблица не найдена", 404)
+            cur.execute(f"SELECT updated_at FROM {SCHEMA}.site_settings WHERE key='calc_sheet'")
+            upd = cur.fetchone()
+            return ok({"sheet": sheet, "updated_at": str(upd[0]) if upd and upd[0] else None})
+
+        # ── save-calc-sheet: сохранить таблицу — цены обновятся сразу везде ──
+        if action == "save-calc-sheet":
+            if not check_role(cur, headers, ("owner", "super_admin", "manager")):
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            data = body.get("sheet")
+            problem = sheet_service.validate(data)
+            if problem:
+                return err(problem)
+            if not sheet_service.product_columns(data):
+                return err("В таблице должен остаться хотя бы один сорт")
+            prices = sheet_service.public_prices(data)
+            if not prices:
+                return err("Итоговые цены не рассчитываются — проверьте формулы в таблице")
+            broken = sheet_service.broken_products(data)
+            if broken:
+                return err("Ошибка в формуле, цена не считается для: " + ", ".join(broken) + ". Исправьте ячейки с #ОШИБКА и сохраните снова")
+            staff_name = ""
+            cur.execute(f"""
+                SELECT s.name FROM {SCHEMA}.staff_sessions ss JOIN {SCHEMA}.staff_users s ON s.id = ss.staff_id
+                WHERE ss.token=%s
+            """, (headers.get("x-staff-token", ""),))
+            nm = cur.fetchone()
+            staff_name = nm[0] if nm else ""
+
+            old = sheet_service.load_sheet(cur, SCHEMA)
+            if old:
+                cur.execute(f"INSERT INTO {SCHEMA}.calc_sheet_history (data, saved_by) VALUES (%s, %s)",
+                            (json.dumps(old, ensure_ascii=False), staff_name))
+                cur.execute(f"""
+                    DELETE FROM {SCHEMA}.calc_sheet_history
+                    WHERE id NOT IN (SELECT id FROM {SCHEMA}.calc_sheet_history ORDER BY id DESC LIMIT 30)
+                """)
+
+            cur.execute(f"SELECT COALESCE(MAX(id), 0) FROM {SCHEMA}.calc_origins_v2")
+            next_id = cur.fetchone()[0] + 1
+            col_ids = {}
+            from sheet_engine import col_to_letter
+            used = set()
+            for c in sheet_service.product_columns(data):
+                L = col_to_letter(c)
+                cid = int((data.get("col_ids") or {}).get(L) or 0)
+                if not cid or cid in used:
+                    cid = next_id
+                    next_id += 1
+                used.add(cid)
+                col_ids[L] = cid
+            data["col_ids"] = col_ids
+            evald = sheet_service.evaluate(data)
+            s0 = data["sheets"][0]
+            for n, c in enumerate(sheet_service.product_columns(data), 1):
+                L = col_to_letter(c)
+                label = str(s0["cells"].get(f"{L}{s0['header_row']}")).strip()
+                usd = evald[0].get(f"{L}{s0['header_row'] + 1}", 0)
+                usd = float(usd) if isinstance(usd, (int, float)) else 0.0
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.calc_origins_v2 (id, label, price_usd_per_kg, sort_order, active)
+                    VALUES (%s, %s, %s, %s, TRUE)
+                    ON CONFLICT (id) DO UPDATE SET label=EXCLUDED.label, price_usd_per_kg=EXCLUDED.price_usd_per_kg,
+                        sort_order=EXCLUDED.sort_order, active=TRUE
+                """, (col_ids[L], label, usd, n))
+            if used:
+                cur.execute(f"UPDATE {SCHEMA}.calc_origins_v2 SET active=FALSE WHERE id NOT IN %s", (tuple(used),))
+
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.site_settings (key, value, updated_at) VALUES ('calc_sheet', %s, NOW())
+                ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
+            """, (json.dumps(data, ensure_ascii=False),))
+            rate = sheet_service.rate_of(data)
+            if rate:
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.site_settings (key, value, updated_at) VALUES ('usd_rate', %s, NOW())
+                    ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
+                """, (str(rate),))
+            conn.commit()
+            return ok({"ok": True, "col_ids": col_ids, "products": len(prices)})
+
+        # ── list-sheet-history / get-sheet-version ────────────────
+        if action == "list-sheet-history":
+            if not check_role(cur, headers, ("owner", "super_admin", "manager")):
+                return err("Unauthorized", 401)
+            cur.execute(f"SELECT id, saved_by, created_at FROM {SCHEMA}.calc_sheet_history ORDER BY id DESC LIMIT 30")
+            return ok({"versions": [{"id": r[0], "saved_by": r[1], "created_at": str(r[2])} for r in cur.fetchall()]})
+
+        if action == "get-sheet-version":
+            if not check_role(cur, headers, ("owner", "super_admin", "manager")):
+                return err("Unauthorized", 401)
+            vid = int(headers.get("x-version-id", "0") or 0)
+            cur.execute(f"SELECT data FROM {SCHEMA}.calc_sheet_history WHERE id=%s", (vid,))
+            row = cur.fetchone()
+            if not row:
+                return err("Версия не найдена", 404)
+            return ok({"sheet": row[0]})
 
         # ── save-calc: сохранить данные калькулятора v2 ───────────
         if action == "save-calc":
@@ -327,6 +444,13 @@ def handler(event: dict, context) -> dict:
                 VALUES ('usd_rate', %s, NOW())
                 ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
             """, (str(float(rate)),))
+            sheet = sheet_service.load_sheet(cur, SCHEMA)
+            if sheet:
+                cell = sheet.get("rate_cell", "B2")
+                sheet["sheets"][0]["cells"][cell] = float(rate)
+                cur.execute(f"""
+                    UPDATE {SCHEMA}.site_settings SET value=%s, updated_at=NOW() WHERE key='calc_sheet'
+                """, (json.dumps(sheet, ensure_ascii=False),))
             conn.commit()
             return ok({"ok": True, "rate": float(rate)})
 
