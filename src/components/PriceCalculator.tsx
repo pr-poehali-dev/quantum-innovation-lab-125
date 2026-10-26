@@ -87,7 +87,7 @@ const PriceCalculator = () => {
           <button type="button" onClick={openPriceTable}
             className="group flex items-center justify-center gap-2.5 self-start md:self-end flex-shrink-0 bg-card border border-primary/30 text-primary rounded-2xl px-5 py-3 text-sm font-semibold shadow-sm hover:bg-primary hover:text-primary-foreground hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-[0.98]">
             <Icon name="Table2" size={16} />
-            Подробнее о стоимости
+            Прайс-лист
             <Icon name="ArrowUpRight" size={14} className="opacity-60 group-hover:opacity-100 transition-opacity" />
           </button>
         </div>

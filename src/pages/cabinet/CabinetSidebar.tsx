@@ -85,7 +85,7 @@ const CabinetSidebar = ({ tab, setTab, client, ordersCount, draftsCount, open, o
             <button onClick={() => { openPriceTable(); onClose(); }}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors">
               <Icon name="Table2" size={15} className="flex-shrink-0" />
-              <span className="flex-1 text-left truncate">Подробнее о стоимости</span>
+              <span className="flex-1 text-left truncate">Прайс-лист</span>
             </button>
           </div>
 

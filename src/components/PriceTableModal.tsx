@@ -112,7 +112,7 @@ const PriceTableModal = ({ open: controlled, onOpenChange }: Props) => {
       <DialogContent className="max-w-[1180px] w-[calc(100vw-1rem)] sm:w-[calc(100vw-3rem)] max-h-[94vh] overflow-hidden p-0 gap-0 rounded-2xl sm:rounded-3xl flex flex-col">
         <div className="px-4 sm:px-7 pt-5 sm:pt-6 pb-4 border-b border-border bg-card pr-12">
           <p className="text-[10px] font-mono text-primary tracking-widest mb-1">ПРОЗРАЧНЫЕ ЦЕНЫ</p>
-          <DialogTitle className="font-serif text-xl sm:text-2xl font-bold leading-tight text-left">Подробнее о стоимости</DialogTitle>
+          <DialogTitle className="font-serif text-xl sm:text-2xl font-bold leading-tight text-left">Прайс-лист</DialogTitle>
           <DialogDescription className="text-[13px] text-muted-foreground mt-1.5 text-left">
             Из чего складывается цена одной пачки готового кофе под вашей маркой. Цены в рублях, без НДС.
             {data?.rate ? ` Курс доллара в расчёте — ${data.rate} ₽.` : ""}

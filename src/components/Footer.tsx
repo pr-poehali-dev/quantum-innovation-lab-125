@@ -152,7 +152,7 @@ const Footer = () => {
               ))}
               <li>
                 <button onClick={openPriceTable} className="text-sm text-white/60 hover:text-white transition-colors">
-                  Подробнее о стоимости
+                  Прайс-лист
                 </button>
               </li>
             </ul>
@@ -189,7 +189,7 @@ const Footer = () => {
                   Рассчитать стоимость →
                 </a>
                 <button onClick={openPriceTable} className="block mt-2 text-white/70 hover:text-white transition-colors font-semibold text-left">
-                  Подробнее о стоимости →
+                  Прайс-лист →
                 </button>
               </div>
             </div>
