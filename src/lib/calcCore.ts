@@ -8,7 +8,18 @@ export interface CalcOrigin {
   price_250g: number;
   sort_order: number;
   recommended_roast?: string | null;
+  passport?: Passport | null;
 }
+
+export interface Passport {
+  subtitle?: string; photo_url?: string; taste?: string; flavor_profile?: string;
+  screen?: string; process?: string; roast?: string;
+  acidity?: number; density?: number; aroma?: number;
+  methods?: string; for_whom?: string; pairing?: string; story?: string;
+}
+
+export const passportFilled = (p: Passport | null | undefined) =>
+  !!p && Object.values(p).some(v => (typeof v === "number" ? v > 0 : !!String(v ?? "").trim()));
 
 export interface LeadTimeTier { max_volume: number | null; days: number }
 

@@ -38,6 +38,7 @@ X-Action значения:
   save-team-member   — POST создать/обновить карточку: id?, staff_id?, first_name, last_name, position, description, photo_url, contacts[{type,value,label}], show_on_site, active, sort_order
   delete-team-member — DELETE удалить карточку: X-Member-Id
   upload-team-photo  — POST загрузить фото сотрудника (base64 → S3): file_base64, file_name
+  upload-passport-photo — POST загрузить фото для паспорта сорта (base64 → S3), владелец/супер-админ/менеджер
 
 Авторизация редактирования — X-Staff-Token (сессия сотрудника), не статичный ключ.
 """
@@ -193,6 +194,23 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             return ok({"id": new_id, "cdn_url": cdn_url, "ok": True}, 201)
 
+        if action == "upload-passport-photo":
+            if not check_role(cur, headers, ("owner", "super_admin", "manager")):
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            b64 = body.get("file_base64", "")
+            if not b64:
+                return err("file_base64 required")
+            data = base64.b64decode(b64)
+            if len(data) > 6 * 1024 * 1024:
+                return err("Файл больше 6 МБ")
+            ext = os.path.splitext(str(body.get("file_name") or ""))[1].lower().lstrip(".")
+            ext = ext if ext in ("jpg", "jpeg", "png", "webp") else "jpg"
+            ctype = "image/png" if ext == "png" else "image/webp" if ext == "webp" else "image/jpeg"
+            s3_key = f"passports/{uuid.uuid4()}.{ext}"
+            get_s3().put_object(Bucket="files", Key=s3_key, Body=data, ContentType=ctype)
+            return ok({"url": f"{CDN_BASE}/{s3_key}"}, 201)
+
         # ── add-photo-url: добавить фото по внешнему URL ─────────
         if action == "add-photo-url":
             if not check_role(cur, headers, ("owner", "super_admin")):
@@ -247,6 +265,11 @@ def handler(event: dict, context) -> dict:
             rec_map = json.loads(rec_row[0]) if rec_row and rec_row[0] else {}
             for it in origins:
                 it["recommended_roast"] = rec_map.get(str(it["id"])) or None
+            cur.execute(f"SELECT value FROM {SCHEMA}.site_settings WHERE key='calc_passports'")
+            pass_row = cur.fetchone()
+            pass_map = json.loads(pass_row[0]) if pass_row and pass_row[0] else {}
+            for it in origins:
+                it["passport"] = pass_map.get(str(it["id"])) or None
             cur.execute(f"SELECT value FROM {SCHEMA}.site_settings WHERE key='calc_min_volume'")
             min_row = cur.fetchone()
             min_volume = int(float(min_row[0])) if min_row else 500
@@ -406,6 +429,33 @@ def handler(event: dict, context) -> dict:
             if "params" in body:
                 for key, val in body["params"].items():
                     cur.execute(f"UPDATE {SCHEMA}.calc_params_v2 SET value=%s WHERE key=%s", (float(val), key))
+
+            if "passports" in body:
+                text_keys = ("subtitle", "photo_url", "taste", "flavor_profile", "screen", "process", "roast",
+                             "methods", "for_whom", "pairing", "story")
+                num_keys = ("acidity", "density", "aroma")
+                clean = {}
+                for k, v in (body["passports"] or {}).items():
+                    if not isinstance(v, dict):
+                        continue
+                    item = {}
+                    for tk in text_keys:
+                        val = str(v.get(tk) or "").strip()[:1500]
+                        if val:
+                            item[tk] = val
+                    for nk in num_keys:
+                        try:
+                            n = int(v.get(nk) or 0)
+                        except (TypeError, ValueError):
+                            n = 0
+                        if 1 <= n <= 5:
+                            item[nk] = n
+                    if item:
+                        clean[str(k)] = item
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.site_settings (key, value, updated_at) VALUES ('calc_passports', %s, NOW())
+                    ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
+                """, (json.dumps(clean, ensure_ascii=False),))
 
             if "recommended_roast" in body:
                 allowed = ("Светлая", "Средняя", "Тёмная")

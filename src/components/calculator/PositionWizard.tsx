@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/ui/icon";
+import PassportDialog from "@/components/calculator/PassportDialog";
 import GrindPicker from "@/components/calculator/GrindPicker";
 import BagPreview from "@/components/calculator/BagPreview";
 import {
   FORMAT_OPTIONS, PACK_TYPES, LABEL_SIZES, TONE_OPTIONS, parsePack, packCode, packShort, type Pack, GRIND_OPTIONS, grindLabel, type Grind, MAX_VOLUME, PACKAGING_LABEL, ROAST_OPTIONS,
   calcAmount, calcLeadTime, formatLabel, formatRub, newUid,
-  type CalcData, type Position, type WeightFormat,
+  type CalcData, type CalcOrigin, passportFilled, type Position, type WeightFormat,
 } from "@/lib/calcCore";
 
 const STEP_DEFS = [
@@ -23,12 +24,12 @@ interface Props {
   onCancel?: () => void;
 }
 
-const Card = ({ label, desc, selected, onClick }: { label: string; desc?: string; selected: boolean; onClick: () => void }) => (
+const Card = ({ label, desc, selected, onClick, padRight }: { label: string; desc?: string; selected: boolean; onClick: () => void; padRight?: boolean }) => (
   <button type="button" onClick={onClick}
     className={`relative text-left p-3.5 rounded-2xl border transition-all duration-200 w-full active:scale-[0.98] ${
       selected ? "border-primary bg-primary/8 shadow-sm shadow-primary/10" : "border-border hover:border-primary/50 hover:bg-secondary/60"
     }`}>
-    <p className={`text-sm font-semibold leading-tight pr-6 ${selected ? "text-primary" : ""}`}>{label}</p>
+    <p className={`text-sm font-semibold leading-tight ${padRight ? "pr-20" : "pr-6"} ${selected ? "text-primary" : ""}`}>{label}</p>
     {desc && <p className="text-[11px] text-muted-foreground mt-0.5">{desc}</p>}
     {selected && (
       <span className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
@@ -42,6 +43,7 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
   const [step, setStep] = useState(initial ? 3 : 0);
   const [originId, setOriginId] = useState<number | null>(initial?.origin_id ?? null);
   const [roast, setRoast] = useState(initial?.roast ?? ROAST_OPTIONS[1].label);
+  const [passportOrigin, setPassportOrigin] = useState<CalcOrigin | null>(null);
   const [grind, setGrind] = useState<Grind>(initial?.grind ?? "beans");
   const [format, setFormat] = useState<WeightFormat>(initial?.weight_format ?? "1kg");
   const [pack, setPack] = useState<Pack>(parsePack(initial?.color));
@@ -99,6 +101,7 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
 
   return (
     <div ref={topRef} className="grid lg:grid-cols-3 gap-5 items-start scroll-mt-24">
+      <PassportDialog origin={passportOrigin} onClose={() => setPassportOrigin(null)} onSelect={setOriginId} selected={passportOrigin?.id === originId} />
       <div className="lg:col-span-2 space-y-4">
         <div className="bg-card border border-border rounded-2xl p-3.5 sm:p-4 shadow-sm">
           <div className="flex items-center">
@@ -151,7 +154,17 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
               ) : (
                 <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
                   {calc.origins.map(o => (
-                    <Card key={o.id} label={o.label} selected={originId === o.id} onClick={() => setOriginId(o.id)} />
+                    <div key={o.id} className="relative">
+                      <Card label={o.label} selected={originId === o.id} onClick={() => setOriginId(o.id)} padRight={passportFilled(o.passport)} />
+                      {passportFilled(o.passport) && (
+                        <button type="button" onClick={() => setPassportOrigin(o)}
+                          aria-label={`Паспорт продукта: ${o.label}`} title="Паспорт продукта"
+                          className={`group/p absolute top-1/2 -translate-y-1/2 ${originId === o.id ? "right-10" : "right-3"} h-8 pl-2 pr-2 hover:pr-3 rounded-full flex items-center gap-1 overflow-hidden border border-primary/30 bg-card text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary shadow-sm transition-all duration-200 active:scale-90`}>
+                          <Icon name="FileText" size={14} className="flex-shrink-0 transition-transform group-hover/p:rotate-[-8deg]" />
+                          <span className="max-w-0 group-hover/p:max-w-[60px] overflow-hidden whitespace-nowrap text-[11px] font-semibold transition-all duration-200">Паспорт</span>
+                        </button>
+                      )}
+                    </div>
                   ))}
                 </div>
               )
