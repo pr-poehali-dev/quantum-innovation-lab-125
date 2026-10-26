@@ -237,7 +237,7 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
               <Icon name="ArrowLeft" size={14} /> {step === 0 && onCancel ? "К заказу" : "Назад"}
             </button>
             <button type="button" onClick={isLast ? finish : () => goTo(step + 1)} disabled={!canNext}
-              className="flex items-center gap-2 px-7 py-3 rounded-full text-sm bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-primary/25 active:scale-[0.98]">
+              className="flex items-center gap-2 px-7 py-3 rounded-full text-sm bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-primary/25 active:scale-[0.98] animate-cta-wave motion-reduce:animate-none disabled:animate-none">
               {isLast ? <><Icon name="Check" size={14} /> {initial ? "Сохранить позицию" : "Добавить в заказ"}</> : <>Далее <Icon name="ArrowRight" size={14} /></>}
             </button>
           </div>

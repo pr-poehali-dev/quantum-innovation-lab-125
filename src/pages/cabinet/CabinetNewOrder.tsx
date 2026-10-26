@@ -278,7 +278,7 @@ const CabinetNewOrder = ({ resumeDealId, onFinished, onCancel }: Props) => {
             <div className="flex gap-2 pt-1">
               <button onClick={onCancel} className="px-5 py-3 rounded-xl border border-border text-sm font-medium hover:bg-secondary/40 transition-colors">Отмена</button>
               <button onClick={startCalc}
-                className="flex-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-xl text-sm font-bold hover:bg-primary/90 transition-all active:scale-[0.99]">
+                className={`flex-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-xl text-sm font-bold hover:bg-primary/90 transition-all active:scale-[0.99] motion-reduce:animate-none ${batchName.trim() ? "animate-cta-wave" : "opacity-70"}`}>
                 Далее: собрать состав <Icon name="ArrowRight" size={15} />
               </button>
             </div>
@@ -303,8 +303,8 @@ const CabinetNewOrder = ({ resumeDealId, onFinished, onCancel }: Props) => {
           onRemove={handleRemove}
           onAdd={() => { setEditingUid(null); setAdding(true); setPhase("calc"); }}>
           <button onClick={toLogistics} disabled={busy || positions.length === 0}
-            className="w-full flex items-center justify-center gap-2 bg-foreground text-background py-4 rounded-2xl text-[15px] font-bold hover:bg-foreground/90 transition-all shadow-lg shadow-foreground/20 disabled:opacity-60 active:scale-[0.99]">
-            {busy ? <div className="w-4 h-4 border-2 border-background border-t-transparent rounded-full animate-spin" /> : null}
+            className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-4 rounded-2xl text-[15px] font-bold hover:bg-primary/90 transition-all shadow-md shadow-primary/25 animate-cta-wave motion-reduce:animate-none disabled:opacity-60 disabled:animate-none active:scale-[0.99]">
+            {busy ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : null}
             Далее: доставка {!busy && <Icon name="ArrowRight" size={16} />}
           </button>
           <button onClick={saveDraftAndExit} disabled={busy}
@@ -368,7 +368,7 @@ const CabinetNewOrder = ({ resumeDealId, onFinished, onCancel }: Props) => {
                 <Icon name="ArrowLeft" size={14} /> Назад
               </button>
               <button onClick={send} disabled={busy}
-                className="flex-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-xl text-sm font-bold hover:bg-primary/90 transition-all disabled:opacity-60 active:scale-[0.99]">
+                className="flex-1 flex items-center justify-center gap-2 bg-primary text-primary-foreground py-3 rounded-xl text-sm font-bold hover:bg-primary/90 transition-all animate-cta-wave motion-reduce:animate-none disabled:opacity-60 disabled:animate-none active:scale-[0.99]">
                 {busy ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Icon name="Send" size={15} />}
                 Отправить на согласование
               </button>

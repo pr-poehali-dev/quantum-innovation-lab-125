@@ -85,7 +85,7 @@ const PriceCalculator = () => {
             </p>
           </div>
           <button type="button" onClick={openPriceTable}
-            className="group flex items-center justify-center gap-2.5 self-start md:self-end flex-shrink-0 bg-card border border-primary/30 text-primary rounded-2xl px-5 py-3 text-sm font-semibold shadow-sm hover:bg-primary hover:text-primary-foreground hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-[0.98]">
+            className="group flex items-center justify-center gap-2.5 self-start md:self-end flex-shrink-0 bg-foreground text-background rounded-2xl px-5 py-3 text-sm font-semibold shadow-md hover:bg-foreground/85 hover:shadow-lg transition-all active:scale-[0.98]">
             <Icon name="Table2" size={16} />
             Прайс-лист
             <Icon name="ArrowUpRight" size={14} className="opacity-60 group-hover:opacity-100 transition-opacity" />
@@ -111,7 +111,7 @@ const PriceCalculator = () => {
             onAdd={() => { setEditingUid(null); setView("wizard"); }}
           >
             <button type="button" onClick={handleSend}
-              className="w-full flex items-center justify-center gap-2 bg-foreground text-background py-4 rounded-2xl text-[15px] font-bold hover:bg-foreground/90 transition-all shadow-lg shadow-foreground/20 active:scale-[0.99]">
+              className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground py-4 rounded-2xl text-[15px] font-bold hover:bg-primary/90 transition-all shadow-md shadow-primary/25 animate-cta-wave motion-reduce:animate-none active:scale-[0.99]">
               <Icon name="Send" size={15} /> Отправить заявку на согласование
             </button>
             <button type="button" onClick={handleCabinet}
