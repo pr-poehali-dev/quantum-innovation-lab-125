@@ -124,11 +124,14 @@ const PassportEditor = ({ origins, passports, onChange, authHeaders, aboutUrl, o
                   </div>
                 </div>
 
-                <div className="grid sm:grid-cols-3 gap-3">
+                <div className="grid sm:grid-cols-2 gap-3">
                   <Field label="РАЗМЕР ЗЕРНА · СКРИН">{txt(o.id, "screen", 0, "18")}</Field>
                   <Field label="ОБРАБОТКА">{txt(o.id, "process", 0, "Мытая")}</Field>
-                  <Field label="ОБЖАРКА">{txt(o.id, "roast", 0, "Светлая · под фильтр")}</Field>
                 </div>
+                <p className="text-[12px] text-muted-foreground bg-background border border-border rounded-lg px-3 py-2 flex items-start gap-2">
+                  <Icon name="Star" size={13} className="text-primary flex-shrink-0 mt-0.5" />
+                  Рекомендуемая обжарка выбирается в разделе «Рекомендуемая обжарка» выше. Она показывается в паспорте и плашкой в калькуляторе.
+                </p>
 
                 <div className="grid sm:grid-cols-3 gap-3">
                   <Field label="КИСЛОТНОСТЬ"><Rating value={p.acidity} onChange={n => patch(o.id, { acidity: n })} /></Field>

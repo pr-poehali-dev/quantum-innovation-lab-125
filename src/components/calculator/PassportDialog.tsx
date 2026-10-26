@@ -60,15 +60,15 @@ const PassportDialog = ({ origin, onClose, onSelect, selected }: Props) => {
             </div>
 
             <div className="flex-1 overflow-y-auto bg-background p-4 sm:p-6">
-              <div className="grid md:grid-cols-[260px_minmax(0,1fr)] gap-4">
-                <div className="space-y-3">
+              <div className="grid md:grid-cols-[260px_minmax(0,1fr)] gap-3 items-stretch">
+                <div className="flex flex-col gap-3 min-w-0">
                   {p.photo_url && (
-                    <div className="rounded-2xl border border-border bg-card p-2.5">
-                      <img src={p.photo_url} alt={origin.label} className="w-full aspect-square object-cover rounded-xl" />
+                    <div className="relative flex-1 min-h-[240px] rounded-2xl border border-border bg-card overflow-hidden">
+                      <img src={p.photo_url} alt={origin.label} className="absolute inset-2.5 w-[calc(100%-1.25rem)] h-[calc(100%-1.25rem)] object-cover rounded-xl" />
                     </div>
                   )}
                   {notes.length > 0 && (
-                    <div className="rounded-2xl border border-border bg-card p-4">
+                    <div className={`rounded-2xl border border-border bg-card p-4 ${p.photo_url ? "" : "flex-1"}`}>
                       <p className="text-[10px] font-mono tracking-widest text-muted-foreground mb-2">ВКУСОВОЙ ПРОФИЛЬ</p>
                       <div className="flex flex-wrap gap-1.5">
                         {notes.map(n => (
@@ -84,7 +84,14 @@ const PassportDialog = ({ origin, onClose, onSelect, selected }: Props) => {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     <Fact label="РАЗМЕР ЗЕРНА · СКРИН" value={p.screen} />
                     <Fact label="ОБРАБОТКА" value={p.process} />
-                    <Fact label="ОБЖАРКА" value={p.roast} />
+                    {origin.recommended_roast && (
+                      <div className="rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3">
+                        <p className="text-[10px] font-mono tracking-widest text-primary mb-1 flex items-center gap-1">
+                          <Icon name="Star" size={10} /> РЕКОМЕНДУЕМАЯ ОБЖАРКА
+                        </p>
+                        <p className="text-[13px] font-semibold leading-snug">{origin.recommended_roast}</p>
+                      </div>
+                    )}
                     <Scale label="КИСЛОТНОСТЬ" value={p.acidity} />
                     <Scale label="ПЛОТНОСТЬ" value={p.density} />
                     <Scale label="АРОМАТ" value={p.aroma} />

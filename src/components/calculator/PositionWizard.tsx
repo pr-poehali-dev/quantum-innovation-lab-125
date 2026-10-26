@@ -29,7 +29,7 @@ const Card = ({ label, desc, selected, onClick, padRight }: { label: string; des
     className={`relative text-left p-3.5 rounded-2xl border transition-all duration-200 w-full active:scale-[0.98] ${
       selected ? "border-primary bg-primary/8 shadow-sm shadow-primary/10" : "border-border hover:border-primary/50 hover:bg-secondary/60"
     }`}>
-    <p className={`text-sm font-semibold leading-tight ${padRight ? "pr-20" : "pr-6"} ${selected ? "text-primary" : ""}`}>{label}</p>
+    <p className={`text-sm font-semibold leading-tight ${padRight ? "pr-[124px]" : "pr-6"} ${selected ? "text-primary" : ""}`}>{label}</p>
     {desc && <p className="text-[11px] text-muted-foreground mt-0.5">{desc}</p>}
     {selected && (
       <span className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
