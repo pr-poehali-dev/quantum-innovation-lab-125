@@ -31,14 +31,16 @@ const Breakdown = ({ formats, index }: { formats: PriceFormat[]; index: number }
       <div>
         {keys.map(k => {
           const a = valueOf(f1, k);
-          const b = valueOf(f2, k);
+          const isGreen = /зелен/i.test(k);
+          const b = valueOf(f2, k) ?? (isGreen ? a : null);
+          const a2 = valueOf(f1, k) ?? (isGreen ? b : null);
           return (
             <div key={k} className={`grid ${COLS} gap-x-2 sm:gap-x-4 py-2 border-t border-border/60 first:border-t-0`}>
               <div className="min-w-0">
                 <span className="block text-[13px] leading-snug">{meta[k].label}</span>
                 {meta[k].hint && <span className="block text-[11px] text-muted-foreground mt-0.5 leading-snug">{meta[k].hint}</span>}
               </div>
-              <span className={`text-right font-mono text-[12px] sm:text-[13px] tabular-nums ${a === null ? "text-muted-foreground/50" : "font-medium"}`}>{fmtPrice(a, 2)}</span>
+              <span className={`text-right font-mono text-[12px] sm:text-[13px] tabular-nums ${a2 === null ? "text-muted-foreground/50" : "font-medium"}`}>{fmtPrice(a2, 2)}</span>
               <span className={`text-right font-mono text-[12px] sm:text-[13px] tabular-nums ${b === null ? "text-muted-foreground/50" : "font-medium"}`}>{fmtPrice(b, 2)}</span>
               <span />
             </div>
