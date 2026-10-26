@@ -12,7 +12,7 @@ export interface CalcOrigin {
 export interface LeadTimeTier { max_volume: number | null; days: number }
 
 export type WeightFormat = "1kg" | "250g";
-export type BagColor = "black" | "white" | "custom";
+export type BagColor = string;
 export type Grind = "beans" | "ground";
 
 export interface Position {
@@ -45,13 +45,68 @@ export const FORMAT_OPTIONS: { value: WeightFormat; label: string; desc: string 
   { value: "250g", label: "250 г", desc: "Розница, полка" },
 ];
 
-export const COLOR_OPTIONS: { value: BagColor; label: string; desc: string }[] = [
-  { value: "black", label: "Чёрный", desc: "Стандартный цвет" },
-  { value: "white", label: "Белый", desc: "Стандартный цвет" },
-  { value: "custom", label: "Своя упаковка", desc: "Детали — с менеджером" },
+export type PackType = "stm" | "label" | "plain";
+export type LabelPos = "top" | "center" | "bottom";
+export type BagTone = "black" | "white";
+export interface Pack { type: PackType; pos: LabelPos; tone: BagTone }
+
+export const PACK_TYPES: { value: PackType; label: string; desc: string }[] = [
+  { value: "stm", label: "СТМ — ваша марка", desc: "Ваш логотип и дизайн на всей упаковке" },
+  { value: "label", label: "Приват лейбл", desc: "Готовый пакет и ваша наклейка с логотипом" },
+  { value: "plain", label: "Без логотипа", desc: "Чистый пакет, чёрный или белый" },
 ];
 
-export const colorLabel = (v: string | null | undefined) => COLOR_OPTIONS.find(c => c.value === v)?.label ?? v ?? "—";
+export const LABEL_POSITIONS: { value: LabelPos; label: string; desc: string }[] = [
+  { value: "top", label: "Сверху", desc: "Под верхним швом" },
+  { value: "center", label: "По центру", desc: "Классическое место" },
+  { value: "bottom", label: "Снизу", desc: "В нижней части" },
+];
+
+export const TONE_OPTIONS: { value: BagTone; label: string }[] = [
+  { value: "black", label: "Чёрный" },
+  { value: "white", label: "Белый" },
+];
+
+export const DEFAULT_PACK: Pack = { type: "plain", pos: "center", tone: "black" };
+
+export const parsePack = (code: string | null | undefined): Pack => {
+  if (!code) return DEFAULT_PACK;
+  if (code === "custom" || code === "stm") return { ...DEFAULT_PACK, type: "stm", tone: "white" };
+  if (code.startsWith("label-")) {
+    const [, pos, tone] = code.split("-");
+    return {
+      type: "label",
+      pos: pos === "top" || pos === "bottom" ? pos : "center",
+      tone: tone === "white" ? "white" : "black",
+    };
+  }
+  return { ...DEFAULT_PACK, type: "plain", tone: code === "white" ? "white" : "black" };
+};
+
+export const packCode = (p: Pack): string =>
+  p.type === "stm" ? "custom" : p.type === "label" ? `label-${p.pos}-${p.tone}` : p.tone;
+
+const toneWord = (t: BagTone) => (t === "white" ? "белый" : "чёрный");
+const posWord = (v: LabelPos) => LABEL_POSITIONS.find(x => x.value === v)?.label.toLowerCase() ?? "";
+
+export const packShort = (code: string | null | undefined): string => {
+  if (!code) return "—";
+  const p = parsePack(code);
+  if (p.type === "stm") return "СТМ";
+  if (p.type === "label") return `Приват лейбл · ${toneWord(p.tone)}`;
+  return `Без логотипа · ${toneWord(p.tone)}`;
+};
+
+export const packLabel = (code: string | null | undefined): string => {
+  if (!code) return "—";
+  const p = parsePack(code);
+  if (p.type === "stm") return "СТМ — ваш логотип и дизайн на упаковке";
+  if (p.type === "label") return `Приват лейбл — наклейка ${posWord(p.pos)}, ${toneWord(p.tone)} пакет`;
+  return `Без логотипа — ${toneWord(p.tone)} пакет`;
+};
+
+export const colorLabel = packLabel;
+
 export const formatLabel = (v: string | null | undefined) => FORMAT_OPTIONS.find(f => f.value === v)?.label ?? v ?? "—";
 
 export const MAX_VOLUME = 5000;
@@ -149,5 +204,5 @@ export const positionsToApi = (positions: Position[]) =>
   positions.map(p => ({
     origin_id: p.origin_id, roast: p.roast, grind: p.grind === "ground" ? "ground" : "beans", packaging: PACKAGING_LABEL, weight_format: p.weight_format,
     color: p.color, volume: p.volume, amount: p.amount,
-    note: p.color === "custom" ? "Своя упаковка — детали обсуждаются с менеджером" : "",
+    note: p.color === "custom" ? "СТМ — логотип и дизайн клиента, детали обсуждаются с менеджером" : parsePack(p.color).type === "label" ? "Приват лейбл — наклейка клиента, макет уточняется с менеджером" : "",
   }));

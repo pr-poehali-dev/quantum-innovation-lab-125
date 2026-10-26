@@ -133,7 +133,7 @@ const SiteLeads = ({ showToast, onCount }: Props) => {
                           <div key={i} className="flex justify-between gap-3 text-[12px]">
                             <span className="min-w-0">
                               <span className="font-semibold">{p.origin}</span>
-                              <span className="text-muted-foreground"> · {p.roast} · {p.grind || "Зерно"} · {p.weight_format} · пакет: {p.bag_color}</span>
+                              <span className="text-muted-foreground"> · {p.roast} · {p.grind || "Зерно"} · {p.weight_format} · {p.bag_color}</span>
                               {p.custom_package && <span className="text-primary"> · своя упаковка</span>}
                             </span>
                             <span className="font-mono flex-shrink-0">{(p.volume ?? 0).toLocaleString("ru-RU")} кг · {(p.amount ?? 0).toLocaleString("ru-RU")} ₽</span>

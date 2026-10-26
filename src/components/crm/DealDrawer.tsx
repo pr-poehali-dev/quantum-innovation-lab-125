@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import { useStaffAuth } from "@/context/StaffAuthContext";
-import { BAG_COLORS } from "@/components/calculator/calculator.types";
+import { packLabel } from "@/lib/calcCore";
 import DealDocuments, { type DealDoc } from "@/components/crm/DealDocuments";
 
 const CRM_URL = "https://functions.poehali.dev/0fbf69fe-e1ba-4899-a9c0-98d37524abe1";
@@ -88,7 +88,7 @@ const formatDate = (iso: string) => {
   return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short", year: "numeric" }) + " в " +
     d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
 };
-const colorLabel = (v: string | null) => BAG_COLORS.find(c => c.value === v)?.label ?? v ?? "—";
+const colorLabel = packLabel;
 const weightLabel = (v: string | null) => v === "250g" ? "250 г" : v === "1kg" ? "1 кг" : v ?? "—";
 
 const DealDrawer = ({ dealId, onClose, onChanged, onOpenClient, showToast }: Props) => {
@@ -286,17 +286,17 @@ const DealDrawer = ({ dealId, onClose, onChanged, onOpenClient, showToast }: Pro
                         </span>
                         <p className="text-sm font-bold">Лот {lot.lot_number} — {lot.origin_label || "—"}</p>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                         {[
                           { label: "Обжарка", val: lot.roast || "—" },
                           { label: "Вид", val: lot.grind === "ground" ? "Молотый" : "Зерно" },
                           { label: "Фасовка", val: weightLabel(lot.weight_format) },
-                          { label: "Цвет", val: colorLabel(lot.color) },
+                          { label: "Упаковка", val: colorLabel(lot.color) },
                           { label: "Объём", val: lot.volume ? `${lot.volume} кг` : "—" },
                         ].map(p => (
                           <div key={p.label} className="bg-secondary/40 rounded-xl px-3 py-2 border border-border/50">
                             <p className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider mb-0.5">{p.label}</p>
-                            <p className="text-[12px] font-semibold truncate">{p.val}</p>
+                            <p className="text-[12px] font-semibold leading-snug">{p.val}</p>
                           </div>
                         ))}
                       </div>

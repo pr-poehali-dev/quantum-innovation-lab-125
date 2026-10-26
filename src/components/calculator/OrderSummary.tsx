@@ -36,11 +36,11 @@ const OrderSummary = ({ positions, tiers, onEdit, onRemove, onAdd, children }: P
                 <div className="min-w-0">
                   <p className="font-semibold text-sm leading-tight">{p.origin_label}</p>
                   <p className="text-[12px] text-muted-foreground mt-1 leading-relaxed">
-                    {p.roast} обжарка · {grindLabel(p.grind)} · {formatLabel(p.weight_format)} · пакет: {colorLabel(p.color)}
+                    {p.roast} обжарка · {grindLabel(p.grind)} · {formatLabel(p.weight_format)} · {colorLabel(p.color)}
                   </p>
-                  {p.color === "custom" && (
+                  {(p.color === "custom" || (p.color ?? "").startsWith("label-")) && (
                     <p className="text-[11px] text-primary mt-1 flex items-center gap-1">
-                      <Icon name="Info" size={11} /> Детали упаковки — с менеджером
+                      <Icon name="Info" size={11} /> Макет и детали упаковки — с менеджером
                     </p>
                   )}
                 </div>

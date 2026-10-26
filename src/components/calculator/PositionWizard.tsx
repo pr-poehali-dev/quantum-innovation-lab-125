@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/ui/icon";
+import BagPreview from "@/components/calculator/BagPreview";
 import {
-  COLOR_OPTIONS, FORMAT_OPTIONS, GRIND_OPTIONS, grindLabel, type Grind, MAX_VOLUME, PACKAGING_LABEL, ROAST_OPTIONS,
+  FORMAT_OPTIONS, PACK_TYPES, LABEL_POSITIONS, TONE_OPTIONS, parsePack, packCode, packShort, type Pack, GRIND_OPTIONS, grindLabel, type Grind, MAX_VOLUME, PACKAGING_LABEL, ROAST_OPTIONS,
   calcAmount, calcLeadTime, formatLabel, formatRub, newUid,
-  type BagColor, type CalcData, type Position, type WeightFormat,
+  type CalcData, type Position, type WeightFormat,
 } from "@/lib/calcCore";
 
 const STEP_DEFS = [
   { id: "origin", label: "Зерно", icon: "Leaf", title: "Выберите зерно", emoji: "🌿" },
   { id: "roast", label: "Обжарка", icon: "Flame", title: "Обжарка и вид кофе", emoji: "🔥" },
-  { id: "pack", label: "Упаковка", icon: "Box", title: "Фасовка и пакет", emoji: "📦" },
+  { id: "pack", label: "Упаковка", icon: "Box", title: "Упаковка", emoji: "📦" },
   { id: "volume", label: "Объём", icon: "BarChart2", title: "Объём позиции", emoji: "⚖️" },
 ];
 
@@ -42,7 +43,8 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
   const [roast, setRoast] = useState(initial?.roast ?? ROAST_OPTIONS[1].label);
   const [grind, setGrind] = useState<Grind>(initial?.grind ?? "beans");
   const [format, setFormat] = useState<WeightFormat>(initial?.weight_format ?? "1kg");
-  const [color, setColor] = useState<BagColor>(initial?.color ?? "black");
+  const [pack, setPack] = useState<Pack>(parsePack(initial?.color));
+  const color = packCode(pack);
   const [volume, setVolume] = useState(initial?.volume ?? calc.minVolume);
   const [volumeText, setVolumeText] = useState(String(initial?.volume ?? calc.minVolume));
   const topRef = useRef<HTMLDivElement>(null);
@@ -90,7 +92,7 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
   const hints = [
     "Выберите сорт — он определяет вкус и базовую цену",
     "Степень обжарки и вид (зерно или молотый) на цену не влияют",
-    "Фасовка и цвет пакета — одни на всю позицию",
+    "Выберите фасовку и вид упаковки — одни на всю позицию",
     `От ${calc.minVolume.toLocaleString("ru-RU")} до ${MAX_VOLUME.toLocaleString("ru-RU")} кг на одну позицию`,
   ];
 
@@ -184,19 +186,90 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
                   </div>
                 </div>
                 <div>
-                  <p className="text-[11px] font-mono text-muted-foreground mb-2 tracking-wider">ЦВЕТ ПАКЕТА</p>
-                  <div className="grid grid-cols-1 min-[420px]:grid-cols-3 gap-3">
-                    {COLOR_OPTIONS.map(c => (
-                      <Card key={c.value} label={c.label} desc={c.desc} selected={color === c.value} onClick={() => setColor(c.value)} />
-                    ))}
+                  <p className="text-[11px] font-mono text-muted-foreground mb-2 tracking-wider">УПАКОВКА</p>
+                  <div className="grid grid-cols-1 min-[560px]:grid-cols-3 gap-3">
+                    {PACK_TYPES.map(t => {
+                      const sel = pack.type === t.value;
+                      return (
+                        <button key={t.value} type="button" onClick={() => setPack({ ...pack, type: t.value })}
+                          className={`relative text-left p-3 rounded-2xl border transition-all duration-200 active:scale-[0.98] flex min-[560px]:flex-col items-center min-[560px]:items-stretch gap-3 ${
+                            sel ? "border-primary bg-primary/8 shadow-sm shadow-primary/10" : "border-border hover:border-primary/50 hover:bg-secondary/60"
+                          }`}>
+                          <span className={`flex-shrink-0 w-14 h-[74px] min-[560px]:w-full min-[560px]:h-28 rounded-xl flex items-center justify-center bg-secondary/50 text-foreground`}>
+                            <BagPreview type={t.value} tone={pack.tone} pos="center" mini className="h-full w-auto" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className={`block text-sm font-semibold leading-tight pr-6 ${sel ? "text-primary" : ""}`}>{t.label}</span>
+                            <span className="block text-[11px] text-muted-foreground mt-0.5">{t.desc}</span>
+                          </span>
+                          {sel && (
+                            <span className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                              <Icon name="Check" size={11} className="text-primary-foreground" />
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
-                  {color === "custom" && (
-                    <p className="text-[12px] text-primary bg-primary/8 border border-primary/20 rounded-xl px-3 py-2.5 mt-3 flex items-start gap-2">
-                      <Icon name="Info" size={13} className="flex-shrink-0 mt-0.5" />
-                      Стоимость считаем так же. Детали своей упаковки обсудит с вами менеджер.
-                    </p>
-                  )}
                 </div>
+
+                {pack.type === "stm" && (
+                  <p className="text-[12px] text-primary bg-primary/8 border border-primary/20 rounded-xl px-3 py-2.5 flex items-start gap-2">
+                    <Icon name="Info" size={13} className="flex-shrink-0 mt-0.5" />
+                    Ваш логотип и дизайн печатаются на всей упаковке так, как вы захотите. Макет и тираж согласует менеджер, стоимость считаем так же.
+                  </p>
+                )}
+
+                {pack.type === "label" && (
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-[11px] font-mono text-muted-foreground mb-2 tracking-wider">ГДЕ БУДЕТ НАКЛЕЙКА</p>
+                      <div className="grid grid-cols-3 gap-3">
+                        {LABEL_POSITIONS.map(l => {
+                          const sel = pack.pos === l.value;
+                          return (
+                            <button key={l.value} type="button" onClick={() => setPack({ ...pack, pos: l.value })}
+                              className={`relative p-2.5 rounded-2xl border transition-all active:scale-[0.98] text-center ${
+                                sel ? "border-primary bg-primary/8" : "border-border hover:border-primary/50 hover:bg-secondary/60"
+                              }`}>
+                              <span className="flex justify-center h-20 text-foreground">
+                                <BagPreview type="label" tone={pack.tone} pos={l.value} mini className="h-full w-auto" />
+                              </span>
+                              <span className={`block text-[13px] font-semibold mt-1.5 ${sel ? "text-primary" : ""}`}>{l.label}</span>
+                              <span className="block text-[10px] text-muted-foreground leading-tight">{l.desc}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <p className="text-[12px] text-primary bg-primary/8 border border-primary/20 rounded-xl px-3 py-2.5 flex items-start gap-2">
+                      <Icon name="Info" size={13} className="flex-shrink-0 mt-0.5" />
+                      Мы наклеим вашу этикетку на готовый пакет. Макет наклейки менеджер уточнит с вами после заявки.
+                    </p>
+                  </div>
+                )}
+
+                {pack.type !== "stm" && (
+                  <div>
+                    <p className="text-[11px] font-mono text-muted-foreground mb-2 tracking-wider">ЦВЕТ ПАКЕТА</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {TONE_OPTIONS.map(t => (
+                        <button key={t.value} type="button" onClick={() => setPack({ ...pack, tone: t.value })}
+                          className={`relative flex items-center gap-3 p-3 rounded-2xl border transition-all active:scale-[0.98] text-left ${
+                            pack.tone === t.value ? "border-primary bg-primary/8" : "border-border hover:border-primary/50 hover:bg-secondary/60"
+                          }`}>
+                          <span className={`w-6 h-6 rounded-full border border-border flex-shrink-0 ${t.value === "black" ? "bg-[#1c1c1e]" : "bg-[#f7f7f5]"}`} />
+                          <span className={`text-sm font-semibold ${pack.tone === t.value ? "text-primary" : ""}`}>{t.label}</span>
+                          {pack.tone === t.value && (
+                            <span className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                              <Icon name="Check" size={11} className="text-primary-foreground" />
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 bg-secondary/40 rounded-xl px-3 py-2.5">
                   <Icon name="Package" size={13} className="flex-shrink-0" /> Тип упаковки: {PACKAGING_LABEL}
                 </p>
@@ -267,7 +340,7 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
               { label: "Обжарка", val: step >= 1 || initial ? roast : "—" },
               { label: "Вид", val: step >= 1 || initial ? grindLabel(grind) : "—" },
               { label: "Фасовка", val: step >= 2 || initial ? formatLabel(format) : "—" },
-              { label: "Пакет", val: step >= 2 || initial ? COLOR_OPTIONS.find(c => c.value === color)?.label ?? "—" : "—" },
+              { label: "Пакет", val: step >= 2 || initial ? packShort(color) : "—" },
               { label: "Объём", val: `${volume.toLocaleString("ru-RU")} кг` },
             ].map(r => (
               <div key={r.label} className="flex justify-between gap-3 text-xs opacity-80">
@@ -276,6 +349,22 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
             ))}
           </div>
         </div>
+        {step >= 2 && (
+          <div className="bg-card border border-border rounded-2xl p-4 flex items-center gap-4">
+            <span className="flex-shrink-0 w-20 h-28 flex items-center justify-center text-foreground">
+              <BagPreview type={pack.type} tone={pack.tone} pos={pack.pos} className="h-full w-auto" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-mono text-muted-foreground tracking-wider mb-1">ВАША УПАКОВКА</p>
+              <p className="text-sm font-semibold leading-snug">{packShort(color)}</p>
+              <p className="text-[11px] text-muted-foreground mt-1 leading-snug">
+                {pack.type === "stm" ? "Логотип и дизайн — на всей упаковке"
+                  : pack.type === "label" ? "Наклейка с вашим логотипом на готовом пакете"
+                  : "Без нанесения, чистый пакет"}
+              </p>
+            </div>
+          </div>
+        )}
         <div className="bg-card border border-border rounded-2xl p-4 flex items-center gap-3">
           <span className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0"><Icon name="Clock" size={16} /></span>
           <div>

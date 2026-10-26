@@ -52,7 +52,7 @@ const PriceCalculator = () => {
       positions: positions.map(p => ({
         origin: p.origin_label, roast: p.roast, grind: grindLabel(p.grind), weight_format: formatLabel(p.weight_format),
         bag_color: colorLabel(p.color), volume: p.volume, amount: p.amount,
-        custom_package: p.color === "custom",
+        custom_package: p.color === "custom" || (p.color ?? "").startsWith("label-"),
       })),
       total,
       total_volume: positions.reduce((s, p) => s + p.volume, 0),

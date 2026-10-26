@@ -79,10 +79,10 @@ const CabinetDealDetail = ({ deal }: Props) => {
                 <div className="min-w-0">
                   <p className="text-sm font-semibold">{lot.origin_label || "—"}</p>
                   <p className="text-[12px] text-muted-foreground mt-1">
-                    {lot.roast} обжарка · {grindLabel(lot.grind)} · {formatLabel(lot.weight_format)} · пакет: {colorLabel(lot.color)}
+                    {lot.roast} обжарка · {grindLabel(lot.grind)} · {formatLabel(lot.weight_format)} · {colorLabel(lot.color)}
                   </p>
-                  {lot.color === "custom" && (
-                    <p className="text-[11px] text-primary mt-1 flex items-center gap-1"><Icon name="Info" size={11} /> Детали упаковки — с менеджером</p>
+                  {(lot.color === "custom" || (lot.color ?? "").startsWith("label-")) && (
+                    <p className="text-[11px] text-primary mt-1 flex items-center gap-1"><Icon name="Info" size={11} /> Макет и детали упаковки — с менеджером</p>
                   )}
                 </div>
               </div>
