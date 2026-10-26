@@ -51,6 +51,7 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
   const [volume, setVolume] = useState(initial?.volume ?? calc.minVolume);
   const [volumeText, setVolumeText] = useState(String(initial?.volume ?? calc.minVolume));
   const topRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!initial) { setVolume(calc.minVolume); setVolumeText(String(calc.minVolume)); }
@@ -67,7 +68,15 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
 
   const goTo = (i: number) => {
     setStep(i);
-    topRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    bodyRef.current?.scrollTo({ top: 0 });
+    const el = topRef.current;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      if (r.top < 60 || r.bottom > window.innerHeight) {
+        const y = window.scrollY + r.top - (window.innerWidth < 1024 ? 64 : 96);
+        window.scrollTo({ top: y, behavior: "smooth" });
+      }
+    }
   };
 
   const commitVolume = (raw: string) => {
@@ -100,10 +109,10 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
   ];
 
   return (
-    <div ref={topRef} className="grid lg:grid-cols-3 gap-5 items-start scroll-mt-24">
+    <div ref={topRef} className="max-lg:flex max-lg:flex-col max-lg:gap-2.5 max-lg:w-full max-lg:min-w-0 max-lg:h-[calc(100dvh-5.5rem)] max-lg:min-h-[480px] max-lg:max-h-[760px] lg:grid lg:grid-cols-3 gap-5 max-lg:items-stretch lg:items-start scroll-mt-24">
       <PassportDialog origin={passportOrigin} onClose={() => setPassportOrigin(null)} onSelect={setOriginId} selected={passportOrigin?.id === originId} />
-      <div className="lg:col-span-2 space-y-4">
-        <div className="bg-card border border-border rounded-2xl p-3.5 sm:p-4 shadow-sm">
+      <div className="lg:col-span-2 max-lg:min-w-0 max-lg:flex max-lg:flex-col max-lg:flex-1 max-lg:min-h-0 max-lg:gap-2.5 lg:space-y-4">
+        <div className="bg-card border border-border rounded-2xl p-2.5 sm:p-4 shadow-sm flex-shrink-0">
           <div className="flex items-center">
             {STEP_DEFS.map((s, i) => {
               const done = i < step;
@@ -133,19 +142,19 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
           </div>
         </div>
 
-        <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-5 sm:px-6 pt-5 pb-4 border-b border-border/60 flex items-center justify-between gap-3">
+        <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden max-lg:flex max-lg:flex-col max-lg:flex-1 max-lg:min-h-0">
+          <div className="px-4 sm:px-6 pt-3 sm:pt-5 pb-3 sm:pb-4 border-b border-border/60 flex items-center justify-between gap-3 flex-shrink-0">
             <div className="min-w-0">
               <span className="text-[10px] font-mono text-muted-foreground tracking-widest">
                 ПОЗИЦИЯ {positionNumber} · ШАГ {step + 1} / {STEP_DEFS.length}
               </span>
               <h3 className="font-bold text-lg mt-0.5 leading-tight">{STEP_DEFS[step].title}</h3>
-              <p className="text-[12px] text-muted-foreground mt-1">{hints[step]}</p>
+              <p className="text-[12px] text-muted-foreground mt-1 max-sm:line-clamp-1">{hints[step]}</p>
             </div>
-            <span className="text-3xl opacity-40 flex-shrink-0">{STEP_DEFS[step].emoji}</span>
+            <span className="text-3xl opacity-40 flex-shrink-0 max-sm:hidden">{STEP_DEFS[step].emoji}</span>
           </div>
 
-          <div className="p-5 sm:p-6 min-h-[250px]">
+          <div ref={bodyRef} className="p-4 sm:p-6 lg:min-h-[250px] max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto max-lg:overscroll-contain">
             {step === 0 && (
               calc.origins.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-10">
@@ -344,21 +353,26 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
             )}
           </div>
 
-          <div className="flex justify-between items-center gap-2 px-4 sm:px-6 py-4 border-t border-border/60 bg-secondary/20">
+          <div className="flex justify-between items-center gap-2 px-3 sm:px-6 py-3 sm:py-4 border-t border-border/60 bg-secondary/20 flex-shrink-0 max-lg:pr-[68px]">
             <button type="button" onClick={() => (step === 0 ? onCancel?.() : goTo(step - 1))}
               disabled={step === 0 && !onCancel}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-full text-sm border border-border hover:bg-card transition-all disabled:opacity-30 disabled:cursor-not-allowed">
-              <Icon name="ArrowLeft" size={14} /> {step === 0 && onCancel ? "К заказу" : "Назад"}
+              aria-label={step === 0 && onCancel ? "К заказу" : "Назад"}
+              className="flex items-center justify-center gap-1.5 max-sm:w-10 max-sm:h-10 sm:px-4 sm:py-2.5 rounded-full text-sm border border-border hover:bg-card transition-all disabled:opacity-30 disabled:cursor-not-allowed flex-shrink-0">
+              <Icon name="ArrowLeft" size={14} /> <span className="max-sm:hidden">{step === 0 && onCancel ? "К заказу" : "Назад"}</span>
             </button>
+            <div className="lg:hidden flex-1 min-w-0 text-center leading-tight">
+              <p className="font-serif text-[15px] font-bold whitespace-nowrap">{formatRub(amount)}</p>
+              <p className="text-[10px] text-muted-foreground font-mono whitespace-nowrap">{perKg.toLocaleString("ru-RU")} ₽/кг</p>
+            </div>
             <button type="button" onClick={isLast ? finish : () => goTo(step + 1)} disabled={!canNext}
-              className="flex items-center gap-2 px-7 py-3 rounded-full text-sm bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-primary/25 active:scale-[0.98] animate-cta-wave motion-reduce:animate-none disabled:animate-none">
+              className="flex items-center justify-center gap-2 px-4 sm:px-7 h-11 sm:h-auto sm:py-3 rounded-full text-sm bg-primary flex-shrink-0 text-primary-foreground font-bold hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-primary/25 active:scale-[0.98] animate-cta-wave motion-reduce:animate-none disabled:animate-none">
               {isLast ? <><Icon name="Check" size={14} /> {initial ? "Сохранить позицию" : "Добавить в заказ"}</> : <>Далее <Icon name="ArrowRight" size={14} /></>}
             </button>
           </div>
         </div>
       </div>
 
-      <div className="space-y-3 lg:sticky lg:top-24">
+      <div className="hidden lg:block space-y-3 lg:sticky lg:top-24">
         <div className="bg-primary rounded-2xl p-5 sm:p-6 text-primary-foreground shadow-xl shadow-primary/20">
           <p className="text-[10px] font-mono opacity-60 mb-1 tracking-wider">ЭТА ПОЗИЦИЯ</p>
           <p className="font-serif text-3xl sm:text-4xl font-bold">{formatRub(amount)}</p>
