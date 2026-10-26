@@ -32,7 +32,7 @@ const Card = ({ label, desc, selected, onClick, padRight }: { label: string; des
     <p className={`text-sm font-semibold leading-tight ${padRight ? "pr-[124px]" : "pr-6"} ${selected ? "text-primary" : ""}`}>{label}</p>
     {desc && <p className="text-[11px] text-muted-foreground mt-0.5">{desc}</p>}
     {selected && (
-      <span className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+      <span className={`absolute right-2.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center ${padRight ? "top-1/2 -translate-y-1/2" : "top-2.5"}`}>
         <Icon name="Check" size={11} className="text-primary-foreground" />
       </span>
     )}
