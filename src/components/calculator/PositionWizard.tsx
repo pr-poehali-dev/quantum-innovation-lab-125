@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/ui/icon";
+import GrindPicker from "@/components/calculator/GrindPicker";
 import BagPreview from "@/components/calculator/BagPreview";
 import {
   FORMAT_OPTIONS, PACK_TYPES, LABEL_SIZES, TONE_OPTIONS, parsePack, packCode, packShort, type Pack, GRIND_OPTIONS, grindLabel, type Grind, MAX_VOLUME, PACKAGING_LABEL, ROAST_OPTIONS,
@@ -59,7 +60,7 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
   const amount = calcAmount(origin, format, volume);
   const perKg = volume > 0 ? Math.round(amount / volume) : 0;
   const leadTime = calcLeadTime(volume, calc.tiers);
-  const canNext = step === 0 ? !!origin : step === 3 ? volumeValid : true;
+  const canNext = step === 0 ? !!origin : step === 1 ? grind === "beans" || grind.startsWith("ground-") : step === 3 ? volumeValid : true;
   const isLast = step === STEP_DEFS.length - 1;
 
   const goTo = (i: number) => {
@@ -175,10 +176,18 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
               <div className="mt-5">
                 <p className="text-[11px] font-mono text-muted-foreground mb-2 tracking-wider">ВИД КОФЕ</p>
                 <div className="grid grid-cols-2 gap-3">
-                  {GRIND_OPTIONS.map(g => (
-                    <Card key={g.value} label={g.label} desc={g.desc} selected={grind === g.value} onClick={() => setGrind(g.value)} />
-                  ))}
+                  {GRIND_OPTIONS.map(g => {
+                    const sel = g.value === "beans" ? grind === "beans" : grind !== "beans";
+                    return <Card key={g.value} label={g.label} desc={g.desc} selected={sel}
+                      onClick={() => setGrind(g.value === "beans" ? "beans" : grind === "beans" ? "ground" : grind)} />;
+                  })}
                 </div>
+                {grind !== "beans" && (
+                  <div className="mt-4" style={{ animation: "grind-in .3s ease-out" }}>
+                    <p className="text-[11px] font-mono text-muted-foreground mb-2 tracking-wider">ПОМОЛ</p>
+                    <GrindPicker value={grind} onChange={setGrind} />
+                  </div>
+                )}
               </div>
             )}
 

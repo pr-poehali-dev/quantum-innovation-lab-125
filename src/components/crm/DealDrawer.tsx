@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import { useStaffAuth } from "@/context/StaffAuthContext";
-import { packLabel } from "@/lib/calcCore";
+import { grindLabel, packLabel } from "@/lib/calcCore";
 import DealDocuments, { type DealDoc } from "@/components/crm/DealDocuments";
 
 const CRM_URL = "https://functions.poehali.dev/0fbf69fe-e1ba-4899-a9c0-98d37524abe1";
@@ -289,7 +289,7 @@ const DealDrawer = ({ dealId, onClose, onChanged, onOpenClient, showToast }: Pro
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                         {[
                           { label: "Обжарка", val: lot.roast || "—" },
-                          { label: "Вид", val: lot.grind === "ground" ? "Молотый" : "Зерно" },
+                          { label: "Вид", val: grindLabel(lot.grind) },
                           { label: "Фасовка", val: weightLabel(lot.weight_format) },
                           { label: "Упаковка", val: colorLabel(lot.color) },
                           { label: "Объём", val: lot.volume ? `${lot.volume} кг` : "—" },

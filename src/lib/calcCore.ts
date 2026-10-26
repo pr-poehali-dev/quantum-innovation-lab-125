@@ -14,7 +14,8 @@ export interface LeadTimeTier { max_volume: number | null; days: number }
 
 export type WeightFormat = "1kg" | "250g";
 export type BagColor = string;
-export type Grind = "beans" | "ground";
+export type GrindLevel = "fine" | "medium" | "coarse";
+export type Grind = "beans" | "ground" | `ground-${GrindLevel}`;
 
 export interface Position {
   uid: string;
@@ -39,7 +40,37 @@ export const GRIND_OPTIONS: { value: Grind; label: string; desc: string }[] = [
   { value: "ground", label: "Молотый", desc: "Помол под ваш способ заваривания" },
 ];
 
-export const grindLabel = (v: string | null | undefined) => (v === "ground" ? "Молотый" : "Зерно");
+export const GRIND_LEVELS: { value: GrindLevel; label: string; hint: string; methods: { name: string; icon: string }[] }[] = [
+  { value: "fine", label: "Мелкий", hint: "Для насыщенного и плотного вкуса", methods: [
+    { name: "Турка, чашка (ультратонкий)", icon: "Flame" },
+    { name: "Эспрессо", icon: "Gauge" },
+  ] },
+  { value: "medium", label: "Средний", hint: "Универсальный, мягкий баланс", methods: [
+    { name: "Гейзерная кофеварка", icon: "Flame" },
+    { name: "Аэропресс", icon: "Syringe" },
+    { name: "Пуровер", icon: "Droplets" },
+    { name: "Сифон", icon: "FlaskConical" },
+    { name: "Домашняя рожковая кофемашина", icon: "Coffee" },
+  ] },
+  { value: "coarse", label: "Крупный", hint: "Для чистого и светлого вкуса", methods: [
+    { name: "Кемекс", icon: "FlaskConical" },
+    { name: "Френч-пресс", icon: "Beaker" },
+    { name: "Фильтр", icon: "Filter" },
+    { name: "Капельная кофеварка", icon: "Droplets" },
+  ] },
+];
+
+export const normalizeGrind = (v: string | null | undefined): Grind => {
+  if (v === "ground-fine" || v === "ground-medium" || v === "ground-coarse" || v === "ground") return v;
+  return "beans";
+};
+
+export const grindLabel = (v: string | null | undefined) => {
+  if (!v || v === "beans") return "Зерно";
+  if (v === "ground") return "Молотый";
+  const lvl = GRIND_LEVELS.find(l => `ground-${l.value}` === v);
+  return lvl ? `Молотый, ${lvl.label.toLowerCase()}` : "Молотый";
+};
 
 export const FORMAT_OPTIONS: { value: WeightFormat; label: string; desc: string }[] = [
   { value: "1kg", label: "1 кг", desc: "HoReCa, оптовые продажи" },
@@ -203,7 +234,7 @@ export const clearCart = () => {
 
 export const positionsToApi = (positions: Position[]) =>
   positions.map(p => ({
-    origin_id: p.origin_id, roast: p.roast, grind: p.grind === "ground" ? "ground" : "beans", packaging: PACKAGING_LABEL, weight_format: p.weight_format,
+    origin_id: p.origin_id, roast: p.roast, grind: normalizeGrind(p.grind), packaging: PACKAGING_LABEL, weight_format: p.weight_format,
     color: p.color, volume: p.volume, amount: p.amount,
     note: p.color === "custom" ? "СТМ — логотип и дизайн клиента, детали обсуждаются с менеджером" : parsePack(p.color).type === "label" ? "Приват лейбл — наклейка клиента, макет уточняется с менеджером" : "",
   }));

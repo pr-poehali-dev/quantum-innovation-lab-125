@@ -4,6 +4,7 @@ import PositionWizard from "@/components/calculator/PositionWizard";
 import OrderSummary from "@/components/calculator/OrderSummary";
 import { useClientAuth, type LogisticsField } from "@/context/ClientAuthContext";
 import {
+  normalizeGrind,
   clearCart, formatRub, loadCart, maxLeadTime, positionsToApi, saveCart, useCalcData, newUid,
   type Position,
 } from "@/lib/calcCore";
@@ -83,7 +84,7 @@ const CabinetNewOrder = ({ resumeDealId, onFinished, onCancel }: Props) => {
       setDealId(deal.id);
       setPositions(deal.lots.map(l => ({
         uid: newUid(), origin_id: l.origin_id ?? 0, origin_label: l.origin_label ?? "—",
-        roast: l.roast ?? "Средняя", grind: l.grind === "ground" ? "ground" : "beans", weight_format: l.weight_format === "250g" ? "250g" : "1kg",
+        roast: l.roast ?? "Средняя", grind: normalizeGrind(l.grind), weight_format: l.weight_format === "250g" ? "250g" : "1kg",
         color: l.color || "black",
         volume: l.volume ?? calc.minVolume, amount: l.amount ?? 0,
       })));

@@ -84,6 +84,10 @@ def get_staff(cur, token: str):
     return {"id": row[0], "email": row[1], "name": row[2], "is_owner": row[3], "role": row[4]}
 
 
+def norm_grind(v):
+    return v if v in ("ground", "ground-fine", "ground-medium", "ground-coarse") else "beans"
+
+
 def fetch_lots(cur, deal_id):
     cur.execute(f"""
         SELECT l.id, l.lot_number, l.origin_id, co.label, l.roast, l.packaging, l.weight_format,
@@ -489,7 +493,7 @@ def handler(event: dict, context) -> dict:
                     WHERE id=%s
                 """, (
                     body.get("origin_id"), body.get("roast"), body.get("packaging"), body.get("weight_format"),
-                    body.get("color"), body.get("volume"), body.get("amount"), body.get("note", ""), "ground" if body.get("grind") == "ground" else "beans", lot_id,
+                    body.get("color"), body.get("volume"), body.get("amount"), body.get("note", ""), norm_grind(body.get("grind")), lot_id,
                 ))
             else:
                 cur.execute(f"SELECT COALESCE(MAX(lot_number),0)+1 FROM {SCHEMA}.deal_lots WHERE deal_id=%s", (deal_id,))
@@ -501,7 +505,7 @@ def handler(event: dict, context) -> dict:
                 """, (
                     deal_id, lot_number, body.get("origin_id"), body.get("roast"), body.get("packaging"),
                     body.get("weight_format"), body.get("color"), body.get("volume"), body.get("amount"), body.get("note", ""),
-                    "ground" if body.get("grind") == "ground" else "beans",
+                    norm_grind(body.get("grind")),
                 ))
                 lot_id = cur.fetchone()[0]
             conn.commit()

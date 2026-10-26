@@ -155,6 +155,10 @@ def send_email(cur, conn, to_email: str, subject: str, html: str):
         pass
 
 
+def norm_grind(v):
+    return v if v in ("ground", "ground-fine", "ground-medium", "ground-coarse") else "beans"
+
+
 def fetch_lots(cur, deal_id):
     cur.execute(f"""
         SELECT l.id, l.lot_number, l.origin_id, co.label, l.roast, l.packaging, l.weight_format,
@@ -390,7 +394,7 @@ def handler(event: dict, context) -> dict:
                     WHERE id=%s
                 """, (
                     body.get("origin_id"), body.get("roast"), body.get("packaging"), body.get("weight_format"),
-                    body.get("color"), body.get("volume"), body.get("amount"), body.get("note", ""), "ground" if body.get("grind") == "ground" else "beans", lot_id,
+                    body.get("color"), body.get("volume"), body.get("amount"), body.get("note", ""), norm_grind(body.get("grind")), lot_id,
                 ))
                 conn.commit()
                 return ok({"ok": True, "id": lot_id})
@@ -413,7 +417,7 @@ def handler(event: dict, context) -> dict:
             """, (
                 deal_id, lot_number, body.get("origin_id"), body.get("roast"), body.get("packaging"),
                 body.get("weight_format"), body.get("color"), body.get("volume"), body.get("amount"), body.get("note", ""),
-                "ground" if body.get("grind") == "ground" else "beans",
+                norm_grind(body.get("grind")),
             ))
             lot_id = cur.fetchone()[0]
             conn.commit()
@@ -580,7 +584,7 @@ def handler(event: dict, context) -> dict:
                 args = (pos.get("origin_id"), pos.get("roast"),
                         pos.get("packaging") or "Квадропак, бесшовный пакет", pos.get("weight_format"),
                         pos.get("color"), vol, amount, pos.get("note") or "",
-                        "ground" if pos.get("grind") == "ground" else "beans")
+                        norm_grind(pos.get("grind")))
                 if reusable:
                     lot_id = reusable.pop(0)
                     cur.execute(f"""
