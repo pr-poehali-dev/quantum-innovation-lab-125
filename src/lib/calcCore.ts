@@ -13,12 +13,14 @@ export interface LeadTimeTier { max_volume: number | null; days: number }
 
 export type WeightFormat = "1kg" | "250g";
 export type BagColor = "black" | "white" | "custom";
+export type Grind = "beans" | "ground";
 
 export interface Position {
   uid: string;
   origin_id: number;
   origin_label: string;
   roast: string;
+  grind?: Grind;
   weight_format: WeightFormat;
   color: BagColor;
   volume: number;
@@ -30,6 +32,13 @@ export const ROAST_OPTIONS = [
   { label: "Средняя", desc: "Универсальная, карамель, баланс" },
   { label: "Тёмная", desc: "Эспрессо, вендинг, насыщенность" },
 ];
+
+export const GRIND_OPTIONS: { value: Grind; label: string; desc: string }[] = [
+  { value: "beans", label: "Зерно", desc: "Целые обжаренные зёрна" },
+  { value: "ground", label: "Молотый", desc: "Помол под ваш способ заваривания" },
+];
+
+export const grindLabel = (v: string | null | undefined) => (v === "ground" ? "Молотый" : "Зерно");
 
 export const FORMAT_OPTIONS: { value: WeightFormat; label: string; desc: string }[] = [
   { value: "1kg", label: "1 кг", desc: "HoReCa, оптовые продажи" },
@@ -138,7 +147,7 @@ export const clearCart = () => {
 
 export const positionsToApi = (positions: Position[]) =>
   positions.map(p => ({
-    origin_id: p.origin_id, roast: p.roast, packaging: PACKAGING_LABEL, weight_format: p.weight_format,
+    origin_id: p.origin_id, roast: p.roast, grind: p.grind === "ground" ? "ground" : "beans", packaging: PACKAGING_LABEL, weight_format: p.weight_format,
     color: p.color, volume: p.volume, amount: p.amount,
     note: p.color === "custom" ? "Своя упаковка — детали обсуждаются с менеджером" : "",
   }));

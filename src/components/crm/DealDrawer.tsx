@@ -19,6 +19,7 @@ interface Lot {
   origin_id: number | null;
   origin_label: string | null;
   roast: string | null;
+  grind?: string | null;
   packaging: string | null;
   weight_format: string | null;
   color: string | null;
@@ -285,9 +286,10 @@ const DealDrawer = ({ dealId, onClose, onChanged, onOpenClient, showToast }: Pro
                         </span>
                         <p className="text-sm font-bold">Лот {lot.lot_number} — {lot.origin_label || "—"}</p>
                       </div>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
                         {[
                           { label: "Обжарка", val: lot.roast || "—" },
+                          { label: "Вид", val: lot.grind === "ground" ? "Молотый" : "Зерно" },
                           { label: "Фасовка", val: weightLabel(lot.weight_format) },
                           { label: "Цвет", val: colorLabel(lot.color) },
                           { label: "Объём", val: lot.volume ? `${lot.volume} кг` : "—" },

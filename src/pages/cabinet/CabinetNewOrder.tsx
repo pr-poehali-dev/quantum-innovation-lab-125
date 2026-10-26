@@ -83,7 +83,7 @@ const CabinetNewOrder = ({ resumeDealId, onFinished, onCancel }: Props) => {
       setDealId(deal.id);
       setPositions(deal.lots.map(l => ({
         uid: newUid(), origin_id: l.origin_id ?? 0, origin_label: l.origin_label ?? "—",
-        roast: l.roast ?? "Средняя", weight_format: l.weight_format === "250g" ? "250g" : "1kg",
+        roast: l.roast ?? "Средняя", grind: l.grind === "ground" ? "ground" : "beans", weight_format: l.weight_format === "250g" ? "250g" : "1kg",
         color: l.color === "white" ? "white" : l.color === "custom" ? "custom" : "black",
         volume: l.volume ?? calc.minVolume, amount: l.amount ?? 0,
       })));

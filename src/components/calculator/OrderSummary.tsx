@@ -1,6 +1,6 @@
 import Icon from "@/components/ui/icon";
 import {
-  colorLabel, formatLabel, formatRub, maxLeadTime,
+  colorLabel, formatLabel, grindLabel, formatRub, maxLeadTime,
   type LeadTimeTier, type Position,
 } from "@/lib/calcCore";
 
@@ -36,7 +36,7 @@ const OrderSummary = ({ positions, tiers, onEdit, onRemove, onAdd, children }: P
                 <div className="min-w-0">
                   <p className="font-semibold text-sm leading-tight">{p.origin_label}</p>
                   <p className="text-[12px] text-muted-foreground mt-1 leading-relaxed">
-                    {p.roast} обжарка · {formatLabel(p.weight_format)} · пакет: {colorLabel(p.color)}
+                    {p.roast} обжарка · {grindLabel(p.grind)} · {formatLabel(p.weight_format)} · пакет: {colorLabel(p.color)}
                   </p>
                   {p.color === "custom" && (
                     <p className="text-[11px] text-primary mt-1 flex items-center gap-1">

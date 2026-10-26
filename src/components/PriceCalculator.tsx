@@ -6,7 +6,7 @@ import { openPriceTable } from "@/lib/priceTable";
 import PositionWizard from "@/components/calculator/PositionWizard";
 import OrderSummary from "@/components/calculator/OrderSummary";
 import {
-  colorLabel, formatLabel, loadCart, maxLeadTime, saveCart, useCalcData,
+  colorLabel, formatLabel, grindLabel, loadCart, maxLeadTime, saveCart, useCalcData,
   type Position,
 } from "@/lib/calcCore";
 
@@ -50,7 +50,7 @@ const PriceCalculator = () => {
     const total = positions.reduce((s, p) => s + p.amount, 0);
     openModal("calculator", {
       positions: positions.map(p => ({
-        origin: p.origin_label, roast: p.roast, weight_format: formatLabel(p.weight_format),
+        origin: p.origin_label, roast: p.roast, grind: grindLabel(p.grind), weight_format: formatLabel(p.weight_format),
         bag_color: colorLabel(p.color), volume: p.volume, amount: p.amount,
         custom_package: p.color === "custom",
       })),

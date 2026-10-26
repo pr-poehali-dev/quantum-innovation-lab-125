@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/ui/icon";
 import {
-  COLOR_OPTIONS, FORMAT_OPTIONS, MAX_VOLUME, PACKAGING_LABEL, ROAST_OPTIONS,
+  COLOR_OPTIONS, FORMAT_OPTIONS, GRIND_OPTIONS, grindLabel, type Grind, MAX_VOLUME, PACKAGING_LABEL, ROAST_OPTIONS,
   calcAmount, calcLeadTime, formatLabel, formatRub, newUid,
   type BagColor, type CalcData, type Position, type WeightFormat,
 } from "@/lib/calcCore";
 
 const STEP_DEFS = [
   { id: "origin", label: "Зерно", icon: "Leaf", title: "Выберите зерно", emoji: "🌿" },
-  { id: "roast", label: "Обжарка", icon: "Flame", title: "Степень обжарки", emoji: "🔥" },
+  { id: "roast", label: "Обжарка", icon: "Flame", title: "Обжарка и вид кофе", emoji: "🔥" },
   { id: "pack", label: "Упаковка", icon: "Box", title: "Фасовка и пакет", emoji: "📦" },
   { id: "volume", label: "Объём", icon: "BarChart2", title: "Объём позиции", emoji: "⚖️" },
 ];
@@ -40,6 +40,7 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
   const [step, setStep] = useState(initial ? 3 : 0);
   const [originId, setOriginId] = useState<number | null>(initial?.origin_id ?? null);
   const [roast, setRoast] = useState(initial?.roast ?? ROAST_OPTIONS[1].label);
+  const [grind, setGrind] = useState<Grind>(initial?.grind ?? "beans");
   const [format, setFormat] = useState<WeightFormat>(initial?.weight_format ?? "1kg");
   const [color, setColor] = useState<BagColor>(initial?.color ?? "black");
   const [volume, setVolume] = useState(initial?.volume ?? calc.minVolume);
@@ -81,14 +82,14 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
     if (!origin || !volumeValid) return;
     onDone({
       uid: initial?.uid ?? newUid(),
-      origin_id: origin.id, origin_label: origin.label, roast, weight_format: format, color,
+      origin_id: origin.id, origin_label: origin.label, roast, grind, weight_format: format, color,
       volume, amount,
     });
   };
 
   const hints = [
     "Выберите сорт — он определяет вкус и базовую цену",
-    "Обжарка не влияет на стоимость — выбирайте по вкусу",
+    "Степень обжарки и вид (зерно или молотый) на цену не влияют",
     "Фасовка и цвет пакета — одни на всю позицию",
     `От ${calc.minVolume.toLocaleString("ru-RU")} до ${MAX_VOLUME.toLocaleString("ru-RU")} кг на одну позицию`,
   ];
@@ -158,6 +159,17 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
                 {ROAST_OPTIONS.map(r => (
                   <Card key={r.label} label={r.label} desc={r.desc} selected={roast === r.label} onClick={() => setRoast(r.label)} />
                 ))}
+              </div>
+            )}
+
+            {step === 1 && (
+              <div className="mt-5">
+                <p className="text-[11px] font-mono text-muted-foreground mb-2 tracking-wider">ВИД КОФЕ</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {GRIND_OPTIONS.map(g => (
+                    <Card key={g.value} label={g.label} desc={g.desc} selected={grind === g.value} onClick={() => setGrind(g.value)} />
+                  ))}
+                </div>
               </div>
             )}
 
@@ -253,6 +265,7 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
             {[
               { label: "Зерно", val: origin?.label ?? "—" },
               { label: "Обжарка", val: step >= 1 || initial ? roast : "—" },
+              { label: "Вид", val: step >= 1 || initial ? grindLabel(grind) : "—" },
               { label: "Фасовка", val: step >= 2 || initial ? formatLabel(format) : "—" },
               { label: "Пакет", val: step >= 2 || initial ? COLOR_OPTIONS.find(c => c.value === color)?.label ?? "—" : "—" },
               { label: "Объём", val: `${volume.toLocaleString("ru-RU")} кг` },

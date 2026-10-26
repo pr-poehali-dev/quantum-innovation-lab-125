@@ -87,7 +87,7 @@ def get_staff(cur, token: str):
 def fetch_lots(cur, deal_id):
     cur.execute(f"""
         SELECT l.id, l.lot_number, l.origin_id, co.label, l.roast, l.packaging, l.weight_format,
-               l.color, l.volume, l.amount, l.note
+               l.color, l.volume, l.amount, l.note, l.grind
         FROM {SCHEMA}.deal_lots l
         LEFT JOIN {SCHEMA}.calc_origins_v2 co ON co.id = l.origin_id
         WHERE l.deal_id=%s ORDER BY l.lot_number
@@ -98,6 +98,7 @@ def fetch_lots(cur, deal_id):
             "roast": r[4], "packaging": r[5], "weight_format": r[6], "color": r[7],
             "volume": float(r[8]) if r[8] is not None else None,
             "amount": float(r[9]) if r[9] is not None else None, "note": r[10],
+            "grind": r[11] or "beans",
         }
         for r in cur.fetchall()
     ]
@@ -484,22 +485,23 @@ def handler(event: dict, context) -> dict:
                 cur.execute(f"""
                     UPDATE {SCHEMA}.deal_lots
                     SET origin_id=%s, roast=%s, packaging=%s, weight_format=%s, color=%s,
-                        volume=%s, amount=%s, note=%s, updated_at=NOW()
+                        volume=%s, amount=%s, note=%s, grind=%s, updated_at=NOW()
                     WHERE id=%s
                 """, (
                     body.get("origin_id"), body.get("roast"), body.get("packaging"), body.get("weight_format"),
-                    body.get("color"), body.get("volume"), body.get("amount"), body.get("note", ""), lot_id,
+                    body.get("color"), body.get("volume"), body.get("amount"), body.get("note", ""), "ground" if body.get("grind") == "ground" else "beans", lot_id,
                 ))
             else:
                 cur.execute(f"SELECT COALESCE(MAX(lot_number),0)+1 FROM {SCHEMA}.deal_lots WHERE deal_id=%s", (deal_id,))
                 lot_number = cur.fetchone()[0]
                 cur.execute(f"""
                     INSERT INTO {SCHEMA}.deal_lots
-                        (deal_id, lot_number, origin_id, roast, packaging, weight_format, color, volume, amount, note)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+                        (deal_id, lot_number, origin_id, roast, packaging, weight_format, color, volume, amount, note, grind)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
                 """, (
                     deal_id, lot_number, body.get("origin_id"), body.get("roast"), body.get("packaging"),
                     body.get("weight_format"), body.get("color"), body.get("volume"), body.get("amount"), body.get("note", ""),
+                    "ground" if body.get("grind") == "ground" else "beans",
                 ))
                 lot_id = cur.fetchone()[0]
             conn.commit()

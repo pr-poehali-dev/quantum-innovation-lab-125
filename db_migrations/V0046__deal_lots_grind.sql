@@ -1,0 +1,1 @@
+ALTER TABLE t_p21475602_quantum_innovation_l.deal_lots ADD COLUMN IF NOT EXISTS grind TEXT NOT NULL DEFAULT 'beans';

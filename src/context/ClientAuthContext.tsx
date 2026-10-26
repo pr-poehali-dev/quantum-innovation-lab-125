@@ -9,6 +9,7 @@ export interface DealLot {
   origin_id: number | null;
   origin_label: string | null;
   roast: string | null;
+  grind?: string | null;
   packaging: string | null;
   weight_format: string | null;
   color: string | null;

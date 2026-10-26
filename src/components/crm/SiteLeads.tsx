@@ -5,7 +5,7 @@ import { useStaffAuth } from "@/context/StaffAuthContext";
 const CRM_URL = "https://functions.poehali.dev/0fbf69fe-e1ba-4899-a9c0-98d37524abe1";
 
 interface BriefPosition {
-  origin?: string; roast?: string; weight_format?: string; bag_color?: string;
+  origin?: string; roast?: string; grind?: string; weight_format?: string; bag_color?: string;
   volume?: number; amount?: number; custom_package?: boolean;
 }
 
@@ -133,7 +133,7 @@ const SiteLeads = ({ showToast, onCount }: Props) => {
                           <div key={i} className="flex justify-between gap-3 text-[12px]">
                             <span className="min-w-0">
                               <span className="font-semibold">{p.origin}</span>
-                              <span className="text-muted-foreground"> · {p.roast} · {p.weight_format} · пакет: {p.bag_color}</span>
+                              <span className="text-muted-foreground"> · {p.roast} · {p.grind || "Зерно"} · {p.weight_format} · пакет: {p.bag_color}</span>
                               {p.custom_package && <span className="text-primary"> · своя упаковка</span>}
                             </span>
                             <span className="font-mono flex-shrink-0">{(p.volume ?? 0).toLocaleString("ru-RU")} кг · {(p.amount ?? 0).toLocaleString("ru-RU")} ₽</span>
