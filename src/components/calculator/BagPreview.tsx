@@ -1,16 +1,25 @@
-import type { BagTone, LabelPos, PackType } from "@/lib/calcCore";
+import type { BagTone, LabelSize, PackType } from "@/lib/calcCore";
 
 interface Props {
   type: PackType;
   tone?: BagTone;
-  pos?: LabelPos;
+  size?: LabelSize;
   className?: string;
   mini?: boolean;
 }
 
-const STICKER_DY: Record<LabelPos, number> = { top: 0, center: 28, bottom: 58 };
+const SHAPES = [
+  { x: 46, y: 80, w: 28, h: 20, r: 4 },
+  { x: 24, y: 79, w: 72, h: 22, r: 4 },
+  { x: 36, y: 66, w: 48, h: 48, r: 5 },
+  { x: 43, y: 50, w: 34, h: 80, r: 5 },
+  { x: 24, y: 54, w: 72, h: 72, r: 6 },
+  { x: 40, y: 72, w: 40, h: 36, r: 18 },
+];
+const DUR = "9s";
+const seq = (k: "x" | "y" | "w" | "h" | "r") => [...SHAPES, SHAPES[0]].map(s => s[k]).join(";");
 
-const BagPreview = ({ type, tone = "black", pos = "center", className = "", mini = false }: Props) => {
+const BagPreview = ({ type, tone = "black", size = "classic", className = "", mini = false }: Props) => {
   const body = type === "stm" ? "#f4f1ea" : tone === "white" ? "#f7f7f5" : "#1c1c1e";
   const seal = type === "stm" ? "#e4dfd3" : tone === "white" ? "#e2e2de" : "#2e2e31";
   const line = type === "stm" ? "#cfc8b8" : tone === "white" ? "#d4d4cf" : "#3a3a3e";
@@ -45,17 +54,48 @@ const BagPreview = ({ type, tone = "black", pos = "center", className = "", mini
         </g>
       )}
 
-      {type === "label" && (
-        <g style={{ transform: `translateY(${STICKER_DY[pos]}px)`, transition: "transform .45s cubic-bezier(.3,.8,.3,1)" }}>
-          <rect x="30" y="46" width="60" height="30" rx="5" fill="#fff" stroke={accent} strokeWidth="1.4" strokeDasharray="3 2.5" />
-          <rect x="30" y="46" width="60" height="30" rx="5" fill={accent} fillOpacity="0.1" />
-          <circle cx="45" cy="61" r="6" fill={accent} />
-          {!mini && (
-            <>
-              <text x="55" y="59" fontSize="5.5" fontWeight="700" fill={accent}>ВАШ ЛОГО</text>
-              <text x="55" y="67" fontSize="4.5" fill={accent} opacity="0.8">наклейка</text>
-            </>
-          )}
+      {type === "label" && size !== "any" && (() => {
+        const sh = size === "big" ? { x: 24, y: 54, w: 72, h: 72, r: 6 } : { x: 32, y: 76, w: 56, h: 28, r: 5 };
+        const cx = sh.x + sh.w / 2;
+        const cy = sh.y + sh.h / 2;
+        const big = size === "big";
+        return (
+          <g>
+            <rect x={sh.x} y={sh.y} width={sh.w} height={sh.h} rx={sh.r} fill="#fff" stroke={accent} strokeWidth="1.4" strokeDasharray="3 2.5" />
+            <rect x={sh.x} y={sh.y} width={sh.w} height={sh.h} rx={sh.r} fill={accent} fillOpacity="0.1" />
+            <circle cx={big ? cx : sh.x + 12} cy={big ? cy - 8 : cy} r={big ? 11 : 6} fill={accent} />
+            {big ? (
+              <>
+                <rect x={cx - 20} y={cy + 8} width="40" height="3.5" rx="1.75" fill={accent} opacity="0.4" />
+                <rect x={cx - 14} y={cy + 15} width="28" height="3.5" rx="1.75" fill={accent} opacity="0.25" />
+              </>
+            ) : (
+              <>
+                <rect x={sh.x + 22} y={cy - 5} width="26" height="3.5" rx="1.75" fill={accent} opacity="0.45" />
+                <rect x={sh.x + 22} y={cy + 2} width="18" height="3.5" rx="1.75" fill={accent} opacity="0.25" />
+              </>
+            )}
+          </g>
+        );
+      })()}
+
+      {type === "label" && size === "any" && (
+        <g>
+          <rect x={SHAPES[0].x} y={SHAPES[0].y} width={SHAPES[0].w} height={SHAPES[0].h} rx={SHAPES[0].r} fill="#fff" stroke={accent} strokeWidth="1.4" strokeDasharray="3 2.5">
+            <animate attributeName="x" values={seq("x")} dur={DUR} repeatCount="indefinite" calcMode="spline" keyTimes="0;0.2;0.4;0.6;0.8;0.9;1" keySplines={Array(6).fill("0.4 0 0.2 1").join(";")} />
+            <animate attributeName="y" values={seq("y")} dur={DUR} repeatCount="indefinite" calcMode="spline" keyTimes="0;0.2;0.4;0.6;0.8;0.9;1" keySplines={Array(6).fill("0.4 0 0.2 1").join(";")} />
+            <animate attributeName="width" values={seq("w")} dur={DUR} repeatCount="indefinite" calcMode="spline" keyTimes="0;0.2;0.4;0.6;0.8;0.9;1" keySplines={Array(6).fill("0.4 0 0.2 1").join(";")} />
+            <animate attributeName="height" values={seq("h")} dur={DUR} repeatCount="indefinite" calcMode="spline" keyTimes="0;0.2;0.4;0.6;0.8;0.9;1" keySplines={Array(6).fill("0.4 0 0.2 1").join(";")} />
+            <animate attributeName="rx" values={seq("r")} dur={DUR} repeatCount="indefinite" calcMode="spline" keyTimes="0;0.2;0.4;0.6;0.8;0.9;1" keySplines={Array(6).fill("0.4 0 0.2 1").join(";")} />
+          </rect>
+          <rect x={SHAPES[0].x} y={SHAPES[0].y} width={SHAPES[0].w} height={SHAPES[0].h} rx={SHAPES[0].r} fill={accent} fillOpacity="0.1">
+            <animate attributeName="x" values={seq("x")} dur={DUR} repeatCount="indefinite" calcMode="spline" keyTimes="0;0.2;0.4;0.6;0.8;0.9;1" keySplines={Array(6).fill("0.4 0 0.2 1").join(";")} />
+            <animate attributeName="y" values={seq("y")} dur={DUR} repeatCount="indefinite" calcMode="spline" keyTimes="0;0.2;0.4;0.6;0.8;0.9;1" keySplines={Array(6).fill("0.4 0 0.2 1").join(";")} />
+            <animate attributeName="width" values={seq("w")} dur={DUR} repeatCount="indefinite" calcMode="spline" keyTimes="0;0.2;0.4;0.6;0.8;0.9;1" keySplines={Array(6).fill("0.4 0 0.2 1").join(";")} />
+            <animate attributeName="height" values={seq("h")} dur={DUR} repeatCount="indefinite" calcMode="spline" keyTimes="0;0.2;0.4;0.6;0.8;0.9;1" keySplines={Array(6).fill("0.4 0 0.2 1").join(";")} />
+            <animate attributeName="rx" values={seq("r")} dur={DUR} repeatCount="indefinite" calcMode="spline" keyTimes="0;0.2;0.4;0.6;0.8;0.9;1" keySplines={Array(6).fill("0.4 0 0.2 1").join(";")} />
+          </rect>
+          <circle cx="60" cy="90" r="5" fill={accent} />
         </g>
       )}
     </svg>

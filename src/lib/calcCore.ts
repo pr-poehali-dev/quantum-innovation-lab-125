@@ -47,9 +47,9 @@ export const FORMAT_OPTIONS: { value: WeightFormat; label: string; desc: string 
 ];
 
 export type PackType = "stm" | "label" | "plain";
-export type LabelPos = "top" | "center" | "bottom";
+export type LabelSize = "classic" | "big" | "any";
 export type BagTone = "black" | "white";
-export interface Pack { type: PackType; pos: LabelPos; tone: BagTone }
+export interface Pack { type: PackType; size: LabelSize; tone: BagTone }
 
 export const PACK_TYPES: { value: PackType; label: string; desc: string }[] = [
   { value: "stm", label: "СТМ — ваша марка", desc: "Ваш логотип и дизайн на всей упаковке" },
@@ -57,10 +57,10 @@ export const PACK_TYPES: { value: PackType; label: string; desc: string }[] = [
   { value: "plain", label: "Без логотипа", desc: "Чистый пакет, чёрный или белый" },
 ];
 
-export const LABEL_POSITIONS: { value: LabelPos; label: string; desc: string }[] = [
-  { value: "top", label: "Сверху", desc: "Под верхним швом" },
-  { value: "center", label: "По центру", desc: "Классическое место" },
-  { value: "bottom", label: "Снизу", desc: "В нижней части" },
+export const LABEL_SIZES: { value: LabelSize; label: string; desc: string }[] = [
+  { value: "classic", label: "Классическая", desc: "Аккуратная этикетка по центру" },
+  { value: "big", label: "Большая", desc: "Крупный логотип на пол-пачки" },
+  { value: "any", label: "Любая", desc: "Любой формы и размера" },
 ];
 
 export const TONE_OPTIONS: { value: BagTone; label: string }[] = [
@@ -68,16 +68,16 @@ export const TONE_OPTIONS: { value: BagTone; label: string }[] = [
   { value: "white", label: "Белый" },
 ];
 
-export const DEFAULT_PACK: Pack = { type: "plain", pos: "center", tone: "black" };
+export const DEFAULT_PACK: Pack = { type: "plain", size: "classic", tone: "black" };
 
 export const parsePack = (code: string | null | undefined): Pack => {
   if (!code) return DEFAULT_PACK;
   if (code === "custom" || code === "stm") return { ...DEFAULT_PACK, type: "stm", tone: "white" };
   if (code.startsWith("label-")) {
-    const [, pos, tone] = code.split("-");
+    const [, size, tone] = code.split("-");
     return {
       type: "label",
-      pos: pos === "top" || pos === "bottom" ? pos : "center",
+      size: size === "big" || size === "any" ? size : "classic",
       tone: tone === "white" ? "white" : "black",
     };
   }
@@ -85,10 +85,10 @@ export const parsePack = (code: string | null | undefined): Pack => {
 };
 
 export const packCode = (p: Pack): string =>
-  p.type === "stm" ? "custom" : p.type === "label" ? `label-${p.pos}-${p.tone}` : p.tone;
+  p.type === "stm" ? "custom" : p.type === "label" ? `label-${p.size}-${p.tone}` : p.tone;
 
 const toneWord = (t: BagTone) => (t === "white" ? "белый" : "чёрный");
-const posWord = (v: LabelPos) => LABEL_POSITIONS.find(x => x.value === v)?.label.toLowerCase() ?? "";
+const sizeWord = (v: LabelSize) => (v === "big" ? "большая наклейка" : v === "any" ? "наклейка любой формы" : "классическая наклейка");
 
 export const packShort = (code: string | null | undefined): string => {
   if (!code) return "—";
@@ -102,7 +102,7 @@ export const packLabel = (code: string | null | undefined): string => {
   if (!code) return "—";
   const p = parsePack(code);
   if (p.type === "stm") return "СТМ — ваш логотип и дизайн на упаковке";
-  if (p.type === "label") return `Приват лейбл — наклейка ${posWord(p.pos)}, ${toneWord(p.tone)} пакет`;
+  if (p.type === "label") return `Приват лейбл — ${sizeWord(p.size)}, ${toneWord(p.tone)} пакет`;
   return `Без логотипа — ${toneWord(p.tone)} пакет`;
 };
 

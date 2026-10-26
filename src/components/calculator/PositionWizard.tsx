@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Icon from "@/components/ui/icon";
 import BagPreview from "@/components/calculator/BagPreview";
 import {
-  FORMAT_OPTIONS, PACK_TYPES, LABEL_POSITIONS, TONE_OPTIONS, parsePack, packCode, packShort, type Pack, GRIND_OPTIONS, grindLabel, type Grind, MAX_VOLUME, PACKAGING_LABEL, ROAST_OPTIONS,
+  FORMAT_OPTIONS, PACK_TYPES, LABEL_SIZES, TONE_OPTIONS, parsePack, packCode, packShort, type Pack, GRIND_OPTIONS, grindLabel, type Grind, MAX_VOLUME, PACKAGING_LABEL, ROAST_OPTIONS,
   calcAmount, calcLeadTime, formatLabel, formatRub, newUid,
   type CalcData, type Position, type WeightFormat,
 } from "@/lib/calcCore";
@@ -203,7 +203,7 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
                             sel ? "border-primary bg-primary/8 shadow-sm shadow-primary/10" : "border-border hover:border-primary/50 hover:bg-secondary/60"
                           }`}>
                           <span className={`flex-shrink-0 w-14 h-[74px] min-[560px]:w-full min-[560px]:h-28 rounded-xl flex items-center justify-center bg-secondary/50 text-foreground`}>
-                            <BagPreview type={t.value} tone={pack.tone} pos="center" mini className="h-full w-auto" />
+                            <BagPreview type={t.value} tone={pack.tone} size="classic" mini className="h-full w-auto" />
                           </span>
                           <span className="min-w-0">
                             <span className={`block text-sm font-semibold leading-tight pr-6 ${sel ? "text-primary" : ""}`}>{t.label}</span>
@@ -230,17 +230,17 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
                 {pack.type === "label" && (
                   <div className="space-y-4">
                     <div>
-                      <p className="text-[11px] font-mono text-muted-foreground mb-2 tracking-wider">ГДЕ БУДЕТ НАКЛЕЙКА</p>
+                      <p className="text-[11px] font-mono text-muted-foreground mb-2 tracking-wider">КАКОЙ БУДЕТ НАКЛЕЙКА</p>
                       <div className="grid grid-cols-3 gap-3">
-                        {LABEL_POSITIONS.map(l => {
-                          const sel = pack.pos === l.value;
+                        {LABEL_SIZES.map(l => {
+                          const sel = pack.size === l.value;
                           return (
-                            <button key={l.value} type="button" onClick={() => setPack({ ...pack, pos: l.value })}
+                            <button key={l.value} type="button" onClick={() => setPack({ ...pack, size: l.value })}
                               className={`relative p-2.5 rounded-2xl border transition-all active:scale-[0.98] text-center ${
                                 sel ? "border-primary bg-primary/8" : "border-border hover:border-primary/50 hover:bg-secondary/60"
                               }`}>
-                              <span className="flex justify-center h-20 text-foreground">
-                                <BagPreview type="label" tone={pack.tone} pos={l.value} mini className="h-full w-auto" />
+                              <span className="flex justify-center h-24 text-foreground">
+                                <BagPreview type="label" tone={pack.tone} size={l.value} mini className="h-full w-auto" />
                               </span>
                               <span className={`block text-[13px] font-semibold mt-1.5 ${sel ? "text-primary" : ""}`}>{l.label}</span>
                               <span className="block text-[10px] text-muted-foreground leading-tight">{l.desc}</span>
@@ -251,7 +251,7 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
                     </div>
                     <p className="text-[12px] text-primary bg-primary/8 border border-primary/20 rounded-xl px-3 py-2.5 flex items-start gap-2">
                       <Icon name="Info" size={13} className="flex-shrink-0 mt-0.5" />
-                      Мы наклеим вашу этикетку на готовый пакет. Макет наклейки менеджер уточнит с вами после заявки.
+                      Наклейка может быть любой формы и размера — главное, чтобы помещалась на пачке. Макет менеджер уточнит с вами после заявки.
                     </p>
                   </div>
                 )}
@@ -359,7 +359,7 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
         {step >= 2 && (
           <div className="bg-card border border-border rounded-2xl p-4 flex items-center gap-4">
             <span className="flex-shrink-0 w-20 h-28 flex items-center justify-center text-foreground">
-              <BagPreview type={pack.type} tone={pack.tone} pos={pack.pos} className="h-full w-auto" />
+              <BagPreview type={pack.type} tone={pack.tone} size={pack.size} className="h-full w-auto" />
             </span>
             <div className="min-w-0">
               <p className="text-[10px] font-mono text-muted-foreground tracking-wider mb-1">ВАША УПАКОВКА</p>
