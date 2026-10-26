@@ -12,27 +12,44 @@ const cleanLabel = (label: string) => label.replace(/\s*\(руб\.[^)]*\)\s*$/, 
 
 const COLS = "grid-cols-[minmax(0,1fr)_72px_72px_24px] sm:grid-cols-[minmax(0,1fr)_110px_110px_28px]";
 
-const Breakdown = ({ format, index }: { format: PriceFormat; index: number }) => {
-  const total = format.rows.find(r => r.is_total);
+const unifyHint = (h: string) => h.replace(/пакет на [\d,]+ кг кофе/, "пакет");
+
+const Breakdown = ({ formats, index }: { formats: PriceFormat[]; index: number }) => {
+  const [f1, f2] = formats;
+  const keys: string[] = [];
+  const meta: Record<string, { label: string; hint: string }> = {};
+  formats.forEach(f => f.rows.filter(r => !r.is_total).forEach(r => {
+    const k = cleanLabel(r.label);
+    if (!meta[k]) { meta[k] = { label: k, hint: unifyHint(r.hint) }; keys.push(k); }
+  }));
+  const valueOf = (f: PriceFormat | undefined, k: string) =>
+    f?.rows.find(r => !r.is_total && cleanLabel(r.label) === k)?.values[index] ?? null;
+  const total = (f: PriceFormat | undefined) => f?.rows.find(r => r.is_total)?.values[index] ?? null;
+
   return (
-    <div className="min-w-0">
-      <p className="text-[11px] font-mono text-primary tracking-wider mb-1.5">{format.title.toUpperCase()}</p>
-      <dl className="divide-y divide-border/60">
-        {format.rows.filter(r => !r.is_total).map(r => (
-          <div key={r.row} className="py-2 flex items-start justify-between gap-3">
-            <dt className="min-w-0">
-              <span className="block text-[13px] leading-snug">{cleanLabel(r.label)}</span>
-              {r.hint && <span className="block text-[11px] text-muted-foreground mt-0.5 leading-snug">{r.hint}</span>}
-            </dt>
-            <dd className="font-mono text-[13px] font-medium flex-shrink-0 tabular-nums">
-              {fmtPrice(r.values[index], 2)}
-            </dd>
-          </div>
-        ))}
-      </dl>
-      <div className="mt-2 flex items-center justify-between bg-primary text-primary-foreground rounded-xl px-3.5 py-2.5">
-        <span className="text-[13px] font-semibold">Итого за пачку</span>
-        <span className="font-serif text-lg font-bold tabular-nums">{fmtPrice(total?.values[index] ?? null)} ₽</span>
+    <div className="px-3 sm:px-5 pb-4 pt-1">
+      <div>
+        {keys.map(k => {
+          const a = valueOf(f1, k);
+          const b = valueOf(f2, k);
+          return (
+            <div key={k} className={`grid ${COLS} gap-x-2 sm:gap-x-4 py-2 border-t border-border/60 first:border-t-0`}>
+              <div className="min-w-0">
+                <span className="block text-[13px] leading-snug">{meta[k].label}</span>
+                {meta[k].hint && <span className="block text-[11px] text-muted-foreground mt-0.5 leading-snug">{meta[k].hint}</span>}
+              </div>
+              <span className={`text-right font-mono text-[12px] sm:text-[13px] tabular-nums ${a === null ? "text-muted-foreground/50" : "font-medium"}`}>{fmtPrice(a, 2)}</span>
+              <span className={`text-right font-mono text-[12px] sm:text-[13px] tabular-nums ${b === null ? "text-muted-foreground/50" : "font-medium"}`}>{fmtPrice(b, 2)}</span>
+              <span />
+            </div>
+          );
+        })}
+      </div>
+      <div className={`grid ${COLS} gap-x-2 sm:gap-x-4 items-center mt-2 bg-primary text-primary-foreground rounded-xl py-3 -mx-1 px-1`}>
+        <span className="pl-2 text-[13px] font-semibold">Итого за пачку</span>
+        <span className="text-right font-serif text-[15px] sm:text-lg font-bold tabular-nums">{fmtPrice(total(f1))} ₽</span>
+        <span className="text-right font-serif text-[15px] sm:text-lg font-bold tabular-nums">{fmtPrice(total(f2))} ₽</span>
+        <span />
       </div>
     </div>
   );
@@ -79,12 +96,7 @@ const PriceList = ({ data }: { data: PriceTableData }) => {
                 <Price value={t2?.values[i] ?? null} />
                 <Icon name={isOpen ? "ChevronUp" : "ChevronDown"} size={16} className="text-muted-foreground justify-self-end" />
               </button>
-              {isOpen && (
-                <div className="px-3 sm:px-5 pb-4 pt-1 grid gap-5 md:grid-cols-2 md:gap-8">
-                  {f1 && <Breakdown format={f1} index={i} />}
-                  {f2 && <Breakdown format={f2} index={i} />}
-                </div>
-              )}
+              {isOpen && <Breakdown formats={data.formats} index={i} />}
             </li>
           );
         })}
