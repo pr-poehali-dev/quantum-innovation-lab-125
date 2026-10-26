@@ -103,11 +103,11 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
               const active = i === step;
               return (
                 <div key={s.id} className="flex items-center flex-1 min-w-0 last:flex-none">
-                  <button type="button" onClick={() => (done || active) && goTo(i)} disabled={i > step}
-                    className="flex flex-col items-center gap-1 flex-shrink-0 min-w-[44px] disabled:cursor-not-allowed">
+                  <button type="button" onClick={() => goTo(i)} disabled={i > 0 && !origin}
+                    className="flex flex-col items-center gap-1 flex-shrink-0 min-w-[44px] disabled:cursor-not-allowed disabled:opacity-60 group">
                     <span className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
                       active ? "bg-primary text-primary-foreground shadow-md shadow-primary/30 scale-110"
-                        : done ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"
+                        : done ? "bg-primary/20 text-primary group-hover:bg-primary/30" : "bg-secondary text-muted-foreground group-enabled:group-hover:bg-primary/10 group-enabled:group-hover:text-primary"
                     }`}>
                       <Icon name={done ? "Check" : s.icon} fallback="Circle" size={13} />
                     </span>
@@ -237,7 +237,7 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
               <Icon name="ArrowLeft" size={14} /> {step === 0 && onCancel ? "К заказу" : "Назад"}
             </button>
             <button type="button" onClick={isLast ? finish : () => goTo(step + 1)} disabled={!canNext}
-              className="flex items-center gap-1.5 px-6 py-2.5 rounded-full text-sm bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm">
+              className="flex items-center gap-2 px-7 py-3 rounded-full text-sm bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-primary/25 active:scale-[0.98]">
               {isLast ? <><Icon name="Check" size={14} /> {initial ? "Сохранить позицию" : "Добавить в заказ"}</> : <>Далее <Icon name="ArrowRight" size={14} /></>}
             </button>
           </div>

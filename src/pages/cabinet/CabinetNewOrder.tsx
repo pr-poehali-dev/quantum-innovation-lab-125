@@ -21,6 +21,15 @@ const phaseIndex = (p: Phase) => (p === "order" ? 1 : PHASES.findIndex(x => x.id
 
 const phoneDigits = (v: string) => v.replace(/\D/g, "");
 
+const MIN_SHIP_DAYS = 7;
+const isoLocal = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const minShipDate = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + MIN_SHIP_DAYS);
+  return isoLocal(d);
+};
+
 interface Props {
   resumeDealId?: number | null;
   onFinished: (batchId: number, dealId: number) => void;
@@ -144,11 +153,28 @@ const CabinetNewOrder = ({ resumeDealId, onFinished, onCancel }: Props) => {
     if (await persist()) { clearCart(); window.dispatchEvent(new Event("kk-cart-cleared")); onCancel(); }
   };
 
+  const goToPhase = async (target: number) => {
+    if (busy || phase === "done") return;
+    setError("");
+    if (target === 0) { setPhase("name"); return; }
+    if (!batchName.trim()) { setPhase("name"); setError("Сначала дайте партии название"); return; }
+    if (target === 1) { setPhase(positions.length ? "order" : "calc"); return; }
+    if (target === 2) {
+      if (!positions.length) { setPhase("calc"); setError("Сначала добавьте хотя бы один сорт"); return; }
+      if (phase === "logistics") return;
+      if (await persist()) setPhase("logistics");
+    }
+  };
+
   const missingRequired = fields.filter(f => f.required && !(logistics[f.key] || "").trim());
 
   const send = async () => {
     setError("");
     if (!dealId) return;
+    if (shipDate && shipDate < minShipDate()) {
+      setError(`Дата отгрузки — не раньше чем через ${MIN_SHIP_DAYS} дней (с ${new Date(minShipDate()).toLocaleDateString("ru-RU")})`);
+      return;
+    }
     if (phoneDigits(phone).length < 10) { setError("Укажите номер телефона — по нему с вами свяжется менеджер"); return; }
     if (missingRequired.length) { setError(`Заполните: ${missingRequired.map(f => f.label).join(", ")}`); return; }
     setBusy(true);
@@ -206,15 +232,18 @@ const CabinetNewOrder = ({ resumeDealId, onFinished, onCancel }: Props) => {
             const active = i === stepIdx;
             return (
               <div key={p.id} className="flex items-center flex-1 min-w-0 last:flex-none">
-                <div className="flex flex-col items-center gap-1 flex-shrink-0 min-w-[48px]">
+                <button type="button" onClick={() => goToPhase(i)} disabled={busy || p.id === "done"}
+                  aria-current={active ? "step" : undefined}
+                  className="group flex flex-col items-center gap-1 flex-shrink-0 min-w-[56px] py-0.5 disabled:cursor-default">
                   <span className={`w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 ${
                     active ? "bg-primary text-primary-foreground shadow-md shadow-primary/30 scale-110"
-                      : done ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"
+                      : done ? "bg-primary/20 text-primary group-hover:bg-primary/30"
+                      : "bg-secondary text-muted-foreground group-enabled:group-hover:bg-primary/10 group-enabled:group-hover:text-primary"
                   }`}>
                     <Icon name={done ? "Check" : p.icon} fallback="Circle" size={14} />
                   </span>
-                  <span className={`text-[10px] font-mono ${active ? "text-primary font-bold" : done ? "text-primary/70" : "text-muted-foreground"}`}>{p.label}</span>
-                </div>
+                  <span className={`text-[10px] font-mono ${active ? "text-primary font-bold" : done ? "text-primary/70 group-hover:text-primary" : "text-muted-foreground group-enabled:group-hover:text-primary"}`}>{p.label}</span>
+                </button>
                 {i < PHASES.length - 1 && (
                   <span className="flex-1 h-0.5 mx-1 rounded-full bg-border overflow-hidden">
                     <span className="block h-full bg-primary transition-all duration-500" style={{ width: i < stepIdx ? "100%" : "0%" }} />
@@ -274,13 +303,17 @@ const CabinetNewOrder = ({ resumeDealId, onFinished, onCancel }: Props) => {
           onRemove={handleRemove}
           onAdd={() => { setEditingUid(null); setAdding(true); setPhase("calc"); }}>
           <button onClick={toLogistics} disabled={busy || positions.length === 0}
-            className="w-full flex items-center justify-center gap-2 bg-accent text-accent-foreground py-3.5 rounded-2xl text-sm font-bold hover:bg-accent/90 transition-all shadow-md shadow-accent/20 disabled:opacity-60 active:scale-[0.99]">
-            {busy ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <Icon name="ArrowRight" size={15} />}
-            Далее: доставка
+            className="w-full flex items-center justify-center gap-2 bg-foreground text-background py-4 rounded-2xl text-[15px] font-bold hover:bg-foreground/90 transition-all shadow-lg shadow-foreground/20 disabled:opacity-60 active:scale-[0.99]">
+            {busy ? <div className="w-4 h-4 border-2 border-background border-t-transparent rounded-full animate-spin" /> : null}
+            Далее: доставка {!busy && <Icon name="ArrowRight" size={16} />}
           </button>
           <button onClick={saveDraftAndExit} disabled={busy}
             className="w-full flex items-center justify-center gap-2 border border-border py-3 rounded-2xl text-sm font-medium hover:bg-secondary/40 transition-all disabled:opacity-60">
             <Icon name="Save" size={14} /> Сохранить как черновик
+          </button>
+          <button onClick={() => setPhase("name")} disabled={busy}
+            className="w-full flex items-center justify-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground py-1.5 transition-colors">
+            <Icon name="ArrowLeft" size={13} /> Назад к названию
           </button>
         </OrderSummary>
       )}
@@ -298,9 +331,10 @@ const CabinetNewOrder = ({ resumeDealId, onFinished, onCancel }: Props) => {
 
               <div>
                 <label className={labelCls}>ЖЕЛАЕМАЯ ДАТА ОТГРУЗКИ</label>
-                <input type="date" value={shipDate} min={new Date().toISOString().slice(0, 10)}
-                  onChange={e => setShipDate(e.target.value)} className={inputCls} />
+                <input type="date" value={shipDate} min={minShipDate()}
+                  onChange={e => { setShipDate(e.target.value); setError(""); }} className={inputCls} />
                 <p className="text-[11px] text-muted-foreground mt-1.5">
+                  Отгрузка возможна не раньше чем через {MIN_SHIP_DAYS} дней — с {new Date(minShipDate()).toLocaleDateString("ru-RU")}.
                   Срок производства — до {maxLeadTime(positions, calc.tiers)} дн. с момента подтверждения
                 </p>
               </div>

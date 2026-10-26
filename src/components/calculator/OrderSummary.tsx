@@ -69,7 +69,7 @@ const OrderSummary = ({ positions, tiers, onEdit, onRemove, onAdd, children }: P
         </button>
       </div>
 
-      <div className="space-y-3 lg:sticky lg:top-24">
+      <div className="space-y-4 lg:sticky lg:top-24">
         <div className="bg-primary rounded-2xl p-5 sm:p-6 text-primary-foreground shadow-xl shadow-primary/20">
           <p className="text-[10px] font-mono opacity-60 mb-1 tracking-wider">ИТОГО ПО ЗАКАЗУ</p>
           <p className="font-serif text-3xl sm:text-4xl font-bold">{formatRub(totalAmount)}</p>

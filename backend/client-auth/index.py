@@ -452,6 +452,13 @@ def handler(event: dict, context) -> dict:
             if not cur.fetchone():
                 return err("Заказ не найден", 404)
             ship_date = (body.get("ship_date") or "").strip() or None
+            if ship_date:
+                try:
+                    chosen = datetime.strptime(ship_date, "%Y-%m-%d").date()
+                except ValueError:
+                    return err("Некорректная дата отгрузки")
+                if chosen < datetime.utcnow().date() + timedelta(days=7):
+                    return err("Дата отгрузки — не раньше чем через 7 дней")
             cur.execute(f"""
                 UPDATE {SCHEMA}.deals SET logistics_data=%s, ship_date=COALESCE(%s::date, ship_date), updated_at=NOW()
                 WHERE id=%s

@@ -111,7 +111,7 @@ const PriceCalculator = () => {
             onAdd={() => { setEditingUid(null); setView("wizard"); }}
           >
             <button type="button" onClick={handleSend}
-              className="w-full flex items-center justify-center gap-2 bg-accent text-accent-foreground py-3.5 rounded-2xl text-sm font-bold hover:bg-accent/90 transition-all shadow-md shadow-accent/20 active:scale-[0.99]">
+              className="w-full flex items-center justify-center gap-2 bg-foreground text-background py-4 rounded-2xl text-[15px] font-bold hover:bg-foreground/90 transition-all shadow-lg shadow-foreground/20 active:scale-[0.99]">
               <Icon name="Send" size={15} /> Отправить заявку на согласование
             </button>
             <button type="button" onClick={handleCabinet}
