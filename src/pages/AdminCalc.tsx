@@ -28,6 +28,8 @@ const AdminCalc = () => {
   const [minVolume, setMinVolume] = useState(500);
   const [volumeStep, setVolumeStep] = useState(5);
   const [tiers, setTiers] = useState<LeadTimeTier[]>([]);
+  const [origins, setOrigins] = useState<{ id: number; label: string }[]>([]);
+  const [recs, setRecs] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
@@ -54,14 +56,19 @@ const AdminCalc = () => {
       setMinVolume(c.min_volume || 500);
       setVolumeStep(c.volume_step || 5);
       setTiers(c.lead_time_tiers || []);
-      setOriginalSettings(JSON.stringify([c.min_volume || 500, c.volume_step || 5, c.lead_time_tiers || []]));
+      const list = (c.origins || []) as { id: number; label: string; recommended_roast?: string | null }[];
+      const loadedRecs: Record<string, string> = {};
+      list.forEach(o => { if (o.recommended_roast) loadedRecs[String(o.id)] = o.recommended_roast; });
+      setOrigins(list.map(o => ({ id: o.id, label: o.label })));
+      setRecs(loadedRecs);
+      setOriginalSettings(JSON.stringify([c.min_volume || 500, c.volume_step || 5, c.lead_time_tiers || [], loadedRecs]));
     } catch { showToast("Ошибка загрузки", false); }
     finally { setLoading(false); }
   };
 
   useEffect(() => { if (token) load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [token]);
 
-  const settingsKey = JSON.stringify([minVolume, volumeStep, tiers]);
+  const settingsKey = JSON.stringify([minVolume, volumeStep, tiers, recs]);
   const dirty = !!sheet && (JSON.stringify(sheet) !== original || settingsKey !== originalSettings);
 
   useEffect(() => {
@@ -154,7 +161,7 @@ const AdminCalc = () => {
       await fetch(ABOUT_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Action": "save-calc", ...authHeaders },
-        body: JSON.stringify({ min_volume: minVolume, volume_step: volumeStep, lead_time_tiers: tiers }),
+        body: JSON.stringify({ min_volume: minVolume, volume_step: volumeStep, lead_time_tiers: tiers, recommended_roast: recs }),
       });
       setOriginalSettings(settingsKey);
       showToast("Сохранено — цены обновились на сайте и в кабинете ✓");
@@ -270,6 +277,33 @@ const AdminCalc = () => {
               <p className="text-[12px] text-muted-foreground">
                 Стрелки — перемещение · Enter или двойной щелчок — правка · Delete — очистить ячейку · Tab — вправо. Ячейки с формулой отмечены уголком; формулу видно в строке сверху.
               </p>
+            </section>
+
+            <section>
+              <h2 className="font-serif text-xl font-bold mb-1">Рекомендуемая обжарка</h2>
+              <p className="text-sm text-muted-foreground mb-3">Для выбранного сорта клиент увидит плашку «Рекомендуем» на нужной обжарке</p>
+              <div className="bg-card border border-border rounded-xl divide-y divide-border">
+                {origins.length === 0 && <p className="p-4 text-sm text-muted-foreground">Сорта появятся после загрузки таблицы</p>}
+                {origins.map(o => (
+                  <div key={o.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                    <span className="text-sm font-medium">{o.label}</span>
+                    <div className="flex gap-1.5">
+                      {[["", "Не указана"], ["Светлая", "Светлая"], ["Средняя", "Средняя"], ["Тёмная", "Тёмная"]].map(([v, l]) => {
+                        const sel = (recs[String(o.id)] || "") === v;
+                        return (
+                          <button key={v} type="button"
+                            onClick={() => setRecs(prev => { const n = { ...prev }; if (v) n[String(o.id)] = v; else delete n[String(o.id)]; return n; })}
+                            className={`px-3 py-1.5 rounded-full text-[12px] font-medium border transition-colors ${
+                              sel ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary/50"
+                            }`}>
+                            {l}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </section>
 
             <section>

@@ -7,6 +7,7 @@ export interface CalcOrigin {
   price_1kg: number;
   price_250g: number;
   sort_order: number;
+  recommended_roast?: string | null;
 }
 
 export interface LeadTimeTier { max_volume: number | null; days: number }

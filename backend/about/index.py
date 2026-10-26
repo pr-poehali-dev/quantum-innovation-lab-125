@@ -242,6 +242,11 @@ def handler(event: dict, context) -> dict:
                     usd_rate = sheet_rate
                 for n, it in enumerate(sheet_service.public_prices(sheet), 1):
                     origins.append({**it, "price_usd_per_kg": 0, "sort_order": n})
+            cur.execute(f"SELECT value FROM {SCHEMA}.site_settings WHERE key='calc_recommended_roast'")
+            rec_row = cur.fetchone()
+            rec_map = json.loads(rec_row[0]) if rec_row and rec_row[0] else {}
+            for it in origins:
+                it["recommended_roast"] = rec_map.get(str(it["id"])) or None
             cur.execute(f"SELECT value FROM {SCHEMA}.site_settings WHERE key='calc_min_volume'")
             min_row = cur.fetchone()
             min_volume = int(float(min_row[0])) if min_row else 500
@@ -401,6 +406,14 @@ def handler(event: dict, context) -> dict:
             if "params" in body:
                 for key, val in body["params"].items():
                     cur.execute(f"UPDATE {SCHEMA}.calc_params_v2 SET value=%s WHERE key=%s", (float(val), key))
+
+            if "recommended_roast" in body:
+                allowed = ("Светлая", "Средняя", "Тёмная")
+                rec = {str(k): v for k, v in (body["recommended_roast"] or {}).items() if v in allowed}
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.site_settings (key, value, updated_at) VALUES ('calc_recommended_roast', %s, NOW())
+                    ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
+                """, (json.dumps(rec, ensure_ascii=False),))
 
             if "min_volume" in body:
                 cur.execute(f"""

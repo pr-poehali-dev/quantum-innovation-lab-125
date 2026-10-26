@@ -159,7 +159,14 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
             {step === 1 && (
               <div className="grid grid-cols-1 min-[420px]:grid-cols-3 gap-3">
                 {ROAST_OPTIONS.map(r => (
-                  <Card key={r.label} label={r.label} desc={r.desc} selected={roast === r.label} onClick={() => setRoast(r.label)} />
+                  <div key={r.label} className="relative">
+                    {origin?.recommended_roast === r.label && (
+                      <span className="absolute -top-2 left-3 z-10 flex items-center gap-1 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
+                        <Icon name="Star" size={9} /> Рекомендуем
+                      </span>
+                    )}
+                    <Card label={r.label} desc={r.desc} selected={roast === r.label} onClick={() => setRoast(r.label)} />
+                  </div>
                 ))}
               </div>
             )}
