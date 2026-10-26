@@ -8,9 +8,10 @@ interface Props {
 }
 
 const DOTS: Record<GrindLevel, { r: number; n: number }> = {
-  fine: { r: 1.1, n: 46 },
-  medium: { r: 2, n: 22 },
-  coarse: { r: 3.4, n: 9 },
+  ultra: { r: 1.0, n: 80 },
+  fine: { r: 1.6, n: 40 },
+  medium: { r: 2.5, n: 20 },
+  coarse: { r: 3.9, n: 8 },
 };
 
 const seeded = (i: number, salt: number) => {
@@ -20,7 +21,7 @@ const seeded = (i: number, salt: number) => {
 
 const Particles = ({ level, active }: { level: GrindLevel; active: boolean }) => {
   const { r, n } = DOTS[level];
-  const salt = level === "fine" ? 1 : level === "medium" ? 2 : 3;
+  const salt = level === "ultra" ? 4 : level === "fine" ? 1 : level === "medium" ? 2 : 3;
   return (
     <svg viewBox="0 0 100 64" className="w-full h-full" aria-hidden>
       {Array.from({ length: n }).map((_, i) => {
@@ -49,7 +50,7 @@ const GrindPicker = ({ value, onChange }: Props) => {
     <div className="space-y-3">
       <style>{`@keyframes grind-pop{0%,100%{transform:scale(1) translateY(0)}50%{transform:scale(1.35) translateY(-1.5px)}}
 @keyframes grind-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}`}</style>
-      <div className="grid grid-cols-3 gap-3" onMouseLeave={() => setHover(null)}>
+      <div className="grid grid-cols-2 min-[460px]:grid-cols-4 gap-3" onMouseLeave={() => setHover(null)}>
         {GRIND_LEVELS.map(l => {
           const sel = current === l.value;
           return (
@@ -61,7 +62,7 @@ const GrindPicker = ({ value, onChange }: Props) => {
               <span className={`block h-14 rounded-xl bg-secondary/60 overflow-hidden p-1 ${sel ? "text-primary" : "text-[#6b4a32]"}`}>
                 <Particles level={l.value} active={sel || hover === l.value} />
               </span>
-              <span className={`block text-[13px] font-semibold mt-1.5 ${sel ? "text-primary" : ""}`}>{l.label}</span>
+              <span className={`block text-[12px] sm:text-[13px] font-semibold mt-1.5 leading-tight ${sel ? "text-primary" : ""}`}>{l.label}</span>
               {sel && (
                 <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
                   <Icon name="Check" size={9} className="text-primary-foreground" />

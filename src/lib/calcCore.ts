@@ -14,7 +14,7 @@ export interface LeadTimeTier { max_volume: number | null; days: number }
 
 export type WeightFormat = "1kg" | "250g";
 export type BagColor = string;
-export type GrindLevel = "fine" | "medium" | "coarse";
+export type GrindLevel = "ultra" | "fine" | "medium" | "coarse";
 export type Grind = "beans" | "ground" | `ground-${GrindLevel}`;
 
 export interface Position {
@@ -41,27 +41,29 @@ export const GRIND_OPTIONS: { value: Grind; label: string; desc: string }[] = [
 ];
 
 export const GRIND_LEVELS: { value: GrindLevel; label: string; hint: string; methods: { name: string; icon: string }[] }[] = [
-  { value: "fine", label: "Мелкий", hint: "Для насыщенного и плотного вкуса", methods: [
-    { name: "Турка, чашка (ультратонкий)", icon: "Flame" },
+  { value: "ultra", label: "Ультра тонкий", hint: "Как пудра, для самого плотного вкуса", methods: [
+    { name: "Турка", icon: "Flame" },
+  ] },
+  { value: "fine", label: "Мелкий", hint: "Насыщенный и крепкий вкус", methods: [
     { name: "Эспрессо", icon: "Gauge" },
+    { name: "Чашка", icon: "Coffee" },
   ] },
   { value: "medium", label: "Средний", hint: "Универсальный, мягкий баланс", methods: [
     { name: "Гейзерная кофеварка", icon: "Flame" },
+    { name: "Воронка (пуровер)", icon: "Droplets" },
     { name: "Аэропресс", icon: "Syringe" },
-    { name: "Пуровер", icon: "Droplets" },
+    { name: "Домашняя рожковая", icon: "Coffee" },
     { name: "Сифон", icon: "FlaskConical" },
-    { name: "Домашняя рожковая кофемашина", icon: "Coffee" },
   ] },
-  { value: "coarse", label: "Крупный", hint: "Для чистого и светлого вкуса", methods: [
+  { value: "coarse", label: "Крупный", hint: "Чистый и светлый вкус", methods: [
     { name: "Кемекс", icon: "FlaskConical" },
-    { name: "Френч-пресс", icon: "Beaker" },
-    { name: "Фильтр", icon: "Filter" },
-    { name: "Капельная кофеварка", icon: "Droplets" },
+    { name: "Френчпресс", icon: "Beaker" },
+    { name: "Фильтр (капельная кофеварка)", icon: "Filter" },
   ] },
 ];
 
 export const normalizeGrind = (v: string | null | undefined): Grind => {
-  if (v === "ground-fine" || v === "ground-medium" || v === "ground-coarse" || v === "ground") return v;
+  if (v === "ground-ultra" || v === "ground-fine" || v === "ground-medium" || v === "ground-coarse" || v === "ground") return v;
   return "beans";
 };
 

@@ -156,7 +156,7 @@ def send_email(cur, conn, to_email: str, subject: str, html: str):
 
 
 def norm_grind(v):
-    return v if v in ("ground", "ground-fine", "ground-medium", "ground-coarse") else "beans"
+    return v if v in ("ground", "ground-ultra", "ground-fine", "ground-medium", "ground-coarse") else "beans"
 
 
 def fetch_lots(cur, deal_id):
