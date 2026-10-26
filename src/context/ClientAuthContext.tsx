@@ -116,6 +116,7 @@ interface ClientAuthContextType {
   submitDeal: (dealId: number, phone?: string) => Promise<{ ok: boolean; error?: string; batchName?: string | null; contact?: { phone: string | null; email: string | null } }>;
   saveOrder: (data: SaveOrderInput) => Promise<{ ok: boolean; error?: string; batchId?: number; dealId?: number }>;
   setDraftTrashed: (dealId: number, trashed: boolean) => Promise<{ ok: boolean; error?: string }>;
+  deleteSubmitted: (dealId: number) => Promise<{ ok: boolean; error?: string }>;
   updateProfile: (data: { name?: string; phone?: string; city?: string; company?: string }) => Promise<{ ok: boolean; error?: string }>;
   fetchLogisticsFields: () => Promise<LogisticsField[]>;
   fetchNotifications: () => Promise<ClientNotification[]>;
@@ -141,6 +142,7 @@ const ClientAuthContext = createContext<ClientAuthContextType>({
   submitDeal: async () => ({ ok: false }),
   saveOrder: async () => ({ ok: false }),
   setDraftTrashed: async () => ({ ok: false }),
+  deleteSubmitted: async () => ({ ok: false }),
   updateProfile: async () => ({ ok: false }),
   fetchLogisticsFields: async () => [],
   fetchNotifications: async () => [],
@@ -357,6 +359,23 @@ export const ClientAuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const deleteSubmitted = async (dealId: number) => {
+    if (!token) return { ok: false, error: "Не авторизован" };
+    try {
+      const r = await fetch(CLIENT_AUTH_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Action": "delete-submitted", "X-Client-Token": token },
+        body: JSON.stringify({ deal_id: dealId }),
+      });
+      const d = await r.json();
+      if (!r.ok) return { ok: false, error: d.error || "Ошибка" };
+      fetchMe(token);
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "Ошибка сети" };
+    }
+  };
+
   const updateProfile = async (data: { name?: string; phone?: string; city?: string; company?: string }) => {
     if (!token) return { ok: false, error: "Не авторизован" };
     try {
@@ -417,7 +436,7 @@ export const ClientAuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <ClientAuthContext.Provider value={{
-      client, batches, stages, loading, token, unreadNotifications,
+      client, batches, stages, loading, token, unreadNotifications, deleteSubmitted,
       requestCode, verifyCode, createBatch, createDraftDeal, saveLot, deleteLot,
       updateLogistics, submitDeal, saveOrder, setDraftTrashed, updateProfile, fetchLogisticsFields, fetchNotifications, markNotificationsRead,
       logout, refresh,

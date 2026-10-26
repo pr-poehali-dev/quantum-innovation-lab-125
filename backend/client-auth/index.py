@@ -20,6 +20,7 @@ X-Action значения:
   submit-deal        — POST отправить заказ на согласование (минимум 1 позиция, нужен телефон): deal_id, phone?
   save-order         — POST создать/обновить партию и черновик заказа с позициями: batch_id?, batch_name, deal_id?, positions[]
   trash-draft        — POST убрать черновик в корзину: deal_id
+  delete-submitted   — POST удалить отправленную заявку, пока она на первом этапе (мягко, в корзину CRM): deal_id
   restore-draft      — POST вернуть черновик из корзины: deal_id
   list-logistics-fields — GET список полей логистики для формы (публично, без авторизации)
   list-mockups       — GET список макетов дизайна партии: X-Batch-Id
@@ -611,6 +612,39 @@ def handler(event: dict, context) -> dict:
                 UPDATE {SCHEMA}.deals SET draft_trashed_at={value}
                 WHERE id=%s AND client_id=%s AND status='draft'
             """, (deal_id, client["id"]))
+            conn.commit()
+            return ok({"ok": True})
+
+        # ── delete-submitted: клиент удаляет заявку, ещё не взятую в работу ──
+        if action == "delete-submitted":
+            client = get_client_by_token(cur, client_token)
+            if not client:
+                return err("Unauthorized", 401)
+            body = json.loads(event.get("body") or "{}")
+            deal_id = body.get("deal_id")
+            if not deal_id:
+                return err("deal_id required")
+            cur.execute(f"""
+                SELECT status, stage_id FROM {SCHEMA}.deals
+                WHERE id=%s AND client_id=%s AND trashed_at IS NULL
+            """, (deal_id, client["id"]))
+            row = cur.fetchone()
+            if not row:
+                return err("Заявка не найдена", 404)
+            if row[0] != "submitted":
+                return err("Удалить можно только отправленную заявку")
+            cur.execute(f"SELECT id FROM {SCHEMA}.deal_stages ORDER BY sort_order LIMIT 1")
+            first = cur.fetchone()
+            if first and row[1] != first[0]:
+                return err("Заявка уже в работе у менеджера — свяжитесь с ним, чтобы отменить её", 409)
+            who = f"Клиент: {client['name']}"
+            cur.execute(f"""
+                UPDATE {SCHEMA}.deals SET trashed_at=NOW(), trashed_by=%s, updated_at=NOW() WHERE id=%s
+            """, (who, deal_id))
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.deal_stage_log (deal_id, from_stage_id, to_stage_id, staff_id, staff_name)
+                VALUES (%s, %s, %s, NULL, %s)
+            """, (deal_id, row[1], row[1], "Клиент удалил заявку из личного кабинета"))
             conn.commit()
             return ok({"ok": True})
 

@@ -1,4 +1,9 @@
+import { useState } from "react";
 import Icon from "@/components/ui/icon";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useClientAuth } from "@/context/ClientAuthContext";
 import { formatRub } from "@/lib/calcCore";
 
@@ -10,7 +15,26 @@ interface Props {
 }
 
 const CabinetBatches = ({ onOpenBatch, onNew }: Props) => {
-  const { batches } = useClientAuth();
+  const { batches, stages, deleteSubmitted } = useClientAuth();
+  const [toDelete, setToDelete] = useState<{ dealId: number; name: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const firstStageId = [...stages].sort((a, b) => a.sort_order - b.sort_order)[0]?.id ?? null;
+
+  const showToast = (msg: string, ok = true) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3500);
+  };
+
+  const confirmDelete = async () => {
+    if (!toDelete) return;
+    setBusy(true);
+    const res = await deleteSubmitted(toDelete.dealId);
+    setBusy(false);
+    setToDelete(null);
+    showToast(res.ok ? "Партия удалена" : res.error || "Не удалось удалить", res.ok);
+  };
+
   const visible = batches.filter(b => b.deals.some(d => d.status === "submitted" && !d.draft_trashed_at));
 
   return (
@@ -39,9 +63,11 @@ const CabinetBatches = ({ onOpenBatch, onNew }: Props) => {
             const deal = batch.deals.find(d => d.status === "submitted")!;
             const amount = deal.lots.reduce((s, l) => s + (l.amount || 0), 0);
             const volume = deal.lots.reduce((s, l) => s + (l.volume || 0), 0);
+            const canDelete = firstStageId === null || deal.stage_id === firstStageId;
             return (
-              <button key={batch.id} onClick={() => onOpenBatch(batch.id)}
-                className="bg-card border border-border rounded-2xl p-5 text-left hover:border-primary/40 hover:shadow-sm transition-all active:scale-[0.99]">
+              <div key={batch.id} className="bg-card border border-border rounded-2xl hover:border-primary/40 hover:shadow-sm transition-all flex flex-col">
+              <button type="button" onClick={() => onOpenBatch(batch.id)}
+                className="p-5 text-left active:scale-[0.995] transition-transform flex-1 rounded-2xl">
                 <div className="flex items-start justify-between gap-2 mb-3">
                   <div className="min-w-0">
                     <p className="font-serif text-lg font-bold truncate">{batch.name}</p>
@@ -64,8 +90,42 @@ const CabinetBatches = ({ onOpenBatch, onNew }: Props) => {
                   <span className="font-serif text-lg font-bold">{amount ? formatRub(amount) : "—"}</span>
                 </div>
               </button>
+              {canDelete && (
+                <div className="px-5 pb-4 -mt-1">
+                  <button type="button" onClick={() => setToDelete({ dealId: deal.id, name: batch.name })}
+                    className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-destructive transition-colors py-1.5">
+                    <Icon name="Trash2" size={13} /> Удалить заявку
+                  </button>
+                </div>
+              )}
+              </div>
             );
           })}
+        </div>
+      )}
+
+      <AlertDialog open={!!toDelete} onOpenChange={o => { if (!o && !busy) setToDelete(null); }}>
+        <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Удалить партию «{toDelete?.name}»?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Заявка исчезнет из вашего списка, а менеджер перестанет её обрабатывать. Это можно сделать, пока заявку не взяли в работу.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel disabled={busy}>Оставить</AlertDialogCancel>
+            <AlertDialogAction onClick={e => { e.preventDefault(); confirmDelete(); }} disabled={busy}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {busy ? "Удаляю…" : "Да, удалить"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {toast && (
+        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg text-sm font-medium max-w-[92vw] ${toast.ok ? "bg-green-500 text-white" : "bg-destructive text-white"}`}>
+          <Icon name={toast.ok ? "Check" : "AlertCircle"} size={14} className="flex-shrink-0" />
+          <span>{toast.msg}</span>
         </div>
       )}
     </div>
