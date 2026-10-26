@@ -154,7 +154,7 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
             <span className="text-3xl opacity-40 flex-shrink-0 max-sm:hidden">{STEP_DEFS[step].emoji}</span>
           </div>
 
-          <div ref={bodyRef} className="p-4 sm:p-6 lg:min-h-[250px] max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto max-lg:overscroll-contain">
+          <div ref={bodyRef} className="p-4 sm:p-6 lg:min-h-[250px] max-lg:flex-1 max-lg:min-h-0 max-lg:overflow-y-auto">
             {step === 0 && (
               calc.origins.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-10">
