@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { Fragment, useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import { useLeadModal } from "@/context/LeadModalContext";
 import { useClientAuth } from "@/context/ClientAuthContext";
 import { useContacts, phoneHref } from "@/lib/siteContent";
+import { openPriceTable } from "@/lib/priceTable";
 import fallbackLogo from "@/assets/logo.png";
 
 // Порядок совпадает с порядком блоков на странице
@@ -11,7 +12,6 @@ const NAV_ITEMS = [
   { label: "Калькулятор",    href: "#calculator", section: "calculator" },
   { label: "Кофе под СТМ",   href: "#workflow",    section: "workflow"   },
   { label: "О производстве", href: "#features",    section: "features"   },
-  { label: "Контакты",       href: "#contacts",    section: "contacts"   },
 ];
 
 const FALLBACK_LOGO = fallbackLogo;
@@ -124,7 +124,8 @@ const Header = () => {
               const isActive = activeSection === item.section;
               const isCalc   = item.section === "calculator";
               return (
-                <a key={item.href} href={item.href}
+                <Fragment key={item.href}>
+                <a href={item.href}
                   className={`relative px-3 py-1.5 text-[13px] rounded-full transition-all duration-200 font-medium flex items-center gap-1.5 ${
                     isActive
                       ? "text-primary"
@@ -138,6 +139,18 @@ const Header = () => {
                   )}
                   <span className="relative">{item.label}</span>
                 </a>
+                {isCalc && (
+                  <button type="button" onClick={openPriceTable}
+                    className="relative mx-1 flex items-center gap-1.5 pl-3 pr-3.5 py-1.5 rounded-full text-[13px] font-semibold text-primary border border-primary/40 bg-primary/10 hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all duration-200 active:scale-95">
+                    <Icon name="Tag" size={13} />
+                    Прайс
+                    <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-primary opacity-60 animate-ping motion-reduce:animate-none" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                    </span>
+                  </button>
+                )}
+                </Fragment>
               );
             })}
           </nav>
@@ -235,6 +248,10 @@ const Header = () => {
         {/* Мобильное меню */}
         {mobileOpen && (
           <div className="lg:hidden border-t border-black/8 bg-white px-6 py-4 space-y-3 animate-in slide-in-from-top duration-200">
+            <button type="button" onClick={() => { setMobileOpen(false); openPriceTable(); }}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold shadow-md shadow-primary/20 active:scale-[0.98] transition-transform">
+              <Icon name="Tag" size={15} /> Прайс-лист
+            </button>
             <nav className="flex flex-col gap-1">
               {NAV_ITEMS.map(item => (
                 <a key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
