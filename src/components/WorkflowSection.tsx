@@ -55,11 +55,11 @@ const Visual2 = () => (
       <span className="text-[10px] font-mono text-muted-foreground">КонтрактКофе · счёт</span>
     </div>
     <div className="p-3 space-y-1">
-      <p className="text-[10px] font-mono text-muted-foreground">АРАБИКА ПЕРУ · 100 КГ</p>
+      <p className="text-[10px] font-mono text-muted-foreground">АРАБИКА ПЕРУ · 500 КГ</p>
       <p className="text-[10px] font-mono text-muted-foreground">ДОЙ-ПАК 250Г · ДИЗАЙН</p>
       <div className="pt-2 border-t border-border flex justify-between items-center">
         <span className="text-[10px] font-mono text-muted-foreground">ИТОГО</span>
-        <span className="text-base font-bold text-foreground">52 000 ₽</span>
+        <span className="text-base font-bold text-foreground">260 000 ₽</span>
       </div>
     </div>
   </div>
