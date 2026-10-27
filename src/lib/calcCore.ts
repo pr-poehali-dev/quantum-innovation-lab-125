@@ -183,7 +183,12 @@ export const formatRub = (n: number) => `${Math.round(n).toLocaleString("ru-RU")
 
 export const newUid = () => Math.random().toString(36).slice(2, 10);
 
+export const CALC_FEATURES: { key: string; label: string; desc: string }[] = [
+  { key: "ground", label: "Молотый кофе", desc: "Клиент может выбрать помол вместо зерна. Если выключить, в калькуляторе останется только зерно." },
+];
+
 export interface CalcData {
+  features: Record<string, boolean>;
   origins: CalcOrigin[];
   usdRate: number;
   minVolume: number;
@@ -194,13 +199,14 @@ export interface CalcData {
 
 export function useCalcData(): CalcData {
   const [data, setData] = useState<CalcData>({
-    origins: [], usdRate: 85, minVolume: 500, volumeStep: 5, tiers: DEFAULT_TIERS, ready: false,
+    features: {}, origins: [], usdRate: 85, minVolume: 500, volumeStep: 5, tiers: DEFAULT_TIERS, ready: false,
   });
 
   useEffect(() => {
     fetch(ABOUT_URL, { headers: { "X-Action": "get-calc" } })
       .then(r => r.json())
       .then(d => setData({
+        features: d.features || {},
         origins: d.origins || [],
         usdRate: d.usd_rate || 85,
         minVolume: d.min_volume || 500,

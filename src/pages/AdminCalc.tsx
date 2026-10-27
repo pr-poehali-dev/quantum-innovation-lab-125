@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import Icon from "@/components/ui/icon";
 import PassportEditor from "@/components/admin/calc/PassportEditor";
-import type { Passport } from "@/lib/calcCore";
+import { CALC_FEATURES, type Passport } from "@/lib/calcCore";
+import { Switch } from "@/components/ui/switch";
 import { useStaffAuth } from "@/context/StaffAuthContext";
 import SheetGrid from "@/components/admin/calc/SheetGrid";
 import {
@@ -32,6 +33,7 @@ const AdminCalc = () => {
   const [tiers, setTiers] = useState<LeadTimeTier[]>([]);
   const [origins, setOrigins] = useState<{ id: number; label: string }[]>([]);
   const [recs, setRecs] = useState<Record<string, string>>({});
+  const [features, setFeatures] = useState<Record<string, boolean>>({});
   const [passports, setPassports] = useState<Record<string, Passport>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -67,14 +69,15 @@ const AdminCalc = () => {
       list.forEach(o => { if (o.recommended_roast) loadedRecs[String(o.id)] = o.recommended_roast; });
       setOrigins(list.map(o => ({ id: o.id, label: o.label })));
       setRecs(loadedRecs);
-      setOriginalSettings(JSON.stringify([c.min_volume || 500, c.volume_step || 5, c.lead_time_tiers || [], loadedRecs, loadedPass]));
+      setFeatures(c.features || {});
+      setOriginalSettings(JSON.stringify([c.min_volume || 500, c.volume_step || 5, c.lead_time_tiers || [], loadedRecs, loadedPass, c.features || {}]));
     } catch { showToast("Ошибка загрузки", false); }
     finally { setLoading(false); }
   };
 
   useEffect(() => { if (token) load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [token]);
 
-  const settingsKey = JSON.stringify([minVolume, volumeStep, tiers, recs, passports]);
+  const settingsKey = JSON.stringify([minVolume, volumeStep, tiers, recs, passports, features]);
   const dirty = !!sheet && (JSON.stringify(sheet) !== original || settingsKey !== originalSettings);
 
   useEffect(() => {
@@ -167,7 +170,7 @@ const AdminCalc = () => {
       await fetch(ABOUT_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Action": "save-calc", ...authHeaders },
-        body: JSON.stringify({ min_volume: minVolume, volume_step: volumeStep, lead_time_tiers: tiers, recommended_roast: recs, passports }),
+        body: JSON.stringify({ min_volume: minVolume, volume_step: volumeStep, lead_time_tiers: tiers, recommended_roast: recs, passports, features }),
       });
       setOriginalSettings(settingsKey);
       showToast("Сохранено — цены обновились на сайте и в кабинете ✓");
@@ -317,6 +320,25 @@ const AdminCalc = () => {
               <p className="text-sm text-muted-foreground mb-3">Подробная карточка сорта: клиент откроет её значком рядом с названием в калькуляторе. Пустой паспорт не показывается</p>
               <PassportEditor origins={origins} passports={passports} onChange={setPassports} authHeaders={authHeaders} aboutUrl={ABOUT_URL}
                 onError={m => showToast(m, false)} />
+            </section>
+
+            <section>
+              <h2 className="font-serif text-xl font-bold mb-1">Функции калькулятора</h2>
+              <p className="text-sm text-muted-foreground mb-3">Включайте и выключайте возможности. Изменения появятся на сайте и в кабинете после сохранения.</p>
+              <div className="bg-card border border-border rounded-xl divide-y divide-border">
+                {CALC_FEATURES.map(f => {
+                  const on = features[f.key] !== false;
+                  return (
+                    <div key={f.key} className="flex items-center justify-between gap-4 p-4 sm:p-5">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold">{f.label}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{f.desc}</p>
+                      </div>
+                      <Switch checked={on} onCheckedChange={v => setFeatures(prev => ({ ...prev, [f.key]: v }))} aria-label={f.label} />
+                    </div>
+                  );
+                })}
+              </div>
             </section>
 
             <section>

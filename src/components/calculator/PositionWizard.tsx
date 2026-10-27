@@ -44,7 +44,9 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
   const [originId, setOriginId] = useState<number | null>(initial?.origin_id ?? null);
   const [roast, setRoast] = useState(initial?.roast ?? ROAST_OPTIONS[1].label);
   const [passportOrigin, setPassportOrigin] = useState<CalcOrigin | null>(null);
+  const groundOn = calc.features.ground !== false;
   const [grind, setGrind] = useState<Grind>(initial?.grind ?? "beans");
+  useEffect(() => { if (!groundOn && grind !== "beans") setGrind("beans"); }, [groundOn, grind]);
   const [format, setFormat] = useState<WeightFormat>(initial?.weight_format ?? "1kg");
   const [pack, setPack] = useState<Pack>(parsePack(initial?.color));
   const color = packCode(pack);
@@ -194,7 +196,7 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
               </div>
             )}
 
-            {step === 1 && (
+            {step === 1 && groundOn && (
               <div className="mt-5">
                 <p className="text-[11px] font-mono text-muted-foreground mb-2 tracking-wider">ВИД КОФЕ</p>
                 <div className="grid grid-cols-2 gap-3">
@@ -381,7 +383,7 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
             {[
               { label: "Зерно", val: origin?.label ?? "—" },
               { label: "Обжарка", val: step >= 1 || initial ? roast : "—" },
-              { label: "Вид", val: step >= 1 || initial ? grindLabel(grind) : "—" },
+              ...(groundOn ? [{ label: "Вид", val: step >= 1 || initial ? grindLabel(grind) : "—" }] : []),
               { label: "Фасовка", val: step >= 2 || initial ? formatLabel(format) : "—" },
               { label: "Пакет", val: step >= 2 || initial ? packShort(color) : "—" },
               { label: "Объём", val: `${volume.toLocaleString("ru-RU")} кг` },

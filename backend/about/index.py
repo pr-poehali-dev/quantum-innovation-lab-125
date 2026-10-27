@@ -281,9 +281,13 @@ def handler(event: dict, context) -> dict:
             lead_time_tiers = json.loads(lt_row[0]) if lt_row else [
                 {"max_volume": 1000, "days": 14}, {"max_volume": 2000, "days": 18}, {"max_volume": None, "days": 25},
             ]
+            cur.execute(f"SELECT value FROM {SCHEMA}.site_settings WHERE key='calc_features'")
+            feat_row = cur.fetchone()
+            features = json.loads(feat_row[0]) if feat_row and feat_row[0] else {}
             return ok({
                 "origins": origins, "usd_rate": usd_rate, "usd_rate_updated_at": rate_updated_at,
                 "min_volume": min_volume, "volume_step": volume_step, "lead_time_tiers": lead_time_tiers,
+                "features": features,
             })
 
         # ── get-price-table: публичная таблица «Подробнее о стоимости» (без формул) ──
@@ -464,6 +468,13 @@ def handler(event: dict, context) -> dict:
                     INSERT INTO {SCHEMA}.site_settings (key, value, updated_at) VALUES ('calc_recommended_roast', %s, NOW())
                     ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
                 """, (json.dumps(rec, ensure_ascii=False),))
+
+            if "features" in body:
+                feats = {str(k): bool(v) for k, v in (body["features"] or {}).items()}
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.site_settings (key, value, updated_at) VALUES ('calc_features', %s, NOW())
+                    ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
+                """, (json.dumps(feats),))
 
             if "min_volume" in body:
                 cur.execute(f"""
