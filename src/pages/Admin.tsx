@@ -35,6 +35,14 @@ const SECTIONS: Section[] = [
     roles: ["owner", "super_admin", "manager", "support"],
   },
   {
+    href: "/admin/contacts",
+    icon: "BookUser",
+    title: "Контакты и база компаний",
+    desc: "База для обзвона: звонки, комментарии, теги, создание сделок",
+    tag: "Контакты",
+    roles: ["owner", "super_admin", "manager", "support"],
+  },
+  {
     href: "/admin/pages",
     icon: "FileStack",
     title: "Страницы сайта",

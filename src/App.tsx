@@ -15,6 +15,7 @@ import AdminCalc from "./pages/AdminCalc";
 import AdminLogin from "./pages/AdminLogin";
 import AdminJoin from "./pages/AdminJoin";
 import AdminCRM from "./pages/AdminCRM";
+import AdminContacts from "./pages/AdminContacts";
 import AdminStages from "./pages/AdminStages";
 import AdminStaff from "./pages/AdminStaff";
 import AdminSettings from "./pages/AdminSettings";
@@ -54,6 +55,7 @@ const App = () => (
               <Route path="/admin/rate" element={<RoleGuard allowedRoles={["owner", "super_admin", "manager"]}><AdminRate /></RoleGuard>} />
               <Route path="/admin/calc" element={<RoleGuard allowedRoles={["owner", "super_admin", "manager"]}><AdminCalc /></RoleGuard>} />
               <Route path="/admin/crm" element={<RoleGuard allowedRoles={["owner", "super_admin", "manager", "support"]}><AdminCRM /></RoleGuard>} />
+              <Route path="/admin/contacts" element={<RoleGuard allowedRoles={["owner", "super_admin", "manager", "support"]}><AdminContacts /></RoleGuard>} />
               <Route path="/admin/stages" element={<RoleGuard allowedRoles={["owner", "super_admin", "manager"]}><AdminStages /></RoleGuard>} />
               <Route path="/admin/staff" element={<RoleGuard allowedRoles={["owner"]}><AdminStaff /></RoleGuard>} />
               <Route path="/admin/settings" element={<RoleGuard allowedRoles={["owner", "super_admin"]}><AdminSettings /></RoleGuard>} />
