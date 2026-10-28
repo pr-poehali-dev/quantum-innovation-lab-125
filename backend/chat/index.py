@@ -136,7 +136,9 @@ def get_staff(cur, token: str):
 
 
 def notify_telegram(cur, conn, who: str, text: str, client_id=None, guest_id=None):
-    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    cur.execute(f"SELECT value FROM {SCHEMA}.site_settings WHERE key='telegram_bot_token'")
+    row = cur.fetchone()
+    token = (row[0] if row else "") or os.environ.get("TELEGRAM_BOT_TOKEN", "")
     if not token:
         return
     cur.execute(f"SELECT chat_id FROM {SCHEMA}.tg_subscribers")

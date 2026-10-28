@@ -42,19 +42,20 @@ const ImportDialog = ({ authHeaders, onClose, onDone }: Props) => {
       const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
       const sheet = wb.Sheets[wb.SheetNames[0]];
       const raw = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "" });
-      const hi = raw.findIndex(r => r.some(c => /компани|название/i.test(cell(c))));
-      if (hi < 0) { setError("Не нашёл колонку «Компания». Проверьте файл."); setRows(null); return; }
+      const hi = raw.findIndex(r => r.filter(c => FIELDS.some(f => f.match.test(cell(c)))).length >= 3);
+      if (hi < 0) { setError("Не нашёл строку с заголовками колонок. Проверьте файл."); setRows(null); return; }
       const header = raw[hi].map(cell);
       const colOf: Record<string, number> = {};
       FIELDS.forEach(f => { const i = header.findIndex((h, idx) => f.match.test(h) && !Object.values(colOf).includes(idx)); if (i >= 0) colOf[f.key] = i; });
       const out: Record<string, unknown>[] = [];
       raw.slice(hi + 1).forEach(r => {
         const g = (k: string) => (colOf[k] !== undefined ? cell(r[colOf[k]]) : "");
-        if (!g("company")) return;
+        const company = g("company") || (g("code") ? `Без названия (${g("code")})` : g("phone") || g("email"));
+        if (!company) return;
         const called = g("called");
         const comments = [called && !/^не звонил$/i.test(called) ? `Звонил?: ${called}` : "", g("result") ? `Результат звонка: ${g("result")}` : "", g("comment")].filter(Boolean);
         out.push({
-          code: g("code"), priority: parseInt(g("priority")) || null, company: g("company"), segment: g("segment"), city: g("city"),
+          code: g("code"), priority: parseInt(g("priority")) || null, company, segment: g("segment"), city: g("city"),
           call_window: g("call_window"), phone: g("phone"), email: g("email"), call_status: statusFromText(called),
           need: g("need"), volume_note: g("volume_note"), important: g("important"), comments,
         });
@@ -91,7 +92,7 @@ const ImportDialog = ({ authHeaders, onClose, onDone }: Props) => {
           {!busy && <button onClick={onClose}><Icon name="X" size={16} /></button>}
         </div>
         <p className="text-sm text-muted-foreground">
-          Загрузите таблицу с колонками «Компания», «Телефон», «Email», «Город», «Сегмент», «Приоритет» и другими. Сегмент, приоритет и город станут тегами. Уже существующие компании пропустятся.
+          Загрузите таблицу с колонками вроде «Компания», «Телефон», «Email», «Город», «Сегмент», «Приоритет». Незаполненные поля — не проблема, загрузится всё, что есть. Сегмент, приоритет и город станут тегами. Уже существующие компании пропустятся.
         </p>
         <label className="block border-2 border-dashed border-border rounded-xl p-6 text-center text-sm cursor-pointer hover:border-primary transition-colors">
           <input type="file" accept=".xlsx,.xls,.csv" className="hidden" disabled={busy} onChange={e => e.target.files?.[0] && readFile(e.target.files[0])} />

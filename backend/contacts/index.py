@@ -320,9 +320,9 @@ def handler(event: dict, context) -> dict:
             seen_code = {r[2] for r in existing if r[2]}
             prepared, skipped = [], 0
             for r in rows:
-                company = clean(r.get("company"))
                 code = clean(r.get("code"))
                 city = clean(r.get("city"))
+                company = clean(r.get("company")) or (f"Без названия ({code})" if code else None) or clean(r.get("phone")) or clean(r.get("email"))
                 key = ((company or "").lower(), (city or "").lower())
                 if not company or (code and code in seen_code) or key in seen_company:
                     skipped += 1
