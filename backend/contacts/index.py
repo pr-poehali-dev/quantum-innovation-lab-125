@@ -93,18 +93,6 @@ def set_tags(cur, contact_id, tag_ids):
         """, (contact_id, t))
 
 
-def get_or_create_tag(cur, cache, name, color="gray"):
-    key = name.lower()
-    if key in cache:
-        return cache[key]
-    cur.execute(f"""
-        INSERT INTO {SCHEMA}.contact_tags (name, color) VALUES (%s, %s)
-        ON CONFLICT (name) DO UPDATE SET name=EXCLUDED.name RETURNING id
-    """, (name, color))
-    cache[key] = cur.fetchone()[0]
-    return cache[key]
-
-
 def handler(event: dict, context) -> dict:
     """Обработчик контактов: список, карточка, теги, звонки, комментарии, импорт, создание сделки."""
     if event.get("httpMethod") == "OPTIONS":
@@ -326,52 +314,66 @@ def handler(event: dict, context) -> dict:
 
         if action == "import-contacts":
             rows = body.get("rows") or []
-            cur.execute(f"SELECT id, LOWER(name) FROM {SCHEMA}.contact_tags")
-            cache = {r[1]: r[0] for r in cur.fetchall()}
             cur.execute(f"SELECT LOWER(company), LOWER(COALESCE(city,'')), code FROM {SCHEMA}.contacts")
             existing = cur.fetchall()
             seen_company = {(r[0], r[1]) for r in existing}
             seen_code = {r[2] for r in existing if r[2]}
-            added = skipped = 0
+            prepared, skipped = [], 0
             for r in rows:
                 company = clean(r.get("company"))
-                if not company:
-                    skipped += 1
-                    continue
                 code = clean(r.get("code"))
                 city = clean(r.get("city"))
-                if (code and code in seen_code) or (company.lower(), (city or "").lower()) in seen_company:
+                key = ((company or "").lower(), (city or "").lower())
+                if not company or (code and code in seen_code) or key in seen_company:
                     skipped += 1
                     continue
+                seen_company.add(key)
+                if code:
+                    seen_code.add(code)
                 pr = r.get("priority")
                 pr = int(pr) if pr in (1, 2, 3, "1", "2", "3") else None
                 status = r.get("call_status") if r.get("call_status") in STATUSES else "new"
+                tags = [(clean(r.get("segment")), "blue"), (f"Приоритет {pr}" if pr else None, {1: "red", 2: "amber", 3: "gray"}.get(pr, "gray")),
+                        (city, "slate")] + [(clean(t), "gray") for t in r.get("tags") or []]
+                prepared.append({
+                    "vals": (code, company, clean(r.get("segment")), city, clean(r.get("call_window")), pr, clean(r.get("phone")),
+                             clean(r.get("email")), status, clean(r.get("need")), clean(r.get("volume_note")),
+                             clean(r.get("important")), staff["id"]),
+                    "tags": [t for t in tags if t[0]],
+                    "comments": [clean(t) for t in r.get("comments") or [] if clean(t)],
+                })
+            if not prepared:
+                return ok({"ok": True, "added": 0, "skipped": skipped})
+
+            values = b",".join(cur.mogrify("(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)", p["vals"]) for p in prepared).decode()
+            cur.execute(f"""
+                INSERT INTO {SCHEMA}.contacts (code, company, segment, city, call_window, priority, phone, email,
+                call_status, need, volume_note, important, assigned_to) VALUES {values} RETURNING id
+            """)
+            ids = [x[0] for x in cur.fetchall()]
+
+            tag_defs = {}
+            for p in prepared:
+                for name, color in p["tags"]:
+                    tag_defs.setdefault(name, color)
+            tag_ids = {}
+            if tag_defs:
+                tvals = b",".join(cur.mogrify("(%s,%s)", (n, c)) for n, c in tag_defs.items()).decode()
                 cur.execute(f"""
-                    INSERT INTO {SCHEMA}.contacts (code, company, segment, city, call_window, priority, phone, email,
-                    call_status, need, volume_note, important, assigned_to)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id
-                """, (code, company, clean(r.get("segment")), city, clean(r.get("call_window")), pr, clean(r.get("phone")),
-                      clean(r.get("email")), status, clean(r.get("need")), clean(r.get("volume_note")),
-                      clean(r.get("important")), staff["id"]))
-                cid = cur.fetchone()[0]
-                seen_company.add((company.lower(), (city or "").lower()))
-                if code:
-                    seen_code.add(code)
-                tag_names = [(clean(r.get("segment")), "blue"), (f"Приоритет {pr}" if pr else None, {1: "red", 2: "amber", 3: "gray"}.get(pr, "gray")),
-                             (city, "slate")] + [(clean(t), "gray") for t in r.get("tags") or []]
-                for name, color in tag_names:
-                    if name:
-                        cur.execute(f"""
-                            INSERT INTO {SCHEMA}.contact_tag_links (contact_id, tag_id) VALUES (%s,%s) ON CONFLICT DO NOTHING
-                        """, (cid, get_or_create_tag(cur, cache, name, color)))
-                for text in r.get("comments") or []:
-                    if clean(text):
-                        cur.execute(f"""
-                            INSERT INTO {SCHEMA}.contact_comments (contact_id, staff_name, text) VALUES (%s,'Импорт из таблицы',%s)
-                        """, (cid, clean(text)))
-                added += 1
+                    INSERT INTO {SCHEMA}.contact_tags (name, color) VALUES {tvals}
+                    ON CONFLICT (name) DO UPDATE SET name=EXCLUDED.name RETURNING id, name
+                """)
+                tag_ids = {x[1]: x[0] for x in cur.fetchall()}
+            links = {(cid, tag_ids[n]) for cid, p in zip(ids, prepared) for n, _ in p["tags"] if n in tag_ids}
+            if links:
+                lvals = b",".join(cur.mogrify("(%s,%s)", l) for l in links).decode()
+                cur.execute(f"INSERT INTO {SCHEMA}.contact_tag_links (contact_id, tag_id) VALUES {lvals} ON CONFLICT DO NOTHING")
+            comments = [(cid, t) for cid, p in zip(ids, prepared) for t in p["comments"]]
+            if comments:
+                cvals = b",".join(cur.mogrify("(%s,'Импорт из таблицы',%s)", c) for c in comments).decode()
+                cur.execute(f"INSERT INTO {SCHEMA}.contact_comments (contact_id, staff_name, text) VALUES {cvals}")
             conn.commit()
-            return ok({"ok": True, "added": added, "skipped": skipped})
+            return ok({"ok": True, "added": len(ids), "skipped": skipped})
 
         return err("Unknown action", 404)
     finally:

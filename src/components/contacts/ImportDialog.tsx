@@ -68,16 +68,16 @@ const ImportDialog = ({ authHeaders, onClose, onDone }: Props) => {
     setBusy(true);
     let added = 0, skipped = 0;
     try {
-      for (let i = 0; i < rows.length; i += 100) {
+      for (let i = 0; i < rows.length; i += 50) {
         const r = await fetch(CONTACTS_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json", "X-Action": "import-contacts", ...authHeaders },
-          body: JSON.stringify({ rows: rows.slice(i, i + 100) }),
+          body: JSON.stringify({ rows: rows.slice(i, i + 50) }),
         });
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || "Ошибка");
         added += d.added; skipped += d.skipped;
-        setProgress(Math.min(100, Math.round(((i + 100) / rows.length) * 100)));
+        setProgress(Math.min(100, Math.round(((i + 50) / rows.length) * 100)));
       }
       onDone(added, skipped);
     } catch { setError(`Загрузка прервалась. Добавлено: ${added}. Можно повторить — дубли пропустятся.`); setBusy(false); }
