@@ -33,7 +33,6 @@ const TelegramSettings = ({ toast }: { toast: (msg: string, ok?: boolean) => voi
       .then(async r => ({ ok: r.ok, d: await r.json() }));
 
   const saveToken = async () => {
-    if (!botToken.trim()) return;
     setBusy(true);
     const { ok, d } = await post("save-token", { token: botToken, url: TG_URL });
     setBusy(false);
@@ -94,10 +93,16 @@ const TelegramSettings = ({ toast }: { toast: (msg: string, ok?: boolean) => voi
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2 text-sm">
                     <Icon name={st.webhook ? "CheckCircle2" : "AlertCircle"} size={16} className={st.webhook ? "text-green-600" : "text-amber-600"} />
-                    Бот @{st.bot_username}: {st.webhook ? "работает" : "не активен, вставьте токен заново"}
+                    {st.bot_username ? `Бот @${st.bot_username}: ` : "Токен найден: "}{st.webhook ? "работает" : "ещё не подключён к сайту"}
                   </div>
                   {st.can_manage && <button onClick={disconnect} className="text-[13px] text-muted-foreground hover:text-destructive">Отключить бота</button>}
                 </div>
+
+                {!st.webhook && (
+                  <button onClick={saveToken} disabled={busy} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-40">
+                    {busy ? "Подключаю…" : "Подключить бота к сайту"}
+                  </button>
+                )}
 
                 <div className="flex flex-wrap items-center gap-3">
                   {st.linked ? (

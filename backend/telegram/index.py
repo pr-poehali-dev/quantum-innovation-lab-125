@@ -43,7 +43,7 @@ def tg(token: str, method: str, payload: dict | None = None):
         f"https://api.telegram.org/bot{token}/{method}",
         data=json.dumps(payload or {}).encode(), headers={"Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=8) as r:
+    with urllib.request.urlopen(req, timeout=4) as r:
         return json.loads(r.read())
 
 
@@ -176,8 +176,11 @@ def handler(event: dict, context) -> dict:
         if action == "status":
             if not token:
                 return ok({"configured": False, "linked": False, "subscribers": [], "can_manage": can_manage})
-            me = tg(token, "getMe").get("result", {})
-            info = tg(token, "getWebhookInfo").get("result", {})
+            try:
+                me = tg(token, "getMe").get("result", {})
+                info = tg(token, "getWebhookInfo").get("result", {})
+            except Exception:
+                me, info = {}, {}
             cur.execute(f"""
                 SELECT s.id, s.name, t.tg_username FROM {SCHEMA}.tg_subscribers t
                 JOIN {SCHEMA}.staff_users s ON s.id = t.staff_id ORDER BY t.id
@@ -193,7 +196,8 @@ def handler(event: dict, context) -> dict:
         if action == "save-token":
             if not can_manage:
                 return err("Только владелец", 403)
-            new_token = (body.get("token") or "").strip()
+            given = (body.get("token") or "").strip()
+            new_token = given or token
             url = body.get("url")
             if not new_token or not url:
                 return err("Вставьте токен бота")
@@ -206,11 +210,12 @@ def handler(event: dict, context) -> dict:
             r = tg(new_token, "setWebhook", {"url": url, "secret_token": webhook_secret(new_token), "allowed_updates": ["message"]})
             if not r.get("ok"):
                 return err(r.get("description") or "Не удалось подключить бота")
-            cur.execute(f"""
-                INSERT INTO {SCHEMA}.site_settings (key, value) VALUES ('telegram_bot_token', %s)
-                ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
-            """, (new_token,))
-            conn.commit()
+            if given:
+                cur.execute(f"""
+                    INSERT INTO {SCHEMA}.site_settings (key, value) VALUES ('telegram_bot_token', %s)
+                    ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()
+                """, (given,))
+                conn.commit()
             return ok({"ok": True, "bot_username": me["result"].get("username")})
 
         if action == "disconnect-bot":
