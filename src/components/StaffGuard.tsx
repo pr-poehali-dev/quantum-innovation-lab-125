@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate } from "@/lib/router-compat";
 import { useStaffAuth } from "@/context/StaffAuthContext";
 
 const StaffGuard = ({ children }: { children: ReactNode }) => {

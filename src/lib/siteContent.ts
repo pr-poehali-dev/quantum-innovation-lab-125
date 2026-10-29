@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useHomeData } from "@/lib/homeData";
 
 export const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
 
@@ -18,8 +19,11 @@ export function fetchSection<T>(key: string): Promise<T | null> {
 }
 
 export function useSection<T extends object>(key: string, fallback: T): T {
-  const [data, setData] = useState<T>(fallback);
+  const home = useHomeData();
+  const preloaded = home ? (home.sections[key] as Partial<T> | null | undefined) : undefined;
+  const [data, setData] = useState<T>(() => (preloaded ? { ...fallback, ...preloaded } : fallback));
   useEffect(() => {
+    if (home) return;
     let alive = true;
     fetchSection<T>(key).then(d => { if (alive && d) setData({ ...fallback, ...d }); });
     return () => { alive = false; };

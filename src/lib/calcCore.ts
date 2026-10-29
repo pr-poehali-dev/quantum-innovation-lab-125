@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ABOUT_URL } from "@/lib/siteContent";
+import { useHomeData } from "@/lib/homeData";
 
 export interface CalcOrigin {
   id: number;
@@ -197,24 +198,31 @@ export interface CalcData {
   ready: boolean;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const toCalcData = (d: any): CalcData => ({
+  features: d.features || {},
+  origins: d.origins || [],
+  usdRate: d.usd_rate || 85,
+  minVolume: d.min_volume || 500,
+  volumeStep: d.volume_step || 5,
+  tiers: d.lead_time_tiers || DEFAULT_TIERS,
+  ready: true,
+});
+
 export function useCalcData(): CalcData {
-  const [data, setData] = useState<CalcData>({
+  const home = useHomeData();
+  const preloaded = home?.calc ?? null;
+  const [data, setData] = useState<CalcData>(() => preloaded ? toCalcData(preloaded) : {
     features: {}, origins: [], usdRate: 85, minVolume: 500, volumeStep: 5, tiers: DEFAULT_TIERS, ready: false,
   });
 
   useEffect(() => {
+    if (preloaded) return;
     fetch(ABOUT_URL, { headers: { "X-Action": "get-calc" } })
       .then(r => r.json())
-      .then(d => setData({
-        features: d.features || {},
-        origins: d.origins || [],
-        usdRate: d.usd_rate || 85,
-        minVolume: d.min_volume || 500,
-        volumeStep: d.volume_step || 5,
-        tiers: d.lead_time_tiers || DEFAULT_TIERS,
-        ready: true,
-      }))
+      .then(d => setData(toCalcData(d)))
       .catch(() => setData(prev => ({ ...prev, ready: true })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return data;

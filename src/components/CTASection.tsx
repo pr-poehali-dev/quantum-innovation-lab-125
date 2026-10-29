@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
+import { useHomeData } from "@/lib/homeData";
 
 const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
 
@@ -18,9 +19,12 @@ const DEFAULT_CTA: CtaData = {
 };
 
 const CTASection = () => {
-  const [cta, setCta] = useState<CtaData>(DEFAULT_CTA);
+  const home = useHomeData();
+  const preCta = home ? (home.sections.cta as CtaData | null) : null;
+  const [cta, setCta] = useState<CtaData>(preCta || DEFAULT_CTA);
 
   useEffect(() => {
+    if (home) return;
     fetch(ABOUT_URL, { headers: { "X-Action": "get-sections", "X-Section-Key": "cta" } })
       .then(r => r.json())
       .then(d => { if (d.data) setCta(d.data); })

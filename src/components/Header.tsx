@@ -1,9 +1,10 @@
 import { Fragment, useState, useEffect, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 import Icon from "@/components/ui/icon";
 import { useLeadModal } from "@/context/LeadModalContext";
 import { useClientAuth } from "@/context/ClientAuthContext";
 import { useContacts, phoneHref } from "@/lib/siteContent";
+import { useHomeData } from "@/lib/homeData";
 import { openPriceTable } from "@/lib/priceTable";
 import fallbackLogo from "@/assets/logo.png";
 
@@ -31,8 +32,9 @@ function formatRateDate(iso: string): string {
 const Header = () => {
   const [scrolled,      setScrolled]      = useState(false);
   const [activeSection, setActiveSection] = useState("");
-  const [logoUrl,       setLogoUrl]       = useState(FALLBACK_LOGO);
-  const [usdRate,       setUsdRate]       = useState<number | null>(null);
+  const home = useHomeData();
+  const [logoUrl,       setLogoUrl]       = useState(home?.content?.content?.logo_url || FALLBACK_LOGO);
+  const [usdRate,       setUsdRate]       = useState<number | null>(home?.rate?.rate || null);
   const [usdRateDate,   setUsdRateDate]   = useState<string | null>(null);
   const [phoneOpen,     setPhoneOpen]     = useState(false);
   const [mobileOpen,    setMobileOpen]    = useState(false);
@@ -57,6 +59,11 @@ const Header = () => {
   }, []);
 
   useEffect(() => {
+    if (home) {
+      // Дата курса («сегодня»/«вчера») зависит от часов посетителя — ставим её уже в браузере
+      if (home.rate?.updated_at) setUsdRateDate(home.rate.updated_at);
+      return;
+    }
     fetch(ABOUT_URL, { headers: { "X-Action": "get-content" } })
       .then(r => r.json())
       .then(d => { if (d.content?.logo_url) setLogoUrl(d.content.logo_url); })
@@ -68,6 +75,7 @@ const Header = () => {
         if (d.updated_at) setUsdRateDate(d.updated_at);
       })
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

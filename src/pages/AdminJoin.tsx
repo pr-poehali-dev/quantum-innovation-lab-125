@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "@/lib/router-compat";
 import Icon from "@/components/ui/icon";
 import { useStaffAuth } from "@/context/StaffAuthContext";
 import logo from "@/assets/logo.png";

@@ -1,29 +1,29 @@
-import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 import Icon from "@/components/ui/icon";
 import logo from "@/assets/logo.png";
 
 const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
 
 interface PageFile { id: number; file_url: string; file_name: string }
-interface PageData { id: number; slug: string; title: string; content: string; icon: string; files: PageFile[] }
+export interface PageData { id: number; slug: string; title: string; content: string; icon: string; files: PageFile[] }
 
-const SitePage = () => {
-  const { slug } = useParams<{ slug: string }>();
-  const [page, setPage] = useState<PageData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+export type SitePageResult = { status: "ok"; page: PageData } | { status: "missing" } | { status: "error" };
 
-  useEffect(() => {
-    if (!slug) return;
-    setLoading(true);
-    setNotFound(false);
-    fetch(ABOUT_URL, { headers: { "X-Action": "get-site-page", "X-Page-Slug": slug } })
-      .then(r => r.ok ? r.json() : Promise.reject())
-      .then(d => setPage(d.page))
-      .catch(() => setNotFound(true))
-      .finally(() => setLoading(false));
-  }, [slug]);
+export async function fetchSitePage(slug: string): Promise<SitePageResult> {
+  try {
+    const r = await fetch(ABOUT_URL, { headers: { "X-Action": "get-site-page", "X-Page-Slug": slug } });
+    if (r.status === 404) return { status: "missing" };
+    if (!r.ok) return { status: "error" };
+    const d = await r.json();
+    return d.page ? { status: "ok", page: d.page as PageData } : { status: "missing" };
+  } catch {
+    return { status: "error" };
+  }
+}
+
+const SitePage = ({ page }: { page: PageData | null }) => {
+  const loading = false;
+  const notFound = !page;
 
   return (
     <div className="min-h-screen bg-background">

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
 import { useSection } from "@/lib/siteContent";
+import { useHomeData } from "@/lib/homeData";
 
 const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
 
@@ -43,11 +44,15 @@ const DEFAULT_PHOTOS: Photo[] = [
 
 const AboutSection = () => {
   const [activePhoto, setActivePhoto] = useState(0);
-  const [content,     setContent]     = useState<Content>(DEFAULT_CONTENT);
-  const [photos,      setPhotos]      = useState<Photo[]>(DEFAULT_PHOTOS);
+  const home = useHomeData();
+  const preContent = home?.content?.content;
+  const prePhotos = home?.content?.photos as Photo[] | undefined;
+  const [content,     setContent]     = useState<Content>(preContent?.title ? (preContent as Content) : DEFAULT_CONTENT);
+  const [photos,      setPhotos]      = useState<Photo[]>(prePhotos?.length ? prePhotos : DEFAULT_PHOTOS);
   const extra = useSection<AboutStats>("about_stats", DEFAULT_STATS);
 
   useEffect(() => {
+    if (home) return;
     fetch(ABOUT_URL)
       .then(r => r.json())
       .then(data => {

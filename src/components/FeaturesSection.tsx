@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import Icon from "@/components/ui/icon";
+import { useHomeData } from "@/lib/homeData";
 
 const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
 
@@ -9,6 +10,18 @@ interface FeatureStat { val: string; label: string; icon: string }
 interface FeaturesMeta {
   eyebrow: string; title_line1: string; title_line2: string; segments_label: string; stats: FeatureStat[];
 }
+
+interface FeaturesPayload extends Partial<Omit<FeaturesMeta, "stats">> {
+  advantages?: Advantage[]; segments?: Segment[]; stats?: FeatureStat[];
+}
+
+const mergeMeta = (m: FeaturesMeta, d: FeaturesPayload): FeaturesMeta => ({
+  eyebrow: d.eyebrow ?? m.eyebrow,
+  title_line1: d.title_line1 ?? m.title_line1,
+  title_line2: d.title_line2 ?? m.title_line2,
+  segments_label: d.segments_label ?? m.segments_label,
+  stats: d.stats?.length ? d.stats : m.stats,
+});
 
 const DEFAULT_META: FeaturesMeta = {
   eyebrow: "О ПРОИЗВОДСТВЕ",
@@ -78,25 +91,23 @@ const DEFAULT_SEGMENTS: Segment[] = [
 
 const FeaturesSection = () => {
   const [active, setActive] = useState<number | null>(null);
-  const [advantages, setAdvantages] = useState<Advantage[]>(DEFAULT_ADVANTAGES);
-  const [segments, setSegments] = useState<Segment[]>(DEFAULT_SEGMENTS);
-  const [meta, setMeta] = useState<FeaturesMeta>(DEFAULT_META);
+  const home = useHomeData();
+  const pre = home ? (home.sections.features as FeaturesPayload | null) : null;
+  const [advantages, setAdvantages] = useState<Advantage[]>(pre?.advantages?.length ? pre.advantages : DEFAULT_ADVANTAGES);
+  const [segments, setSegments] = useState<Segment[]>(pre?.segments?.length ? pre.segments : DEFAULT_SEGMENTS);
+  const [meta, setMeta] = useState<FeaturesMeta>(pre ? mergeMeta(DEFAULT_META, pre) : DEFAULT_META);
 
   useEffect(() => {
+    if (home) return;
     fetch(ABOUT_URL, { headers: { "X-Action": "get-sections", "X-Section-Key": "features" } })
       .then(r => r.json())
       .then(d => {
         if (d.data?.advantages?.length) setAdvantages(d.data.advantages);
         if (d.data?.segments?.length) setSegments(d.data.segments);
-        if (d.data) setMeta(m => ({
-          eyebrow: d.data.eyebrow ?? m.eyebrow,
-          title_line1: d.data.title_line1 ?? m.title_line1,
-          title_line2: d.data.title_line2 ?? m.title_line2,
-          segments_label: d.data.segments_label ?? m.segments_label,
-          stats: d.data.stats?.length ? d.data.stats : m.stats,
-        }));
+        if (d.data) setMeta(m => mergeMeta(m, d.data));
       })
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

@@ -1,1 +1,0 @@
-ALTER TABLE t_p21475602_quantum_innovation_l.deals ADD COLUMN ship_date DATE NULL;

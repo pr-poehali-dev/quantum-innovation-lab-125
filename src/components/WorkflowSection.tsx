@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useHomeData } from "@/lib/homeData";
 import Icon from "@/components/ui/icon";
 
 const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
@@ -140,9 +141,12 @@ const DEFAULT_WORKFLOW: WorkflowData = {
 
 const WorkflowSection = () => {
   const [openStep, setOpenStep] = useState<number | null>(null);
-  const [data, setData] = useState<WorkflowData>(DEFAULT_WORKFLOW);
+  const home = useHomeData();
+  const preData = home ? (home.sections.workflow as WorkflowData | null) : null;
+  const [data, setData] = useState<WorkflowData>(preData?.steps?.length ? preData : DEFAULT_WORKFLOW);
 
   useEffect(() => {
+    if (home) return;
     fetch(ABOUT_URL, { headers: { "X-Action": "get-sections", "X-Section-Key": "workflow" } })
       .then(r => r.json())
       .then(d => { if (d.data?.steps?.length) setData(d.data); })

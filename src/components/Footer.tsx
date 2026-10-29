@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 import Icon from "@/components/ui/icon";
 import fallbackLogo from "@/assets/logo.png";
 import { useContacts, phoneHref } from "@/lib/siteContent";
+import { useHomeData } from "@/lib/homeData";
 import { CONTACT_TYPES } from "@/lib/contactTypes";
 import { Glyph } from "@/components/ContactButton";
 import { openPriceTable } from "@/lib/priceTable";
@@ -36,12 +37,14 @@ const navLinks = [
 interface SitePageLink { slug: string; title: string }
 
 const Footer = () => {
-  const [logoUrl, setLogoUrl] = useState(FALLBACK_LOGO);
-  const [footer, setFooter] = useState<FooterData>(DEFAULT_FOOTER);
-  const [pages, setPages] = useState<SitePageLink[]>([]);
+  const home = useHomeData();
+  const [logoUrl, setLogoUrl] = useState(home?.content?.content?.logo_url || FALLBACK_LOGO);
+  const [footer, setFooter] = useState<FooterData>((home?.sections.footer as FooterData | null) || DEFAULT_FOOTER);
+  const [pages, setPages] = useState<SitePageLink[]>(home?.pages?.pages ? home.pages.pages.filter(p => p.show_in_footer) : []);
   const contacts = useContacts();
 
   useEffect(() => {
+    if (home) return;
     fetch(ABOUT_URL, { headers: { "X-Action": "get-content" } })
       .then(r => r.json())
       .then(d => { if (d.content?.logo_url) setLogoUrl(d.content.logo_url); })
@@ -54,6 +57,7 @@ const Footer = () => {
       .then(r => r.json())
       .then(d => { if (d.pages) setPages(d.pages.filter((p: { show_in_footer: boolean }) => p.show_in_footer)); })
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const socials = (["whatsapp", "vk", "max"] as const)

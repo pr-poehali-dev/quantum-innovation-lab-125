@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import ContactButton from "@/components/ContactButton";
 import { ABOUT_URL, useSection } from "@/lib/siteContent";
+import { useHomeData } from "@/lib/homeData";
 import { initialsOf, memberName, type TeamMember } from "@/lib/contactTypes";
 
 interface TeamMeta {
@@ -19,9 +20,11 @@ const DEFAULT_META: TeamMeta = {
 
 const TeamSection = () => {
   const meta = useSection<TeamMeta>("team", DEFAULT_META);
-  const [members, setMembers] = useState<TeamMember[]>([]);
+  const home = useHomeData();
+  const [members, setMembers] = useState<TeamMember[]>((home?.team?.members as TeamMember[] | undefined) || []);
 
   useEffect(() => {
+    if (home) return;
     fetch(ABOUT_URL, { headers: { "X-Action": "get-team" } })
       .then(r => r.json())
       .then(d => setMembers(d.members || []))

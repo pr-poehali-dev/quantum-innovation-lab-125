@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/router-compat";
 import Icon from "@/components/ui/icon";
 import { useLeadModal } from "@/context/LeadModalContext";
 import { openPriceTable } from "@/lib/priceTable";
@@ -20,11 +20,19 @@ const PriceCalculator = () => {
   const navigate = useNavigate();
   const { openModal } = useLeadModal();
 
-  const [positions, setPositions] = useState<Position[]>(() => loadCart().positions);
-  const [view, setView] = useState<View>(() => (loadCart().positions.length ? "summary" : "wizard"));
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [view, setView] = useState<View>("wizard");
   const [editingUid, setEditingUid] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => { saveCart({ positions }); }, [positions]);
+  useEffect(() => {
+    const saved = loadCart().positions;
+    setPositions(saved);
+    setView(saved.length ? "summary" : "wizard");
+    setLoaded(true);
+  }, []);
+
+  useEffect(() => { if (loaded) saveCart({ positions }); }, [positions, loaded]);
 
   useEffect(() => {
     const onCleared = () => { setPositions([]); setEditingUid(null); setView("wizard"); };

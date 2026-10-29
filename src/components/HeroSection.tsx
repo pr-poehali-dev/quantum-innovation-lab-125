@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import Icon from "@/components/ui/icon";
+import { useHomeData } from "@/lib/homeData";
 import { COFFEE_BRANDS, CYCLE_MS } from "@/config/coffeeBrands";
 
 const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
@@ -27,10 +28,13 @@ const DEFAULT_HERO: HeroData = {
 const HeroSection = () => {
   const [current, setCurrent] = useState(0);
   const [paused,  setPaused]  = useState(false);
-  const [hero,    setHero]    = useState<HeroData>(DEFAULT_HERO);
+  const home = useHomeData();
+  const preHero = home ? (home.sections.hero as HeroData | null) : null;
+  const [hero,    setHero]    = useState<HeroData>(preHero || DEFAULT_HERO);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    if (home) return;
     fetch(ABOUT_URL, { headers: { "X-Action": "get-sections", "X-Section-Key": "hero" } })
       .then(r => r.json())
       .then(d => { if (d.data) setHero(d.data); })

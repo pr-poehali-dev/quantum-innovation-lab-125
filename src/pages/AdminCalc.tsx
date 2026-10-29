@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 import Icon from "@/components/ui/icon";
 import PassportEditor from "@/components/admin/calc/PassportEditor";
 import { CALC_FEATURES, type Passport } from "@/lib/calcCore";
@@ -40,7 +40,7 @@ const AdminCalc = () => {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [versions, setVersions] = useState<Version[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const toastTimer = useRef<ReturnType<typeof setTimeout>>();
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const authHeaders = { "X-Staff-Token": token || "" };
 

@@ -1,2 +1,0 @@
-ALTER TABLE t_p21475602_quantum_innovation_l.deal_lots DROP CONSTRAINT IF EXISTS deal_lots_origin_id_fkey;
-ALTER TABLE t_p21475602_quantum_innovation_l.deals DROP CONSTRAINT IF EXISTS deals_origin_id_fkey;

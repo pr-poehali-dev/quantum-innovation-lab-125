@@ -25,9 +25,13 @@ const AiChat = () => {
     { sender_type: "staff", staff_name: "КонтрактКофе", text: "Привет! Напишите вопрос — ответит менеджер. Обычно отвечаем в течение получаса в рабочее время." },
   ]);
   const [input, setInput] = useState("");
-  const [guestToken, setGuestToken] = useState<string | null>(() => localStorage.getItem(GUEST_TOKEN_KEY));
+  const [guestToken, setGuestToken] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setGuestToken(localStorage.getItem(GUEST_TOKEN_KEY));
+  }, []);
 
   const loadMessages = (token: string) => {
     fetch(CHAT_URL, { headers: { "X-Action": "list", "X-Guest-Token": token } })

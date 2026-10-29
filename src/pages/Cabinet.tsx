@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "@/lib/router-compat";
 import Icon from "@/components/ui/icon";
 import type { Tab } from "./cabinet/cabinet.types";
 import CabinetSidebar from "./cabinet/CabinetSidebar";
