@@ -153,7 +153,7 @@ const AdminStaff = () => {
         <section className="bg-card border border-border rounded-2xl p-5">
           <h2 className="font-serif text-lg font-bold mb-1">Пригласить коллегу</h2>
           <p className="text-sm text-muted-foreground mb-4">
-            Создайте ссылку-приглашение и отправьте её коллеге в Telegram или почте
+            Создайте ссылку-приглашение и отправьте её коллеге в мессенджере или почте
           </p>
           <div className="flex flex-col sm:flex-row gap-2">
             <input

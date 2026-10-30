@@ -15,7 +15,7 @@ interface Status {
   can_manage?: boolean;
 }
 
-const TelegramSettings = ({ toast }: { toast: (msg: string, ok?: boolean) => void }) => {
+const MaxSettings = ({ toast }: { toast: (msg: string, ok?: boolean) => void }) => {
   const { token } = useStaffAuth();
   const [st, setSt] = useState<Status | null>(null);
   const [busy, setBusy] = useState(false);
@@ -41,7 +41,7 @@ const TelegramSettings = ({ toast }: { toast: (msg: string, ok?: boolean) => voi
 
   const disconnect = async () => {
     if (!confirm("Отключить бота? Уведомления у всех менеджеров перестанут приходить.")) return;
-    await post("disconnect-bot");
+    await post("disconnect-bot", { url: TG_URL });
     toast("Бот отключён");
     load();
   };
@@ -55,7 +55,7 @@ const TelegramSettings = ({ toast }: { toast: (msg: string, ok?: boolean) => voi
 
   const unlink = async () => {
     await post("unlink");
-    toast("Telegram отвязан");
+    toast("Max отвязан");
     load();
   };
 
@@ -63,7 +63,7 @@ const TelegramSettings = ({ toast }: { toast: (msg: string, ok?: boolean) => voi
 
   return (
     <section>
-      <h2 className="font-serif text-xl font-bold mb-1">Уведомления в Telegram</h2>
+      <h2 className="font-serif text-xl font-bold mb-1">Уведомления в Max</h2>
       <p className="text-sm text-muted-foreground mb-4">
         Когда клиент или гость пишет в чат на сайте, бот присылает сообщение менеджеру. Ответьте на него реплаем — ответ сразу появится у клиента на сайте.
       </p>
@@ -76,11 +76,11 @@ const TelegramSettings = ({ toast }: { toast: (msg: string, ok?: boolean) => voi
               st.can_manage ? (
                 <div className="space-y-3">
                   <ol className="text-sm space-y-1 list-decimal pl-5 text-muted-foreground">
-                    <li>В Telegram откройте <b className="text-foreground">@BotFather</b> и отправьте команду <b className="text-foreground">/newbot</b>.</li>
-                    <li>Придумайте боту имя и адрес, BotFather пришлёт длинный токен.</li>
+                    <li>Откройте <b className="text-foreground">business.max.ru</b> и создайте бота в разделе «Чат-боты».</li>
+                    <li>Пройдите модерацию и откройте настройки бота → «Токен».</li>
                     <li>Скопируйте токен и вставьте ниже.</li>
                   </ol>
-                  <input className={inputCls} placeholder="Токен бота, например 123456789:AA..." value={botToken} onChange={e => setBotToken(e.target.value)} />
+                  <input className={inputCls} placeholder="Токен бота" value={botToken} onChange={e => setBotToken(e.target.value)} />
                   <button onClick={saveToken} disabled={busy || !botToken.trim()} className="bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-40">
                     {busy ? "Подключаю…" : "Подключить бота"}
                   </button>
@@ -108,13 +108,13 @@ const TelegramSettings = ({ toast }: { toast: (msg: string, ok?: boolean) => voi
                   {st.linked ? (
                     <>
                       <span className="text-sm text-green-700 flex items-center gap-1.5">
-                        <Icon name="Check" size={14} /> Ваш Telegram подключён{st.tg_username ? ` (@${st.tg_username})` : ""}
+                        <Icon name="Check" size={14} /> Ваш Max подключён{st.tg_username ? ` (@${st.tg_username})` : ""}
                       </span>
                       <button onClick={unlink} className="text-[13px] text-muted-foreground hover:text-destructive">Отвязать</button>
                     </>
                   ) : (
                     <button onClick={link} disabled={busy} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-40">
-                      <Icon name="Send" size={14} /> Подключить мой Telegram
+                      <Icon name="Send" size={14} /> Подключить мой Max
                     </button>
                   )}
                 </div>
@@ -125,11 +125,11 @@ const TelegramSettings = ({ toast }: { toast: (msg: string, ok?: boolean) => voi
                   {(st.subscribers || []).map(s => (
                     <div key={s.staff_id} className="text-sm flex justify-between bg-secondary/40 rounded-lg px-3 py-2">
                       <span>{s.name}</span>
-                      <span className="text-muted-foreground">{s.tg_username ? `@${s.tg_username}` : "Telegram"}</span>
+                      <span className="text-muted-foreground">{s.tg_username ? `@${s.tg_username}` : "Max"}</span>
                     </div>
                   ))}
                   <p className="text-xs text-muted-foreground pt-1">
-                    Чтобы добавить коллегу: сначала пригласите его в админку (раздел «Команда»), затем он заходит в Настройки и нажимает «Подключить мой Telegram».
+                    Чтобы добавить коллегу: сначала пригласите его в админку (раздел «Команда»), затем он заходит в Настройки и нажимает «Подключить мой Max».
                   </p>
                 </div>
               </>
@@ -141,4 +141,4 @@ const TelegramSettings = ({ toast }: { toast: (msg: string, ok?: boolean) => voi
   );
 };
 
-export default TelegramSettings;
+export default MaxSettings;

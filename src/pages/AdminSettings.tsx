@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "@/lib/router-compat";
 import Icon from "@/components/ui/icon";
 import { useStaffAuth } from "@/context/StaffAuthContext";
-import TelegramSettings from "@/components/admin/TelegramSettings";
+import MaxSettings from "@/components/admin/MaxSettings";
 
 const ABOUT_URL = "https://functions.poehali.dev/6745925c-6a25-46f5-aaa1-d8cd4e266142";
 const CRM_URL = "https://functions.poehali.dev/0fbf69fe-e1ba-4899-a9c0-98d37524abe1";
@@ -159,7 +159,7 @@ const AdminSettings = () => {
 
       <div className="max-w-2xl mx-auto px-6 py-10 space-y-8">
 
-        <TelegramSettings toast={showToast} />
+        <MaxSettings toast={showToast} />
 
         {/* Email отправителя */}
         <section>

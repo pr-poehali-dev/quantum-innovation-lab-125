@@ -135,28 +135,28 @@ def get_staff(cur, token: str):
     return {"id": row[0], "name": row[1], "role": row[2]} if row else None
 
 
-def notify_telegram(cur, conn, who: str, text: str, client_id=None, guest_id=None):
-    cur.execute(f"SELECT value FROM {SCHEMA}.site_settings WHERE key='telegram_bot_token'")
+def notify_max(cur, conn, who: str, text: str, client_id=None, guest_id=None):
+    cur.execute(f"SELECT value FROM {SCHEMA}.site_settings WHERE key='max_bot_token'")
     row = cur.fetchone()
-    token = (row[0] if row else "") or os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    token = (row[0] if row else "") or os.environ.get("MAX_BOT_TOKEN", "")
     if not token:
         return
-    cur.execute(f"SELECT chat_id FROM {SCHEMA}.tg_subscribers")
-    chats = [r[0] for r in cur.fetchall()]
-    msg = f"💬 {who}:\n{text or 'Прислал(а) файл'}\n\nОтветьте реплаем на это сообщение — ответ уйдёт клиенту на сайт."
-    for chat_id in chats:
+    cur.execute(f"SELECT user_id FROM {SCHEMA}.max_subscribers")
+    users = [r[0] for r in cur.fetchall()]
+    msg = f"{who}:\n{text or 'Прислал(а) файл'}\n\nОтветьте реплаем на это сообщение — ответ уйдёт клиенту на сайт."
+    for user_id in users:
         req = urllib.request.Request(
-            f"https://api.telegram.org/bot{token}/sendMessage",
-            data=json.dumps({"chat_id": chat_id, "text": msg[:4000]}).encode(),
-            headers={"Content-Type": "application/json"},
+            f"https://platform-api.max.ru/messages?user_id={user_id}",
+            data=json.dumps({"text": msg[:4000]}).encode(),
+            headers={"Content-Type": "application/json", "Authorization": token},
         )
         try:
             with urllib.request.urlopen(req, timeout=4) as r:
-                mid = json.loads(r.read())["result"]["message_id"]
+                mid = json.loads(r.read())["message"]["body"]["mid"]
             cur.execute(f"""
-                INSERT INTO {SCHEMA}.tg_message_map (chat_id, tg_message_id, client_id, guest_id) VALUES (%s,%s,%s,%s)
+                INSERT INTO {SCHEMA}.max_message_map (mid, client_id, guest_id) VALUES (%s,%s,%s)
                 ON CONFLICT DO NOTHING
-            """, (chat_id, mid, client_id, guest_id))
+            """, (mid, client_id, guest_id))
         except Exception:
             continue
     conn.commit()
@@ -336,9 +336,9 @@ def handler(event: dict, context) -> dict:
             new_id, created_at = new_row
             conn.commit()
             if client and not staff:
-                notify_telegram(cur, conn, f"Клиент {client['name']}", text, client_id=client["id"])
+                notify_max(cur, conn, f"Клиент (авторизован): {client['name']}", text, client_id=client["id"])
             elif guest and not staff:
-                notify_telegram(cur, conn, f"Гость {guest['name'] or '№' + str(guest['id'])}", text, guest_id=guest["id"])
+                notify_max(cur, conn, f"Аноним (не авторизован): гость {guest['name'] or '№' + str(guest['id'])}", text, guest_id=guest["id"])
             return ok({"ok": True, "id": new_id, "created_at": str(created_at)}, 201)
 
         # ── list-conversations (клиенты) ──────────────────────────
