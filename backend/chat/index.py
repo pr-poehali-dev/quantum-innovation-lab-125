@@ -336,9 +336,9 @@ def handler(event: dict, context) -> dict:
             new_id, created_at = new_row
             conn.commit()
             if client and not staff:
-                notify_max(cur, conn, f"Клиент (авторизован): {client['name']}", text, client_id=client["id"])
+                notify_max(cur, conn, f"Клиент из кабинета: {client['name']}", text, client_id=client["id"])
             elif guest and not staff:
-                notify_max(cur, conn, f"Аноним (не авторизован): гость {guest['name'] or '№' + str(guest['id'])}", text, guest_id=guest["id"])
+                notify_max(cur, conn, f"Гость без входа: гость {guest['name'] or '№' + str(guest['id'])}", text, guest_id=guest["id"])
             return ok({"ok": True, "id": new_id, "created_at": str(created_at)}, 201)
 
         # ── list-conversations (клиенты) ──────────────────────────

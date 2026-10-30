@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import Icon from "@/components/ui/icon";
+import { useClientAuth } from "@/context/ClientAuthContext";
 
 const CHAT_URL = "https://functions.poehali.dev/f943216e-4ba2-4e31-9cff-fcfc562f339b";
 const GUEST_TOKEN_KEY = "kk_guest_token";
@@ -25,6 +26,7 @@ const AiChat = () => {
     { sender_type: "staff", staff_name: "КонтрактКофе", text: "Привет! Напишите вопрос — ответит менеджер. Обычно отвечаем в течение получаса в рабочее время." },
   ]);
   const [input, setInput] = useState("");
+  const { token: clientToken } = useClientAuth();
   const [guestToken, setGuestToken] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -33,8 +35,11 @@ const AiChat = () => {
     setGuestToken(localStorage.getItem(GUEST_TOKEN_KEY));
   }, []);
 
+  const authHeader = (token: string): Record<string, string> =>
+    clientToken ? { "X-Client-Token": clientToken } : { "X-Guest-Token": token };
+
   const loadMessages = (token: string) => {
-    fetch(CHAT_URL, { headers: { "X-Action": "list", "X-Guest-Token": token } })
+    fetch(CHAT_URL, { headers: { "X-Action": "list", ...authHeader(token) } })
       .then(r => r.json())
       .then(d => {
         if (d.messages?.length) {
@@ -53,18 +58,20 @@ const AiChat = () => {
   };
 
   useEffect(() => {
-    if (!open || !guestToken) return;
-    loadMessages(guestToken);
-    const interval = setInterval(() => loadMessages(guestToken), POLL_MS);
+    const t = clientToken || guestToken;
+    if (!open || !t) return;
+    loadMessages(t);
+    const interval = setInterval(() => loadMessages(t), POLL_MS);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, guestToken]);
+  }, [open, guestToken, clientToken]);
 
   useEffect(() => {
     if (open) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, open]);
 
   const ensureGuestToken = async (): Promise<string> => {
+    if (clientToken) return clientToken;
     if (guestToken) return guestToken;
     const r = await fetch(CHAT_URL, {
       method: "POST",
@@ -86,7 +93,7 @@ const AiChat = () => {
       const token = await ensureGuestToken();
       await fetch(CHAT_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Action": "send", "X-Guest-Token": token },
+        headers: { "Content-Type": "application/json", "X-Action": "send", ...authHeader(token) },
         body: JSON.stringify({ text }),
       });
       loadMessages(token);
