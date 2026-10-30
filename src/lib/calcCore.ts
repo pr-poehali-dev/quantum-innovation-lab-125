@@ -155,7 +155,7 @@ export const colorLabel = packLabel;
 
 export const formatLabel = (v: string | null | undefined) => FORMAT_OPTIONS.find(f => f.value === v)?.label ?? v ?? "—";
 
-export const MAX_VOLUME = 5000;
+export const MAX_VOLUME = 20000;
 export const PACKAGING_LABEL = "Квадропак, бесшовный пакет";
 
 export const DEFAULT_TIERS: LeadTimeTier[] = [

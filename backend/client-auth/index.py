@@ -94,7 +94,7 @@ def get_client_by_token(cur, token: str):
     return {"id": crow[0], "name": crow[1], "phone": crow[2], "email": crow[3], "city": crow[4], "company": crow[5]}
 
 
-MAX_VOLUME = 5000
+MAX_VOLUME = 20000
 
 
 def get_min_volume(cur) -> int:
