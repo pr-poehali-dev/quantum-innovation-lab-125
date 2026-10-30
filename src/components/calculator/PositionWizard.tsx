@@ -26,13 +26,13 @@ interface Props {
 
 const Card = ({ label, desc, selected, onClick, padRight }: { label: string; desc?: string; selected: boolean; onClick: () => void; padRight?: boolean }) => (
   <button type="button" onClick={onClick}
-    className={`relative text-left p-3.5 rounded-2xl border transition-all duration-200 w-full active:scale-[0.98] ${
+    className={`relative text-left p-3.5 rounded-2xl border transition-all duration-200 w-full h-full min-h-[76px] flex flex-col justify-center active:scale-[0.98] ${
       selected ? "border-primary bg-primary/8 shadow-sm shadow-primary/10" : "border-border hover:border-primary/50 hover:bg-secondary/60"
     }`}>
-    <p className={`text-sm font-semibold leading-tight ${padRight ? "pr-[124px]" : "pr-6"} ${selected ? "text-primary" : ""}`}>{label}</p>
+    <p className={`text-sm font-semibold leading-tight ${padRight ? "pr-12" : "pr-6"} ${selected ? "text-primary" : ""}`}>{label}</p>
     {desc && <p className="text-[11px] text-muted-foreground mt-0.5">{desc}</p>}
     {selected && (
-      <span className={`absolute right-2.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center ${padRight ? "top-1/2 -translate-y-1/2" : "top-2.5"}`}>
+      <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-primary ring-2 ring-card flex items-center justify-center">
         <Icon name="Check" size={11} className="text-primary-foreground" />
       </span>
     )}
@@ -163,14 +163,14 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
                   {calc.ready ? "Список сортов пока пуст" : "Загружаем сорта…"}
                 </p>
               ) : (
-                <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 min-[420px]:grid-cols-2 auto-rows-fr gap-3">
                   {calc.origins.map(o => (
-                    <div key={o.id} className="relative">
+                    <div key={o.id} className="relative h-full">
                       <Card label={o.label} selected={originId === o.id} onClick={() => setOriginId(o.id)} padRight={passportFilled(o.passport)} />
                       {passportFilled(o.passport) && (
                         <button type="button" onClick={() => setPassportOrigin(o)}
                           aria-label={`Паспорт продукта: ${o.label}`} title="Паспорт продукта"
-                          className={`group/p absolute top-1/2 -translate-y-1/2 ${originId === o.id ? "right-10" : "right-3"} h-8 pl-2 pr-2 hover:pr-3 rounded-full flex items-center gap-1 overflow-hidden border border-primary/30 bg-card text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary shadow-sm transition-all duration-200 active:scale-90`}>
+                          className={`group/p absolute top-1/2 -translate-y-1/2 right-3 h-8 pl-2 pr-2 hover:pr-3 rounded-full flex items-center gap-1 overflow-hidden border border-primary/30 bg-card text-primary hover:bg-primary hover:text-primary-foreground hover:border-primary shadow-sm transition-all duration-200 active:scale-90`}>
                           <Icon name="FileText" size={14} className="flex-shrink-0 transition-transform group-hover/p:rotate-[-8deg]" />
                           <span className="max-w-0 group-hover/p:max-w-[60px] overflow-hidden whitespace-nowrap text-[11px] font-semibold transition-all duration-200">Паспорт</span>
                         </button>
@@ -182,9 +182,9 @@ const PositionWizard = ({ calc, initial, positionNumber, onDone, onCancel }: Pro
             )}
 
             {step === 1 && (
-              <div className="grid grid-cols-1 min-[420px]:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 min-[420px]:grid-cols-3 auto-rows-fr gap-3">
                 {ROAST_OPTIONS.map(r => (
-                  <div key={r.label} className="relative">
+                  <div key={r.label} className="relative h-full">
                     {origin?.recommended_roast === r.label && (
                       <span className="absolute -top-2 left-3 z-10 flex items-center gap-1 bg-primary text-primary-foreground text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
                         <Icon name="Star" size={9} /> Рекомендуем
