@@ -45,7 +45,7 @@ const AiChat = () => {
         if (d.messages?.length) {
           setMessages(prev => {
             const incoming = d.messages.map((m: { sender_type: string; staff_name?: string; text: string; id: number }) => ({
-              id: m.id, sender_type: m.sender_type, staff_name: m.staff_name, text: m.text,
+              id: m.id, sender_type: m.sender_type === "staff" ? "staff" : "guest", staff_name: m.staff_name, text: m.text,
             }));
             const lastPrev = prev[prev.length - 1];
             const lastNext = incoming[incoming.length - 1];
